@@ -19,6 +19,9 @@ export type User = {
   email: string
   nickname: string
   role: string
+  managed_district_id?: number | null
+  managed_district_name?: string | null
+  email_verified_at?: string | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -29,10 +32,34 @@ type TokenResponse = {
   token_type: string
 }
 
-export async function signup(payload: SignupPayload): Promise<User> {
-  return requestJson<User>('/auth/signup', {
+export type SignupResponse = {
+  user: User
+  email_verification_token?: string | null
+}
+
+export async function signup(payload: SignupPayload): Promise<SignupResponse> {
+  return requestJson<SignupResponse>('/auth/signup', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export async function verifyEmail(token: string): Promise<User> {
+  return requestJson<User>('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  })
+}
+
+export type ResendVerificationResponse = {
+  ok: boolean
+  email_verification_token?: string | null
+}
+
+export async function resendVerificationEmail(email: string): Promise<ResendVerificationResponse> {
+  return requestJson<ResendVerificationResponse>('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
   })
 }
 

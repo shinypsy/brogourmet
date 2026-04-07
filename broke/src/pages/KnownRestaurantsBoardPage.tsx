@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
-import {
-  deleteKnownRestaurantPost,
-  fetchKnownRestaurantPosts,
-  type KnownRestaurantPost,
-  updateKnownRestaurantPost,
-} from '../api/community'
+import { deleteKnownRestaurantPost, fetchKnownRestaurantPosts, type KnownRestaurantPost } from '../api/community'
 import { API_BASE_URL } from '../api/config'
+import { canEditOrDeleteCommunityPost } from '../lib/roles'
 
 export function KnownRestaurantsBoardPage() {
+  const navigate = useNavigate()
   const [posts, setPosts] = useState<KnownRestaurantPost[]>([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -50,45 +47,15 @@ export function KnownRestaurantsBoardPage() {
     }
   }
 
-  async function handleEdit(post: KnownRestaurantPost) {
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
-    if (!token) return
-    const title = window.prompt('제목', post.title)
-    if (!title) return
-    const body = window.prompt('내용', post.body)
-    if (!body) return
-    const restaurantName = window.prompt('식당 이름', post.restaurant_name)
-    if (!restaurantName) return
-    const district = window.prompt('구', post.district)
-    if (!district) return
-    const mainMenuName = window.prompt('대표 메뉴명', post.main_menu_name)
-    if (!mainMenuName) return
-    const price = window.prompt('대표 메뉴 가격', String(post.main_menu_price))
-    if (!price) return
-    try {
-      await updateKnownRestaurantPost(token, post.id, {
-        title,
-        body,
-        restaurant_name: restaurantName,
-        district,
-        main_menu_name: mainMenuName,
-        main_menu_price: Number(price),
-        image_url: post.image_url,
-      })
-      reload()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '수정에 실패했습니다.')
-    }
-  }
-
   return (
     <div className="board-layout">
       <section className="card">
         <p className="eyebrow">Community</p>
-        <h1>내가 아는 맛집</h1>
+        <h1>MyG</h1>
         <p className="description">
-          아는 맛집을 제보하는 게시판입니다. 제안하는 <strong>대표 메뉴 가격은 10,000원 이하</strong>만 입력할 수
-          있습니다 (등재 정책과 동일).
+          개인 일기에 가깝게 남기는 맛집 메모입니다. <strong>가격 제한은 없습니다</strong> — BroG(지도·카드 맛집)의
+          1만 원 정책과는 따로 둡니다.           가입 회원은 글을 쓸 수 있고, 수정·삭제는 작성자 본인 또는 최종 관리자·해당 구 지역 담당자가 할 수
+          있습니다. 제목을 누르면 상세에서 사진·메뉴까지 수정할 수 있습니다.
         </p>
         <p className="helper">
           <Link to="/">홈으로</Link>
@@ -105,23 +72,44 @@ export function KnownRestaurantsBoardPage() {
           {posts.map((post) => (
             <li key={post.id} className="post-list-item">
               <div className="post-list-meta">
-                <strong>{post.title}</strong>
+                <strong>
+                  <Link to={`/known-restaurants/${post.id}`} className="compact-link">
+                    {post.title}
+                  </Link>
+                </strong>
                 <span>
                   {post.author_nickname} · {new Date(post.created_at).toLocaleString()}
+                  {post.category ? ` · ${post.category}` : null}
                 </span>
               </div>
               <p className="post-body">
-                {post.restaurant_name} ({post.district}) · 대표 {post.main_menu_name}{' '}
-                {post.main_menu_price.toLocaleString()}원
+                {post.restaurant_name} ({post.district}) · {post.main_menu_name}{' '}
+                {post.main_menu_price > 0
+                  ? `${post.main_menu_price.toLocaleString()}원`
+                  : '(가격 메모 없음)'}
               </p>
-              <p className="post-body">{post.body}</p>
-              {post.image_url ? (
-                <img className="post-image" src={`${API_BASE_URL}${post.image_url}`} alt={`${post.title} 첨부 이미지`} />
-              ) : null}
-              {user?.role === 'admin' ? (
+              {post.summary ? <p className="post-body">{post.summary}</p> : <p className="post-body">{post.body}</p>}
+              {(post.image_urls && post.image_urls.length > 0
+                ? post.image_urls
+                : post.image_url
+                  ? [post.image_url]
+                  : []
+              ).map((url, i) => (
+                <img
+                  key={`${post.id}-${i}-${url.slice(0, 24)}`}
+                  className="post-image"
+                  src={`${API_BASE_URL}${url}`}
+                  alt={`${post.title} 첨부 ${i + 1}`}
+                />
+              ))}
+              {canEditOrDeleteCommunityPost(user, post.author_id, post.district) ? (
                 <p className="helper">
-                  <button type="button" className="compact-link" onClick={() => handleEdit(post)}>
-                    수정
+                  <button
+                    type="button"
+                    className="compact-link"
+                    onClick={() => navigate(`/known-restaurants/${post.id}`)}
+                  >
+                    상세·수정
                   </button>
                   {' · '}
                   <button type="button" className="compact-link" onClick={() => handleDelete(post.id)}>

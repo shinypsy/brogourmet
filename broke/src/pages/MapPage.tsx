@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { fetchRestaurants, type RestaurantListItem } from '../api/restaurants'
+import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
+import { deleteRestaurant, fetchRestaurants, type RestaurantListItem } from '../api/restaurants'
+import { BrogRankCard } from '../components/BrogRankCard'
+import { canManageBrogForDistrict, isSuperAdmin } from '../lib/roles'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
 import { ensureKakaoMapsReady } from '../lib/kakaoMapsSdk'
 
@@ -25,9 +28,9 @@ type KakaoMarkerInstance = {
 const BROG_FLAG_MARKER_SVG = encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 48" width="40" height="48">
     <ellipse cx="20" cy="44" rx="5" ry="3" fill="rgba(0,0,0,.18)"/>
-    <rect x="17" y="10" width="3.5" height="34" rx="1" fill="#5d4037"/>
-    <path d="M20.5 10 L38 19 L20.5 28 Z" fill="#d36b93" stroke="#a9446b" stroke-width="1"/>
-    <path d="M20.5 12 L35 19 L20.5 26 Z" fill="#f8bbd9" opacity=".35"/>
+    <rect x="17" y="10" width="3.5" height="34" rx="1" fill="#2a3142"/>
+    <path d="M20.5 10 L38 19 L20.5 28 Z" fill="#c9a227" stroke="#8b7324" stroke-width="1"/>
+    <path d="M20.5 12 L35 19 L20.5 26 Z" fill="#f5e6b8" opacity=".4"/>
   </svg>`,
 )
 const BROG_FLAG_MARKER_URL = `data:image/svg+xml,${BROG_FLAG_MARKER_SVG}`
@@ -67,41 +70,6 @@ const MAPO_LOCATION: LocationState = {
   longitude: 126.922,
 }
 
-/** BroG: 다이닝코드 랭킹형 — 주메뉴(대표) 사진 · 가게명 · 대표가격만 */
-function BrogRankCard({ restaurant, rank }: { restaurant: RestaurantListItem; rank: number }) {
-  const [imgFailed, setImgFailed] = useState(false)
-  const showPhoto = Boolean(restaurant.image_url) && !imgFailed
-
-  return (
-    <article className="brog-rank-card">
-      <Link to={`/restaurants/${restaurant.id}`} className="brog-rank-card__link">
-        <span className="brog-rank-card__rank">{rank}</span>
-        <div
-          className={
-            showPhoto ? 'brog-rank-card__photo' : 'brog-rank-card__photo brog-rank-card__photo--placeholder'
-          }
-        >
-          {showPhoto ? (
-            <img
-              src={restaurant.image_url!}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              onError={() => setImgFailed(true)}
-            />
-          ) : null}
-        </div>
-        <div className="brog-rank-card__body">
-          <h4 className="brog-rank-card__name">{restaurant.name}</h4>
-          <p className="brog-rank-card__price">
-            <span className="brog-rank-card__price-num">{restaurant.main_menu_price.toLocaleString()}</span>원
-          </p>
-        </div>
-      </Link>
-    </article>
-  )
-}
-
 export function MapPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -114,6 +82,7 @@ export function MapPage() {
   const [isListLoading, setIsListLoading] = useState(true)
   const [mapSdkReady, setMapSdkReady] = useState(false)
   const [mapLoadError, setMapLoadError] = useState('')
+  const [user, setUser] = useState<User | null>(null)
   const mapRef = useRef<KakaoMapInstance | null>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const markersRef = useRef<KakaoMarkerInstance[]>([])
@@ -129,6 +98,38 @@ export function MapPage() {
     }
     return `${district} BroG`
   }, [district, mode])
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
+
+  useEffect(() => {
+    if (!token) {
+      setUser(null)
+      return
+    }
+    void fetchMe(token).then(setUser).catch(() => setUser(null))
+  }, [token])
+
+  function canDeleteRow(r: RestaurantListItem): boolean {
+    if (!user) return false
+    if (isSuperAdmin(user.role)) return true
+    return canManageBrogForDistrict(user.role, user.managed_district_id, r.district_id)
+  }
+
+  async function handleSoftDelete(restaurant: RestaurantListItem) {
+    if (!token) {
+      window.alert('로그인 후 삭제할 수 있습니다.')
+      return
+    }
+    if (!window.confirm(`「${restaurant.name}」을(를) 지도·목록에서 숨길까요?`)) {
+      return
+    }
+    try {
+      await deleteRestaurant(token, restaurant.id)
+      setRestaurants((prev) => prev.filter((x) => x.id !== restaurant.id))
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '삭제에 실패했습니다.')
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -345,19 +346,28 @@ export function MapPage() {
   }, [mapSdkReady, restaurants, currentLocation, mode, navigate])
 
   return (
-    <div className="map-layout map-layout--brog">
-      <section className="map-hero map-hero--compact">
+    <div className="map-layout map-layout--brog brog-screen brog-screen--map">
+      <section className="map-hero map-hero--compact brog-screen__header brog-screen__header--map">
         <div>
-          <p className="eyebrow">BroG</p>
-          <h2>{pageTitle}</h2>
-          <p className="description map-hero__meta">
+          <p className="eyebrow">BroG · 지도</p>
+          <h2 className="brog-screen__title">{pageTitle}</h2>
+          <p className="description map-hero__meta brog-screen__meta">
             {mode === 'current' ? '마포구 고정 위치 기준' : `${city} ${district}`} · 대표 메뉴{' '}
             {maxPrice.toLocaleString()}원 이하
           </p>
         </div>
-        <div className="hero-actions">
+        <div className="hero-actions brog-screen__header-actions">
           <Link className="ghost-button" to="/">
-            홈
+            Home
+          </Link>
+          <Link
+            className="ghost-button"
+            to={`/brog/list?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`}
+          >
+            리스트
+          </Link>
+          <Link className="brog-screen__cta" to="/restaurants/manage/new">
+            BroG 등록
           </Link>
         </div>
       </section>
@@ -374,6 +384,9 @@ export function MapPage() {
           </select>
         </label>
         <p className="map-page-toolbar__geo">
+          <span className="helper" style={{ display: 'block', marginBottom: 6 }}>
+            담당 권한이 있으면 아래 카드에서 바로 숨김 삭제할 수 있습니다.
+          </span>
           {isLocating ? '마포구 기준 위치 반영 중…' : null}
           {!isLocating && currentLocation ? (
             <span>{mode === 'current' ? '마포구 기준 · ' : ''}지도에 고정 위치 표시됨</span>
@@ -393,14 +406,28 @@ export function MapPage() {
 
         {!isListLoading && restaurants.length === 0 && !listError ? (
           <article className="brog-rank-card brog-rank-card--empty">
-            <p className="brog-rank-card__name">조건에 맞는 맛집이 없습니다</p>
+            <p className="brog-rank-card__name brog-rank-card__name--primary">조건에 맞는 맛집이 없습니다</p>
             <p className="brog-rank-section__sub">가격 상한을 조정하거나 홈에서 다른 구를 선택해 보세요.</p>
           </article>
         ) : (
           <ul className="brog-rank-grid">
             {restaurants.map((restaurant, index) => (
               <li key={restaurant.id}>
-                <BrogRankCard restaurant={restaurant} rank={index + 1} />
+                <BrogRankCard
+                  restaurant={restaurant}
+                  rank={index + 1}
+                  footer={
+                    canDeleteRow(restaurant) ? (
+                      <button
+                        type="button"
+                        className="brog-rank-card__delete-btn"
+                        onClick={() => void handleSoftDelete(restaurant)}
+                      >
+                        목록에서 숨기기
+                      </button>
+                    ) : null
+                  }
+                />
               </li>
             ))}
           </ul>

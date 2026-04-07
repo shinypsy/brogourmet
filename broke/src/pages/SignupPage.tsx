@@ -11,16 +11,21 @@ export function SignupPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [devVerificationToken, setDevVerificationToken] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
     setMessage('')
+    setDevVerificationToken(null)
     setIsSubmitting(true)
 
     try {
-      const user = await signup({ email, password, nickname })
-      setMessage(`회원가입 완료: ${user.nickname} (${user.email})`)
+      const { user, email_verification_token: devToken } = await signup({ email, password, nickname })
+      setMessage(
+        `회원가입 완료: ${user.nickname} (${user.email}). 이메일 인증 후 로그인할 수 있습니다.`,
+      )
+      setDevVerificationToken(devToken ?? null)
       setEmail('')
       setPassword('')
       setNickname('')
@@ -80,10 +85,21 @@ export function SignupPage() {
       </form>
 
       {message ? <p className="success">{message}</p> : null}
+      {devVerificationToken ? (
+        <p className="description">
+          개발용 인증 토큰(서버에 <code>DEV_RETURN_EMAIL_VERIFICATION_TOKEN=true</code>일 때만 노출):
+          <br />
+          <Link to={`/verify-email?token=${encodeURIComponent(devVerificationToken)}`}>
+            인증 페이지로 이동
+          </Link>
+          <textarea readOnly rows={3} className="dev-token-preview" value={devVerificationToken} />
+        </p>
+      ) : null}
       {error ? <p className="error">{error}</p> : null}
 
       <p className="helper">
-        이미 계정이 있나요? <Link to="/login">로그인으로 이동</Link>
+        이미 계정이 있나요? <Link to="/login">로그인으로 이동</Link> ·{' '}
+        <Link to="/verify-email">이메일 인증</Link>
       </p>
     </section>
   )

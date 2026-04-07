@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react'
-import { Link, Route, Routes } from 'react-router-dom'
+import { Link, Navigate, Route, Routes } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY } from './api/auth'
 import { AUTH_CHANGE_EVENT } from './authEvents'
 import { FreeShareBoardPage } from './pages/FreeShareBoardPage'
+import { FreeSharePostDetailPage } from './pages/FreeSharePostDetailPage'
 import { FreeShareWritePage } from './pages/FreeShareWritePage'
 import { HomePage } from './pages/HomePage'
 import { KnownRestaurantsBoardPage } from './pages/KnownRestaurantsBoardPage'
+import { KnownRestaurantPostDetailPage } from './pages/KnownRestaurantPostDetailPage'
 import { KnownRestaurantsWritePage } from './pages/KnownRestaurantsWritePage'
 import { LoginPage } from './pages/LoginPage'
+import { BrogListPage } from './pages/BrogListPage'
 import { MapPage } from './pages/MapPage'
 import { MyPage } from './pages/MyPage'
 import { PaymentPage } from './pages/PaymentPage'
 import { RestaurantManagePage } from './pages/RestaurantManagePage'
 import { RestaurantDetailPage } from './pages/RestaurantDetailPage'
 import { SignupPage } from './pages/SignupPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
+import { BROG_ONLY } from './config/features'
 
 function App() {
   const [hasToken, setHasToken] = useState(() =>
@@ -50,27 +55,36 @@ function App() {
           <Link className="main-nav-item" to="/">
             Home
           </Link>
-          <Link className="main-nav-item" to="/map">
+          <Link className="main-nav-item" to="/brog">
             BroG
           </Link>
-          <Link className="main-nav-item" to="/known-restaurants">
-            MyBro
-          </Link>
-          <Link className="main-nav-item" to="/free-share">
-            Freebie
-          </Link>
-          <Link className="main-nav-item" to="/payment">
-            Payment
-          </Link>
+          {!BROG_ONLY ? (
+            <>
+              <Link className="main-nav-item" to="/known-restaurants">
+                MyG
+              </Link>
+              <Link className="main-nav-item" to="/free-share">
+                Free
+              </Link>
+              <Link className="main-nav-item" to="/payment">
+                Pay
+              </Link>
+            </>
+          ) : null}
           <Link className="main-nav-item" to="/me">
             Myinfo
           </Link>
           {hasToken ? (
-            <button type="button" className="main-nav-item main-nav-item--button" onClick={logout}>
+            <button
+              type="button"
+              className="main-nav-item main-nav-item--button"
+              onClick={logout}
+              title="Logout"
+            >
               Logout
             </button>
           ) : (
-            <Link className="main-nav-item" to="/login">
+            <Link className="main-nav-item" to="/login" title="Login">
               Login
             </Link>
           )}
@@ -80,16 +94,25 @@ function App() {
       <main className="content">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/brog" element={<Navigate to="/brog/list" replace />} />
+          <Route path="/brog/list" element={<BrogListPage />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/restaurants/manage/new" element={<RestaurantManagePage />} />
           <Route path="/restaurants/manage/:id" element={<RestaurantManagePage />} />
           <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
-          <Route path="/free-share" element={<FreeShareBoardPage />} />
-          <Route path="/free-share/write" element={<FreeShareWritePage />} />
-          <Route path="/known-restaurants" element={<KnownRestaurantsBoardPage />} />
-          <Route path="/known-restaurants/write" element={<KnownRestaurantsWritePage />} />
-          <Route path="/payment" element={<PaymentPage />} />
+          {!BROG_ONLY ? (
+            <>
+              <Route path="/free-share" element={<FreeShareBoardPage />} />
+              <Route path="/free-share/write" element={<FreeShareWritePage />} />
+              <Route path="/free-share/:id" element={<FreeSharePostDetailPage />} />
+              <Route path="/known-restaurants" element={<KnownRestaurantsBoardPage />} />
+              <Route path="/known-restaurants/write" element={<KnownRestaurantsWritePage />} />
+              <Route path="/known-restaurants/:id" element={<KnownRestaurantPostDetailPage />} />
+              <Route path="/payment" element={<PaymentPage />} />
+            </>
+          ) : null}
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/me" element={<MyPage />} />
         </Routes>

@@ -16,6 +16,9 @@ class UserRead(BaseModel):
     email: EmailStr
     nickname: str
     role: str
+    managed_district_id: int | None = None
+    managed_district_name: str | None = None
+    email_verified_at: datetime | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

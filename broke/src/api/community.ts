@@ -3,6 +3,7 @@ import { API_BASE_URL } from './config'
 
 export type FreeSharePost = {
   id: number
+  author_id: number
   title: string
   body: string
   district: string | null
@@ -13,6 +14,7 @@ export type FreeSharePost = {
 
 export type KnownRestaurantPost = {
   id: number
+  author_id: number
   title: string
   body: string
   restaurant_name: string
@@ -22,6 +24,38 @@ export type KnownRestaurantPost = {
   image_url: string | null
   author_nickname: string
   created_at: string
+  /** BroG 작성 폼과 동일 필드(변환·표시용) */
+  city?: string | null
+  district_id?: number | null
+  category?: string | null
+  summary?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  image_urls?: string[] | null
+  menu_lines?: string | null
+}
+
+export type KnownRestaurantPostCreatePayload = {
+  restaurant_name: string
+  district_id: number
+  city?: string
+  category: string
+  summary: string
+  menu_lines: string
+  latitude?: number | null
+  longitude?: number | null
+  image_urls?: string[]
+}
+
+/** 관리자 프롬프트 수정 등 레거시 페이로드 */
+export type KnownRestaurantPostLegacyUpdatePayload = {
+  title: string
+  body: string
+  restaurant_name: string
+  district: string
+  main_menu_name: string
+  main_menu_price: number
+  image_url?: string | null
 }
 
 export async function fetchFreeSharePosts(): Promise<FreeSharePost[]> {
@@ -62,17 +96,17 @@ export async function fetchKnownRestaurantPosts(): Promise<KnownRestaurantPost[]
   return requestJson<KnownRestaurantPost[]>('/known-restaurants/posts')
 }
 
+export async function fetchFreeSharePost(id: number): Promise<FreeSharePost> {
+  return requestJson<FreeSharePost>(`/free-share/posts/${id}`)
+}
+
+export async function fetchKnownRestaurantPost(id: number): Promise<KnownRestaurantPost> {
+  return requestJson<KnownRestaurantPost>(`/known-restaurants/posts/${id}`)
+}
+
 export async function createKnownRestaurantPost(
   token: string,
-  body: {
-    title: string
-    body: string
-    restaurant_name: string
-    district: string
-    main_menu_name: string
-    main_menu_price: number
-    image_url?: string | null
-  },
+  body: KnownRestaurantPostCreatePayload,
 ): Promise<KnownRestaurantPost> {
   return requestJson<KnownRestaurantPost>('/known-restaurants/posts', {
     method: 'POST',
@@ -84,15 +118,7 @@ export async function createKnownRestaurantPost(
 export async function updateKnownRestaurantPost(
   token: string,
   id: number,
-  body: {
-    title: string
-    body: string
-    restaurant_name: string
-    district: string
-    main_menu_name: string
-    main_menu_price: number
-    image_url?: string | null
-  },
+  body: KnownRestaurantPostCreatePayload | KnownRestaurantPostLegacyUpdatePayload,
 ): Promise<KnownRestaurantPost> {
   return requestJson<KnownRestaurantPost>(`/known-restaurants/posts/${id}`, {
     method: 'PUT',

@@ -3,3 +3,5 @@ gourmet/.env
 gourmet/.venv/
 **/__pycache__/
 *.pyc
+smtp_config.ps1
+IP_dial.txt

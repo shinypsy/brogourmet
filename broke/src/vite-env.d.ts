@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   readonly VITE_KAKAO_MAP_APP_KEY?: string
   /** Kakao Local 등 REST — 지도 appkey와 별도 */
   readonly VITE_KAKAO_REST_API_KEY?: string
+  /** true 이면 MyG/Free/Pay 숨김 — BroG 초기 버전 */
+  readonly VITE_BROG_ONLY?: string
 }
 
 interface ImportMeta {

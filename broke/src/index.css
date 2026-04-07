@@ -1,7 +1,20 @@
 :root {
-  color: #5f4b52;
-  background: #fff8f4;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --navy-deep: #0a0d14;
+  --navy-mid: #121826;
+  --navy-card: rgba(20, 25, 40, 0.92);
+  --navy-elevated: rgba(28, 34, 52, 0.95);
+  --gold: #d4af37;
+  --gold-soft: #c9a227;
+  --gold-dim: rgba(212, 175, 55, 0.28);
+  --cream: #e8dfd0;
+  --text: #d2dae8;
+  --text-muted: #9aa6bc;
+  --text-heading: #f5eed8;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+  --border: rgba(212, 175, 55, 0.24);
+  color: var(--text);
+  background: var(--navy-deep);
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,8 +30,11 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(255, 183, 197, 0.45), transparent 42%),
-    linear-gradient(180deg, #fffdf8 0%, #fff5f3 100%);
+    radial-gradient(ellipse 100% 80% at 50% -20%, rgba(212, 175, 55, 0.08), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 50%, rgba(30, 45, 80, 0.35), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 0% 60%, rgba(25, 40, 70, 0.25), transparent 45%),
+    linear-gradient(178deg, #0e121c 0%, #0a0d16 45%, #080b12 100%);
+  color: var(--text);
 }
 
 a {
@@ -52,11 +68,12 @@ input {
 .topbar h1 {
   margin: 8px 0 0;
   font-size: 2rem;
+  color: var(--text-heading);
 }
 
 .eyebrow {
   margin: 0;
-  color: #de7c9d;
+  color: var(--gold-soft);
   font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -77,12 +94,12 @@ input {
   align-items: center;
   justify-content: center;
   padding: 9px 4px;
-  border: 1px solid #f3c8d4;
+  border: 1px solid var(--gold-dim);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(18, 22, 36, 0.88);
   font-size: 0.78rem;
   font-weight: 700;
-  color: inherit;
+  color: var(--cream);
   text-decoration: none;
   white-space: nowrap;
   min-width: 0;
@@ -91,11 +108,12 @@ input {
 .main-nav-item--button {
   font: inherit;
   cursor: pointer;
-  color: #c06187;
+  color: #e8b4b4;
 }
 
 .main-nav-item:hover {
-  background: rgba(255, 255, 255, 1);
+  background: rgba(32, 38, 58, 0.95);
+  border-color: rgba(212, 175, 55, 0.45);
 }
 
 .content {
@@ -103,25 +121,32 @@ input {
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #f8d8e2;
+  background: var(--navy-card);
+  border: 1px solid var(--gold-dim);
   border-radius: 20px;
   padding: 28px;
-  box-shadow: 0 18px 40px rgba(233, 164, 184, 0.15);
+  box-shadow: var(--shadow);
 }
 
 .card h1 {
   margin: 0 0 8px;
+  color: var(--text-heading);
 }
 
 .hero-panel h2,
 .home-section h3 {
   margin: 0;
+  color: var(--text-heading);
+}
+
+.recommend-card h4,
+.recommend-card h4 a {
+  color: var(--text-heading);
 }
 
 .description {
   margin: 0 0 16px;
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .form {
@@ -138,30 +163,44 @@ input {
 .form input {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #f0c9d6;
+  border: 1px solid var(--gold-dim);
   border-radius: 12px;
-  background: #fffdfd;
-  color: #5f4b52;
+  background: rgba(12, 16, 28, 0.9);
+  color: var(--text);
 }
 
 .form textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #f0c9d6;
+  border: 1px solid var(--gold-dim);
   border-radius: 12px;
-  background: #fffdfd;
-  color: #5f4b52;
+  background: rgba(12, 16, 28, 0.9);
+  color: var(--text);
+  resize: vertical;
+}
+
+.dev-token-preview {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  background: rgba(12, 16, 28, 0.9);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.85rem;
   resize: vertical;
 }
 
 .form button {
   padding: 12px 16px;
-  border: none;
+  border: 1px solid rgba(212, 175, 55, 0.4);
   border-radius: 12px;
-  background: linear-gradient(135deg, #f29cb2, #f6b26b);
-  color: white;
+  background: linear-gradient(145deg, #2a3a58, #1a2438 55%, #152030 100%);
+  color: var(--text-heading);
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .form button:disabled {
@@ -184,11 +223,11 @@ input {
 }
 
 .helper {
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .helper a {
-  color: #d36b93;
+  color: var(--gold-soft);
 }
 
 .profile {
@@ -199,13 +238,13 @@ input {
 
 .profile div {
   padding: 16px;
-  border: 1px solid #f1d4de;
+  border: 1px solid var(--gold-dim);
   border-radius: 14px;
-  background: #fffafa;
+  background: rgba(18, 22, 36, 0.75);
 }
 
 .profile dt {
-  color: #d36b93;
+  color: var(--gold-soft);
   font-size: 0.9rem;
 }
 
@@ -221,6 +260,169 @@ input {
   min-height: calc(100vh - 120px);
 }
 
+.home-layout--hub {
+  min-height: calc(100vh - 120px);
+  align-content: start;
+}
+
+.home-hub {
+  display: grid;
+  gap: 26px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 0 40px;
+  width: 100%;
+}
+
+.home-hub__district label {
+  display: grid;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.home-hub__district select {
+  width: 100%;
+  max-width: 320px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
+  font: inherit;
+}
+
+.home-hub__geo-hint {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.home-hub__error {
+  margin: 0;
+}
+
+.home-hub__photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-hub__photo-card {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--gold-dim);
+  background: linear-gradient(145deg, rgba(30, 45, 80, 0.35), rgba(16, 20, 34, 0.96));
+  box-shadow: var(--shadow);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.home-hub__photo-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+.home-hub__photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-hub__photo-card .food-photo-overlay-wrap {
+  display: block;
+  height: 100%;
+}
+
+.home-hub__photo-card--empty {
+  pointer-events: none;
+}
+
+.home-hub__photo-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  background: linear-gradient(160deg, rgba(212, 175, 55, 0.06), rgba(16, 20, 34, 0.9));
+}
+
+/* 음식 사진 하단 — 대표 메뉴명 · 가격 (BroG 카드·홈·갤러리 등) */
+.food-photo-overlay-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.food-photo-overlay-wrap > :first-child {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.food-photo-overlay-wrap > img {
+  object-fit: cover;
+  display: block;
+}
+
+.food-photo-overlay-wrap__filler {
+  display: block;
+  background:
+    linear-gradient(160deg, rgba(212, 175, 55, 0.08), rgba(16, 20, 34, 0.92)),
+    #161b28;
+}
+
+.food-photo-overlay-wrap__caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  padding: 28px 12px 10px;
+  background: linear-gradient(transparent, rgba(12, 14, 22, 0.88));
+  color: #f5f0e6;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+.food-photo-overlay-wrap--compact .food-photo-overlay-wrap__caption {
+  padding: 18px 6px 5px;
+  font-size: 0.68rem;
+  gap: 4px 8px;
+}
+
+.food-photo-overlay-wrap__menu {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.food-photo-overlay-wrap__price {
+  flex-shrink: 0;
+  color: #e8cf8a;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+}
+
 .hero-panel {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
@@ -230,11 +432,11 @@ input {
 .hero-copy,
 .filter-card,
 .home-section {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid #f5d9e3;
+  background: var(--navy-card);
+  border: 1px solid var(--gold-dim);
   border-radius: 20px;
   padding: 20px;
-  box-shadow: 0 18px 40px rgba(233, 164, 184, 0.14);
+  box-shadow: var(--shadow);
 }
 
 .hero-copy {
@@ -267,15 +469,19 @@ input {
 .hero-actions button,
 .primary-link,
 .filter-card button {
-  border: none;
-  background: linear-gradient(135deg, #f29cb2, #f6b26b);
-  color: white;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  background: linear-gradient(145deg, #2f415e, #1e2a42 50%, #162030 100%);
+  color: var(--text-heading);
   cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.12),
+    0 8px 28px rgba(0, 0, 0, 0.4);
 }
 
 .ghost-button {
-  border: 1px solid #f2ccd8;
-  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--gold-dim);
+  background: rgba(16, 20, 34, 0.65);
+  color: var(--cream);
 }
 
 .filter-card {
@@ -297,10 +503,10 @@ input {
 .filter-grid select {
   width: 100%;
   padding: 11px 13px;
-  border: 1px solid #f0c9d6;
+  border: 1px solid var(--gold-dim);
   border-radius: 12px;
-  background: #fffdfd;
-  color: #5f4b52;
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
 }
 
 .district-row {
@@ -312,15 +518,15 @@ input {
 .district-row input {
   width: 100%;
   padding: 11px 13px;
-  border: 1px solid #f0c9d6;
+  border: 1px solid var(--gold-dim);
   border-radius: 12px;
-  background: #fffdfd;
-  color: #5f4b52;
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
 }
 
 .district-row input:read-only {
-  background: #fff5f7;
-  color: #7b5f67;
+  background: rgba(22, 28, 44, 0.85);
+  color: var(--text-muted);
 }
 
 .price-filter {
@@ -333,10 +539,10 @@ input {
 .price-filter select {
   width: 100%;
   padding: 11px 13px;
-  border: 1px solid #f0c9d6;
+  border: 1px solid var(--gold-dim);
   border-radius: 12px;
-  background: #fffdfd;
-  color: #5f4b52;
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
 }
 
 .home-section {
@@ -361,8 +567,8 @@ input {
   gap: 10px;
   padding: 18px;
   border-radius: 16px;
-  border: 1px solid #f1d4de;
-  background: #fffafc;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.75);
 }
 
 .feature-card h4 {
@@ -370,15 +576,15 @@ input {
 }
 
 .feature-card p {
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .badge {
   width: fit-content;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(242, 156, 178, 0.18);
-  color: #d36b93;
+  background: rgba(212, 175, 55, 0.14);
+  color: #e8c96a;
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -400,8 +606,8 @@ input {
   min-height: 156px;
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid #f1d4de;
-  background: linear-gradient(180deg, #fffdfd 0%, #fff7f8 100%);
+  border: 1px solid var(--gold-dim);
+  background: linear-gradient(165deg, rgba(28, 34, 52, 0.95) 0%, rgba(16, 20, 34, 0.98) 100%);
 }
 
 .recommend-card h4 {
@@ -411,7 +617,7 @@ input {
 
 .recommend-card p {
   margin: 0;
-  color: #8a6d76;
+  color: var(--text-muted);
   font-size: 0.92rem;
   line-height: 1.35;
 }
@@ -422,7 +628,7 @@ input {
   align-items: center;
   gap: 8px;
   margin-top: auto;
-  color: #7b5f67;
+  color: #8b97ad;
   font-size: 0.88rem;
 }
 
@@ -434,11 +640,21 @@ input {
 
 .compact-link {
   padding: 10px 14px;
-  border: 1px solid #f2ccd8;
+  border: 1px solid var(--gold-dim);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.8);
-  color: #c06187;
+  background: rgba(18, 22, 36, 0.85);
+  color: #f0c27a;
   font-weight: 700;
+}
+
+button.compact-link {
+  cursor: pointer;
+  font: inherit;
+}
+
+button.compact-link.danger-text {
+  color: #b91c1c;
+  border-color: #fecaca;
 }
 
 .map-layout {
@@ -474,18 +690,18 @@ input {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  color: #6f5b62;
+  color: #8892a8;
 }
 
 .map-page-toolbar__geo {
   margin: 0;
   font-size: 0.9rem;
-  color: #6f5b62;
+  color: #8892a8;
 }
 
 .map-page-toolbar__geo.muted,
 .muted {
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .map-page-map-section__title {
@@ -496,7 +712,7 @@ input {
 .map-page-map-section__hint {
   margin: 0 0 14px;
   font-size: 0.88rem;
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .map-page-map-section {
@@ -511,11 +727,11 @@ input {
 
 .map-hero,
 .map-card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #f5d9e3;
+  background: var(--navy-card);
+  border: 1px solid var(--gold-dim);
   border-radius: 20px;
   padding: 28px;
-  box-shadow: 0 18px 40px rgba(233, 164, 184, 0.14);
+  box-shadow: var(--shadow);
 }
 
 .map-hero {
@@ -539,7 +755,7 @@ input {
 .info-list {
   margin: 16px 0 0;
   padding-left: 18px;
-  color: #6f5b62;
+  color: #8892a8;
   display: grid;
   gap: 8px;
 }
@@ -548,13 +764,19 @@ input {
   margin-bottom: 24px;
   padding: 20px 22px;
   border-radius: 18px;
-  border: 1px solid #f1d4de;
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--gold-dim);
+  background: rgba(20, 25, 40, 0.72);
 }
 
+.service-overview h2,
 .service-overview h3 {
   margin: 0 0 12px;
   font-size: 1.15rem;
+  color: var(--text-heading);
+}
+
+.home-layout--hub > .home-notice {
+  margin-bottom: 0;
 }
 
 .service-overview .description {
@@ -570,22 +792,23 @@ input {
 .service-link-grid a {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid #f3c8d4;
-  background: #fffafa;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.88);
   font-size: 0.9rem;
   font-weight: 600;
+  color: #f0dfa8;
 }
 
 .photo-placeholder {
   margin-top: 16px;
   min-height: 180px;
   border-radius: 16px;
-  border: 1px dashed #e2b6c6;
-  background: linear-gradient(160deg, rgba(242, 156, 178, 0.12), rgba(246, 178, 107, 0.1));
+  border: 1px dashed rgba(212, 175, 55, 0.35);
+  background: linear-gradient(160deg, rgba(30, 45, 75, 0.35), rgba(212, 175, 55, 0.06));
   display: grid;
   place-items: center;
   gap: 8px;
-  color: #a67a86;
+  color: var(--text-muted);
   font-weight: 700;
 }
 
@@ -593,14 +816,14 @@ input {
   display: block;
   font-size: 0.8rem;
   font-weight: 500;
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .restaurant-hero-image {
   margin-top: 16px;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid #f1d4de;
+  border: 1px solid var(--gold-dim);
 }
 
 .restaurant-hero-image img {
@@ -630,8 +853,8 @@ input {
 .post-list-item {
   padding: 14px 16px;
   border-radius: 14px;
-  border: 1px solid #f1d4de;
-  background: #fffafa;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.75);
 }
 
 .post-list-meta {
@@ -643,13 +866,13 @@ input {
 
 .post-list-meta span {
   font-size: 0.85rem;
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .post-body {
   margin: 0;
   white-space: pre-wrap;
-  color: #5f4b52;
+  color: var(--text);
   line-height: 1.5;
 }
 
@@ -657,13 +880,13 @@ input {
   margin-top: 10px;
   width: min(360px, 100%);
   border-radius: 12px;
-  border: 1px solid #f1d4de;
+  border: 1px solid var(--gold-dim);
 }
 
 .upload-hint {
   margin: 6px 0 0;
   font-size: 0.85rem;
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .description code,
@@ -671,7 +894,7 @@ input {
   font-size: 0.9em;
   padding: 2px 6px;
   border-radius: 6px;
-  background: rgba(242, 156, 178, 0.15);
+  background: rgba(212, 175, 55, 0.12);
 }
 
 .menu-table {
@@ -685,17 +908,17 @@ input {
 .menu-table td {
   padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid #f1d4de;
+  border-bottom: 1px solid var(--gold-dim);
 }
 
 .menu-table th {
-  color: #d36b93;
+  color: var(--gold-soft);
   font-weight: 700;
-  background: rgba(255, 250, 250, 0.9);
+  background: rgba(18, 22, 36, 0.95);
 }
 
 .restaurant-card h4 a {
-  color: #b84d78;
+  color: #f0dfa8;
 }
 
 .restaurant-card h4 a:hover {
@@ -712,11 +935,11 @@ input {
   display: grid;
   place-items: center;
   border-radius: 16px;
-  border: 1px dashed #e2b6c6;
+  border: 1px dashed rgba(212, 175, 55, 0.35);
   background:
-    linear-gradient(135deg, rgba(242, 156, 178, 0.14), rgba(246, 178, 107, 0.18)),
-    #fff9fb;
-  color: #d36b93;
+    linear-gradient(135deg, rgba(30, 45, 80, 0.4), rgba(212, 175, 55, 0.08)),
+    rgba(14, 18, 30, 0.9);
+  color: var(--gold-soft);
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -728,21 +951,21 @@ input {
   height: auto;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid #f1d4de;
-  background: #e8eef2;
+  border: 1px solid var(--gold-dim);
+  background: #1a2333;
 }
 
 /* BroG 랭킹 카드 (다이닝코드 랭킹형: 이미지 + 이름 + 가격) */
 .brog-rank-section__sub {
   margin: 8px 0 0;
   font-size: 0.9rem;
-  color: #8a6d76;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
 .brog-rank-loading {
   margin: 12px 0;
-  color: #6f5b62;
+  color: #8892a8;
 }
 
 ul.brog-rank-grid {
@@ -766,9 +989,9 @@ ul.brog-rank-grid {
 .brog-rank-card {
   margin: 0;
   border-radius: 16px;
-  border: 1px solid #edd5df;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(216, 148, 168, 0.12);
+  border: 1px solid var(--gold-dim);
+  background: var(--navy-elevated);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   transition:
     transform 0.15s ease,
@@ -777,7 +1000,7 @@ ul.brog-rank-grid {
 
 .brog-rank-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 36px rgba(216, 148, 168, 0.2);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 55, 0.15);
 }
 
 .brog-rank-card--empty {
@@ -803,26 +1026,32 @@ ul.brog-rank-grid {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 1;
+  z-index: 2;
   min-width: 28px;
   height: 28px;
   padding: 0 8px;
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: rgba(255, 250, 250, 0.95);
-  border: 1px solid #f1d4de;
+  background: rgba(18, 22, 36, 0.92);
+  border: 1px solid var(--gold-dim);
   font-size: 0.85rem;
   font-weight: 800;
-  color: #b84d78;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: #f0dfa8;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
 .brog-rank-card__photo {
+  position: relative;
   aspect-ratio: 4 / 3;
   width: 100%;
   overflow: hidden;
-  background: #f0e8ec;
+  background: #1a2233;
+}
+
+.brog-rank-card__photo .food-photo-overlay-wrap {
+  position: absolute;
+  inset: 0;
 }
 
 .brog-rank-card__photo img {
@@ -834,8 +1063,8 @@ ul.brog-rank-grid {
 
 .brog-rank-card__photo--placeholder {
   background:
-    linear-gradient(145deg, rgba(242, 156, 178, 0.2), rgba(246, 178, 107, 0.15)),
-    #f5eef1;
+    linear-gradient(145deg, rgba(30, 45, 80, 0.45), rgba(212, 175, 55, 0.08)),
+    #161b28;
 }
 
 .brog-rank-card__body {
@@ -847,26 +1076,395 @@ ul.brog-rank-grid {
 .brog-rank-card__name {
   margin: 0;
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.35;
-  color: #3d2f35;
+  color: var(--text-heading);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* 같은 자리 중복 매장 중 처음 올린 BroG(포인트 적립 대상)만 굵게 */
+.brog-rank-card__name--primary {
+  font-weight: 800;
+}
+
 .brog-rank-card__price {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #c06187;
+  color: #e8cf8a;
 }
 
 .brog-rank-card__price-num {
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+.brog-rank-card__inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.brog-rank-card__footer {
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--gold-dim);
+}
+
+.brog-rank-card__delete-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(16, 20, 34, 0.85);
+  color: #e8a0a8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.brog-rank-card__delete-btn:hover {
+  background: rgba(40, 28, 32, 0.95);
+}
+
+/* BroG 리스트·지도 공통 헤더 */
+.brog-screen {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 8px 40px;
+  min-height: calc(100vh - 100px);
+}
+
+.brog-screen__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 4px 12px;
+}
+
+.brog-screen__title {
+  margin: 0 0 6px;
+  font-size: 1.65rem;
+  color: var(--text-heading);
+}
+
+.brog-screen__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.brog-screen__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.brog-screen__cta {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(145deg, #2f415e, #1e2a42 55%, #162030 100%);
+  color: var(--text-heading);
+  font-weight: 800;
+  text-decoration: none;
+  font-size: 0.92rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.brog-screen__toolbar {
+  padding: 14px 18px;
+  margin-bottom: 12px;
+}
+
+/* BroG 상세 (풀스크린형) */
+.brog-detail {
+  min-height: calc(100vh - 88px);
+  background: linear-gradient(180deg, #0e121c 0%, #080b12 100%);
+}
+
+.brog-detail--loading,
+.brog-detail--error {
+  padding: 24px 16px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.brog-detail__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(12, 16, 26, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--gold-dim);
+}
+
+.brog-detail__back {
+  font-weight: 800;
+  text-decoration: none;
+  color: #e8cf8a;
+  font-size: 0.95rem;
+}
+
+.brog-detail__topbar-links {
+  display: flex;
+  gap: 14px;
+  font-size: 0.9rem;
+}
+
+.brog-detail__topbar-links a {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.brog-detail__hero {
+  position: relative;
+  max-width: 960px;
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  max-height: min(52vh, 420px);
+  background: #eee;
+}
+
+.brog-detail__hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.brog-detail__hero-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: #1a2233;
+  font-weight: 600;
+}
+
+.brog-detail__gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px 4px;
+  background: rgba(16, 20, 34, 0.95);
+  border-bottom: 1px solid var(--border);
+}
+
+.brog-detail__gallery-thumb {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.brog-detail__no-points {
+  padding: 10px 12px;
+  margin: 0 0 16px;
+  background: rgba(212, 175, 55, 0.08);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.brog-detail__hero-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 16px 22px;
+  background: linear-gradient(transparent, rgba(30, 20, 24, 0.78));
+  color: #fff;
+}
+
+.brog-detail__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.92;
+}
+
+.brog-detail__name {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
+  line-height: 1.2;
+  font-weight: 600;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.brog-detail__name--primary {
+  font-weight: 800;
+}
+
+.brog-detail__sub {
+  margin: 8px 0 0;
+  opacity: 0.95;
+  font-size: 0.92rem;
+}
+
+.brog-detail__main-menu {
+  margin: 10px 0 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #f0dfa8;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
+}
+
+.brog-detail__gallery-item {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.brog-detail__gallery-item .food-photo-overlay-wrap__caption {
+  padding: 14px 4px 4px;
+  font-size: 0.6rem;
+  gap: 2px 4px;
+}
+
+.brog-detail__gallery-item .food-photo-overlay-wrap__menu {
+  -webkit-line-clamp: 1;
+}
+
+.brog-detail__gallery-thumb {
+  border: none;
+  border-radius: 0;
+}
+
+.brog-detail__body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 22px 16px 72px;
+}
+
+.brog-detail__action-error {
+  margin: 0 0 16px;
+}
+
+.brog-detail__registrar-line {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.brog-detail__registrar-nick {
+  color: #c8d0e0;
+}
+
+.brog-detail__section {
+  margin-bottom: 26px;
+}
+
+.brog-detail__section h2 {
+  font-size: 1.05rem;
+  margin: 0 0 10px;
+  color: var(--gold-soft);
+}
+
+.brog-detail__summary {
+  margin: 0;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.brog-detail__engagement-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.brog-detail__like-btn {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 2px solid var(--gold-dim);
+  background: rgba(16, 20, 34, 0.9);
+  color: #e8cf8a;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.brog-detail__like-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.brog-detail__like-btn--on {
+  background: linear-gradient(145deg, #3d4f72, #2a3548 50%, #c9a227 160%);
+  color: var(--text-heading);
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.brog-detail__comment-count {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.brog-detail__comments {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+}
+
+.brog-detail__comment {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.brog-detail__comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
+}
+
+.brog-detail__comment-author {
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.brog-detail__comment-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.brog-detail__comment-del {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: #e8a0a8;
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-decoration: underline;
+}
+
+.brog-detail__comment-form textarea {
+  width: 100%;
+}
+
+.brog-detail__admin .compact-links {
+  margin-top: 8px;
 }
 
 .restaurant-list {
@@ -880,8 +1478,8 @@ ul.brog-rank-grid {
   gap: 12px;
   padding: 20px;
   border-radius: 18px;
-  border: 1px solid #f1d4de;
-  background: #fffafa;
+  border: 1px solid var(--gold-dim);
+  background: rgba(20, 25, 40, 0.88);
 }
 
 .restaurant-card h4 {
@@ -890,7 +1488,7 @@ ul.brog-rank-grid {
 
 .restaurant-card p {
   margin: 0;
-  color: #8a6d76;
+  color: var(--text-muted);
 }
 
 .restaurant-card-header {
@@ -901,7 +1499,7 @@ ul.brog-rank-grid {
 }
 
 .restaurant-category {
-  color: #d8945d;
+  color: #e8c96a;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -917,11 +1515,11 @@ ul.brog-rank-grid {
   justify-content: space-between;
   gap: 16px;
   padding-top: 10px;
-  border-top: 1px solid #f6dfe6;
+  border-top: 1px solid var(--border);
 }
 
 .restaurant-meta dt {
-  color: #d36b93;
+  color: var(--gold-soft);
 }
 
 .restaurant-meta dd {
@@ -962,5 +1560,635 @@ ul.brog-rank-grid {
 
   .district-row {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --- Broke Gourmet: saloon intro + pub home (image 1 lockup, image 2 wood warmth, red accent nods to image 3) --- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.saloon-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  overflow: hidden;
+  animation: saloon-overlay-in 0.55s ease-out both;
+}
+
+.saloon-overlay--opening {
+  pointer-events: none;
+  animation: saloon-overlay-out 1.45s ease-in forwards;
+}
+
+@keyframes saloon-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes saloon-overlay-out {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.saloon-overlay__brick {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 85% 60% at 50% 100%, rgba(0, 0, 0, 0.55), transparent 58%),
+    repeating-linear-gradient(
+      90deg,
+      #1c1e28 0px,
+      #1c1e28 4px,
+      #16181f 4px,
+      #16181f 9px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 20px,
+      rgba(0, 0, 0, 0.14) 20px,
+      rgba(0, 0, 0, 0.14) 21px
+    ),
+    linear-gradient(180deg, #1a1c26 0%, #0e1018 55%, #0a0c12 100%);
+  transition: opacity 0.5s ease;
+}
+
+.saloon-scene {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  perspective: 1650px;
+  perspective-origin: 50% 38%;
+  transform-style: preserve-3d;
+}
+
+/* 럭셔리 매장 파사드: 좌·우 문짝 분리(50%−α), 중앙 맞댐 틈 + 만남선 골드 */
+.saloon-door {
+  /* 중앙 틈: 유리 패널과 간판 영역이 한 덩어리처럼 보이지 않도록 약간 넓힘 */
+  --saloon-meet-half: clamp(7px, 1.05vw, 14px);
+  position: absolute;
+  top: 0;
+  width: calc(50% - var(--saloon-meet-half));
+  height: 100%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transition: transform 1.18s cubic-bezier(0.2, 0.85, 0.28, 1);
+  background:
+    linear-gradient(180deg, rgba(26, 29, 40, 0.95) 0%, rgba(26, 29, 40, 0.95) 7%, transparent 7%),
+    linear-gradient(
+      to bottom,
+      transparent 67.8%,
+      rgba(212, 175, 55, 0.26) 67.8%,
+      rgba(212, 175, 55, 0.26) 67.95%,
+      transparent 67.95%
+    ),
+    linear-gradient(180deg, rgba(18, 20, 30, 0.97) 68%, rgba(10, 12, 20, 0.99) 100%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.045) 0%, transparent 42%),
+    linear-gradient(210deg, rgba(212, 175, 55, 0.04) 0%, transparent 38%),
+    linear-gradient(180deg, #1e222e 0%, #14161f 32%, #0f1118 100%);
+  border: 1px solid rgba(55, 58, 72, 0.95);
+}
+
+.saloon-door--left {
+  left: 0;
+  border-right-width: 3px;
+  border-right-color: rgba(212, 175, 55, 0.58);
+  transform-origin: right center;
+  border-radius: 2px 0 0 2px;
+  /* 맞댐 쪽(안쪽) 그림자로 짝이 나뉜 느낌 */
+  box-shadow:
+    inset -12px 0 32px rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(212, 175, 55, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    3px 0 0 rgba(0, 0, 0, 0.35),
+    0 14px 50px rgba(0, 0, 0, 0.55);
+}
+
+.saloon-door--right {
+  right: 0;
+  border-left-width: 3px;
+  border-left-color: rgba(212, 175, 55, 0.58);
+  transform-origin: left center;
+  border-radius: 0 2px 2px 0;
+  box-shadow:
+    inset 12px 0 32px rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(212, 175, 55, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    -3px 0 0 rgba(0, 0, 0, 0.35),
+    0 14px 50px rgba(0, 0, 0, 0.55);
+}
+
+/* 중앙(경첩)을 축으로 화면 안쪽(깊이)으로 접힘 — 바깥으로 벌어지는 이전과 반대 */
+.saloon-overlay--opening .saloon-door--left {
+  transform: rotateY(92deg) translateZ(-28px);
+}
+
+.saloon-overlay--opening .saloon-door--right {
+  transform: rotateY(-92deg) translateZ(-28px);
+}
+
+.saloon-door__plank {
+  display: block;
+  position: absolute;
+  border-radius: 2px;
+  /* 짙은 틴티드 글라스 — 문(#1e222e)과 같은 계열, 하늘/냉청색 제거 */
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 0 90px rgba(0, 0, 0, 0.45),
+    inset 0 -24px 60px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 왼쪽: 맞댐 쪽 최소 10px 도어 프레임(중앙과 시각적 간격) + 유리는 바깥으로 */
+.saloon-door--left .saloon-door__plank {
+  top: 12%;
+  bottom: 32%;
+  left: 6%;
+  right: max(10px, 22%);
+  background:
+    linear-gradient(
+      105deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 24%,
+      transparent 42%,
+      transparent 64%,
+      rgba(40, 38, 34, 0.2) 85%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(48, 50, 58, 0.88) 0%,
+      rgba(32, 34, 42, 0.92) 40%,
+      rgba(22, 24, 32, 0.94) 75%,
+      rgba(16, 18, 26, 0.96) 100%
+    ),
+    linear-gradient(
+      90deg,
+      transparent 24%,
+      rgba(255, 255, 255, 0.04) 34%,
+      rgba(255, 255, 255, 0.07) 40%,
+      rgba(255, 255, 255, 0.03) 46%,
+      transparent 56%
+    );
+}
+
+.saloon-door--right .saloon-door__plank {
+  top: 12%;
+  bottom: 32%;
+  left: max(10px, 22%);
+  right: 6%;
+  background:
+    linear-gradient(
+      255deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 24%,
+      transparent 42%,
+      transparent 64%,
+      rgba(40, 38, 34, 0.2) 85%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(48, 50, 58, 0.88) 0%,
+      rgba(32, 34, 42, 0.92) 40%,
+      rgba(22, 24, 32, 0.94) 75%,
+      rgba(16, 18, 26, 0.96) 100%
+    ),
+    linear-gradient(
+      90deg,
+      transparent 44%,
+      rgba(255, 255, 255, 0.03) 54%,
+      rgba(255, 255, 255, 0.07) 60%,
+      rgba(255, 255, 255, 0.04) 66%,
+      transparent 76%
+    );
+}
+
+/* 세로 롱 골드 핸들 */
+.saloon-door__hinge {
+  position: absolute;
+  top: 20%;
+  bottom: 26%;
+  width: 5px;
+  border-radius: 1px;
+  background: linear-gradient(
+    180deg,
+    #faf3dc 0%,
+    #e8cf8a 12%,
+    #d4af37 38%,
+    #a68528 72%,
+    #6b5420 100%
+  );
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px 0 0 rgba(0, 0, 0, 0.35),
+    2px 0 10px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+
+.saloon-door__hinge--left {
+  right: 12px;
+}
+
+.saloon-door__hinge--right {
+  left: 12px;
+}
+
+.saloon-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: min(99vw, 700px);
+  padding: 16px;
+  text-align: center;
+  transform: translate3d(-50%, -50%, 72px);
+  transform-style: preserve-3d;
+  transition:
+    opacity 0.5s ease 0.05s,
+    transform 1.05s cubic-bezier(0.2, 0.82, 0.32, 1);
+}
+
+.saloon-overlay--opening .saloon-center {
+  opacity: 0;
+  transform: translate3d(-50%, -50%, -110px) scale(0.86);
+}
+
+.saloon-logo-frame {
+  position: relative;
+  width: min(280px, 70vw);
+  height: min(280px, 70vw);
+  margin: 0 auto 10px;
+}
+
+/* 탭 영역: 상단 히어로 + 하단 Since — Since는 화면 아래쪽 중앙에 고정 느낌 */
+.saloon-tap-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: min(88vh, 820px);
+  margin: 0 auto;
+  padding: 2vh 8px env(safe-area-inset-bottom, 12px);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 14px;
+  max-width: 100%;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 럭셔리 매장 정면: 상단 대들보 + 양측 기둥 + 중앙 유리·간판 구역 */
+.saloon-storefront {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: min(99vw, 680px);
+  margin: 0 auto;
+  align-self: stretch;
+  min-height: 0;
+}
+
+.saloon-lintel {
+  flex-shrink: 0;
+  width: 100%;
+  height: clamp(38px, 5.2vh, 52px);
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, #1c202c 0%, #13161f 42%, #0e1118 100%);
+  border: 1px solid rgba(212, 175, 55, 0.48);
+  border-bottom: 2px solid rgba(212, 175, 55, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(212, 175, 55, 0.2);
+  position: relative;
+}
+
+.saloon-lintel::before {
+  content: '';
+  position: absolute;
+  inset: 9px 8% 11px 8%;
+  border-radius: 2px;
+  border: 1px solid rgba(212, 175, 55, 0.26);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.saloon-storefront-row {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(16, 18, 26, 0.82) 0%, rgba(7, 8, 12, 0.94) 100%);
+  box-shadow:
+    0 16px 44px rgba(0, 0, 0, 0.52),
+    inset 0 0 0 1px rgba(5, 6, 10, 0.98);
+}
+
+.saloon-pillar--frame {
+  flex: 0 0 clamp(22px, 5vw, 42px);
+  width: clamp(22px, 5vw, 42px);
+  position: relative;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(74, 58, 22, 0.98) 0%,
+      #9a7428 8%,
+      #d4af37 22%,
+      #f0e0b8 38%,
+      #e8cf8a 48%,
+      #c9a227 58%,
+      #e6d8a8 72%,
+      #b8922e 88%,
+      rgba(62, 48, 18, 0.96) 100%
+    ),
+    linear-gradient(180deg, #a67c28 0%, #d4af37 35%, #7a5c1e 100%);
+  border-right: 1px solid rgba(255, 248, 220, 0.45);
+  box-shadow:
+    inset 3px 0 10px rgba(255, 255, 255, 0.35),
+    inset -4px 0 14px rgba(0, 0, 0, 0.42),
+    0 0 12px rgba(212, 175, 55, 0.15);
+}
+
+.saloon-pillar--frame-right {
+  border-right: none;
+  border-left: 1px solid rgba(255, 248, 220, 0.45);
+  box-shadow:
+    inset -3px 0 10px rgba(255, 255, 255, 0.35),
+    inset 4px 0 14px rgba(0, 0, 0, 0.42),
+    0 0 12px rgba(212, 175, 55, 0.15);
+}
+
+.saloon-pillar--frame::after {
+  content: '';
+  position: absolute;
+  inset: 11% 16% 13% 16%;
+  border-radius: 2px;
+  border: 1px solid rgba(90, 68, 22, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 252, 235, 0.2),
+    inset 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.saloon-storefront-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  /* 금 기둥 ↔ 중앙 간판 사이 여유 */
+  padding: 8px 10px 0;
+}
+
+.saloon-storefront-main .saloon-facade-panel {
+  margin-top: min(1.5vh, 14px);
+}
+
+/* 문(도어)와 구분되는 간판·이미지 액자: 벽에 걸린 패널 */
+.saloon-facade-panel {
+  flex-shrink: 0;
+  margin-top: min(3vh, 24px);
+  padding: 10px 12px 14px;
+  border-radius: 8px;
+  background: linear-gradient(168deg, rgba(20, 24, 36, 0.92), rgba(8, 10, 18, 0.96));
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  box-shadow:
+    0 0 0 2px rgba(5, 7, 12, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -3px 14px rgba(0, 0, 0, 0.4),
+    0 18px 48px rgba(0, 0, 0, 0.55);
+  max-width: 100%;
+}
+
+.saloon-tap-target:focus-visible {
+  outline: 2px solid rgba(201, 162, 39, 0.9);
+  outline-offset: 6px;
+}
+
+.saloon-tap-target:disabled {
+  cursor: default;
+}
+
+.saloon-logo-frame--hero {
+  width: auto;
+  max-width: min(96vw, 640px);
+  height: auto;
+  min-height: 0;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.saloon-logo-frame--hero .saloon-logo-svg--base {
+  width: min(340px, 78vw);
+  height: min(340px, 78vw);
+  flex-shrink: 0;
+}
+
+.saloon-hero-full {
+  display: block;
+  width: 100%;
+  max-width: min(96vw, 640px);
+  height: auto;
+  max-height: min(80vh, 640px);
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.saloon-facade-panel .saloon-hero-full {
+  max-height: min(68vh, 600px);
+}
+
+.saloon-since {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.28em 0.45em;
+  margin-top: 6px;
+  line-height: 1;
+  color: #e8cf8a;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.45),
+    0 2px 22px rgba(0, 0, 0, 0.55),
+    0 0 48px rgba(212, 175, 55, 0.18);
+  transform: rotate(-1.2deg);
+  transform-origin: center;
+}
+
+.saloon-since--lower {
+  /* 한 줄로 묶어서 타이포 기울임꼴(이탤릭 느낌) — 시계 회전이 아니라 skew */
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.22em;
+  white-space: nowrap;
+  width: auto;
+  max-width: calc(100% - 8px);
+  align-self: center;
+  margin-top: auto;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: clamp(16px, 4.5vh, 44px);
+  padding-top: min(3vh, 28px);
+  /* Since · 연도 동일 크기 — Sacramento */
+  font-size: clamp(2.5rem, 7.5vw, 3.85rem);
+  transform: skewX(-11deg);
+  transform-origin: center center;
+}
+
+.saloon-since__label {
+  font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.5rem, 4.2vw, 2.05rem);
+  letter-spacing: 0.22em;
+  font-variant-caps: all-small-caps;
+  text-transform: lowercase;
+  color: rgba(240, 228, 200, 0.92);
+}
+
+.saloon-since--lower .saloon-since__label,
+.saloon-since--lower .saloon-since__year {
+  font-family: 'Sacramento', 'Brush Script MT', cursive;
+  font-size: 1em;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 18px rgba(0, 0, 0, 0.45),
+    0 0 36px rgba(212, 175, 55, 0.28);
+}
+
+.saloon-since--lower .saloon-since__label {
+  font-variant-caps: normal;
+  text-transform: none;
+  color: rgba(244, 232, 210, 0.95);
+}
+
+.saloon-since__year {
+  font-family: 'Sacramento', 'Brush Script MT', cursive;
+  font-size: clamp(2.5rem, 7.5vw, 3.65rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 0.9;
+  color: #f0e4c4;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 18px rgba(0, 0, 0, 0.45),
+    0 0 36px rgba(212, 175, 55, 0.28);
+}
+
+.saloon-logo-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.saloon-logo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.broke-wordmark__main {
+  margin: 0;
+  font-family: Cinzel, Georgia, serif;
+  font-size: clamp(2rem, 7vw, 3.35rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #f5eed8;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.65);
+}
+
+.broke-wordmark__sub {
+  margin: 6px 0 0;
+  font-family: Cinzel, Georgia, serif;
+  font-size: clamp(0.82rem, 2.5vw, 1.05rem);
+  font-weight: 600;
+  letter-spacing: 0.38em;
+  color: #c9a227;
+}
+
+.broke-wordmark__tag {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(201, 162, 39, 0.35);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 0.74rem;
+  font-weight: 400;
+  letter-spacing: 0.26em;
+  color: rgba(232, 223, 200, 0.88);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saloon-overlay,
+  .saloon-overlay--opening {
+    animation: none;
+  }
+
+  .saloon-door {
+    transition: none;
+  }
+
+  .saloon-overlay--opening .saloon-door--left,
+  .saloon-overlay--opening .saloon-door--right {
+    transform: none;
+    opacity: 0;
+  }
+
+  .saloon-center {
+    transform: translate(-50%, -50%);
+    transition: none;
+  }
+
+  .saloon-overlay--opening .saloon-center {
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0;
   }
 }

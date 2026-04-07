@@ -11,23 +11,34 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.storage import COMMUNITY_IMAGE_DIR
 from app.api.auth import router as auth_router
+from app.api.districts import router as districts_router
 from app.api.free_share import router as free_share_router
 from app.api.known_restaurants import router as known_restaurants_router
 from app.api.payments import router as payments_router
+from app.api.restaurant_engagement import router as restaurant_engagement_router
 from app.api.restaurants import router as restaurants_router
 from app.api.uploads import router as uploads_router
 from app.api.users import router as users_router
 from app.db import Base, SessionLocal, engine
-from app.db_migrate import ensure_post_image_columns
+from app.db_migrate import (
+    ensure_known_restaurant_brog_shape,
+    ensure_post_image_columns,
+    ensure_restaurant_image_urls_and_points,
+    ensure_super_admin_email,
+    ensure_user_role_migration,
+)
 from app.models import (  # noqa: F401 — register metadata for create_all
+    District,
     FreeSharePost,
     KnownRestaurantPost,
     PaymentIntent,
     Restaurant,
+    RestaurantComment,
+    RestaurantLike,
     RestaurantMenuItem,
     User,
 )
-from app.seed import seed_restaurants
+from app.seed import seed_districts, seed_restaurants
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +84,14 @@ class UnhandledExceptionCorsMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_user_role_migration()
     ensure_post_image_columns()
+    ensure_restaurant_image_urls_and_points()
+    ensure_known_restaurant_brog_shape()
+    ensure_super_admin_email()
     db = SessionLocal()
     try:
+        seed_districts(db)
         seed_restaurants(db)
     finally:
         db.close()
@@ -98,8 +114,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(auth_router)
+app.include_router(districts_router)
 app.include_router(users_router)
 app.include_router(restaurants_router)
+app.include_router(restaurant_engagement_router)
 app.include_router(free_share_router)
 app.include_router(known_restaurants_router)
 app.include_router(payments_router)

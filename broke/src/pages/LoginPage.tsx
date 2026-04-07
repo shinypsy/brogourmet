@@ -74,9 +74,16 @@ export function LoginPage() {
       </form>
 
       {error ? <p className="error">{error}</p> : null}
+      {error.includes('이메일 인증') ? (
+        <p className="helper">
+          <Link to="/verify-email">이메일 인증 페이지</Link>에서 토큰을 입력하거나, 가입 메일의 링크를
+          사용하세요.
+        </p>
+      ) : null}
 
       <p className="helper">
-        계정이 없나요? <Link to="/signup">회원가입으로 이동</Link>
+        계정이 없나요? <Link to="/signup">회원가입으로 이동</Link> ·{' '}
+        <Link to="/verify-email">이메일 인증</Link>
       </p>
     </section>
   )
