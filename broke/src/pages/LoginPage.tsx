@@ -1,17 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { ACCESS_TOKEN_KEY, login } from '../api/auth'
+import { ACCESS_TOKEN_KEY, fetchMe, login } from '../api/auth'
 import { API_BASE_URL } from '../api/config'
 import { notifyAuthChange } from '../authEvents'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [verifiedBanner, setVerifiedBanner] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('verified') !== '1') return
+    setVerifiedBanner(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('verified')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -22,7 +32,12 @@ export function LoginPage() {
       const result = await login({ email, password })
       localStorage.setItem(ACCESS_TOKEN_KEY, result.access_token)
       notifyAuthChange()
-      navigate('/me')
+      try {
+        const me = await fetchMe(result.access_token)
+        navigate(me.email_verified_at ? '/' : '/me', { replace: true })
+      } catch {
+        navigate('/me', { replace: true })
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : '로그인 중 오류가 발생했습니다.')
     } finally {
@@ -41,6 +56,12 @@ export function LoginPage() {
       {import.meta.env.DEV ? (
         <p className="muted" style={{ fontSize: '0.85rem' }}>
           개발: API 요청 → <code>{API_BASE_URL}</code>
+        </p>
+      ) : null}
+
+      {verifiedBanner ? (
+        <p className="success" role="status">
+          이메일 인증이 완료되었습니다. 아래에서 로그인하면 <strong>홈(메인)</strong>으로 이동합니다.
         </p>
       ) : null}
 

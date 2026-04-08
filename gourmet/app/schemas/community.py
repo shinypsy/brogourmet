@@ -70,3 +70,5 @@ class KnownRestaurantPostRead(BaseModel):
     longitude: float | None = None
     image_urls: list[str] | None = None
     menu_lines: str | None = None
+    # 작성자 역할이 franchise이면 True — 지도 깃발 구분
+    is_franchise: bool = False

@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { deleteFreeSharePost, fetchFreeSharePosts, type FreeSharePost } from '../api/community'
-import { API_BASE_URL } from '../api/config'
-import { canEditOrDeleteCommunityPost } from '../lib/roles'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
+import { canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
 
 export function FreeShareBoardPage() {
   const navigate = useNavigate()
@@ -13,7 +13,7 @@ export function FreeShareBoardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
 
-  function reload() {
+  const reload = useCallback(() => {
     setIsLoading(true)
     setError('')
     fetchFreeSharePosts()
@@ -23,11 +23,11 @@ export function FreeShareBoardPage() {
         setError(loadError instanceof Error ? loadError.message : '목록을 불러오지 못했습니다.')
       })
       .finally(() => setIsLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
-    reload()
-  }, [])
+    void Promise.resolve().then(() => reload())
+  }, [reload])
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -53,9 +53,8 @@ export function FreeShareBoardPage() {
         <p className="eyebrow">Community</p>
         <h1>무료나눔 게시판</h1>
         <p className="description">
-          남는 식재료·나눔 물품 등을 올리는 공간입니다. 가입 회원은 로그인 후 글을 쓸 수 있으며, 수정·삭제는
-          작성자 본인 또는 최종 관리자·해당 구 지역 담당자가 할 수 있습니다. 제목을 누르면 상세에서 이미지
-          추가·제거까지 할 수 있습니다.
+          남는 식재료·나눔 물품 등을 올리는 공간입니다. 로그인한 회원은 누구나 글을 쓸 수 있습니다. 수정은
+          작성자 본인·해당 구 지역 담당자·최종 관리자가 할 수 있고, 삭제는 최종 관리자만 할 수 있습니다.
         </p>
         <p className="helper">
           <Link to="/">홈으로</Link>
@@ -85,17 +84,30 @@ export function FreeShareBoardPage() {
               </div>
               <p className="post-body">{post.body}</p>
               {post.image_url ? (
-                <img className="post-image" src={`${API_BASE_URL}${post.image_url}`} alt={`${post.title} 첨부 이미지`} />
+                <img
+                  className="post-image"
+                  src={resolveMediaUrl(post.image_url)}
+                  alt={`${post.title} 첨부 이미지`}
+                  loading="lazy"
+                  referrerPolicy={imgReferrerPolicyForResolvedSrc(resolveMediaUrl(post.image_url))}
+                />
               ) : null}
-              {canEditOrDeleteCommunityPost(user, post.author_id, post.district) ? (
+              {canEditCommunityPost(user, post.author_id, post.district) ||
+              canDeleteCommunityPost(user) ? (
                 <p className="helper">
-                  <button type="button" className="compact-link" onClick={() => navigate(`/free-share/${post.id}`)}>
-                    상세·수정
-                  </button>
-                  {' · '}
-                  <button type="button" className="compact-link" onClick={() => handleDelete(post.id)}>
-                    삭제
-                  </button>
+                  {canEditCommunityPost(user, post.author_id, post.district) ? (
+                    <button type="button" className="compact-link" onClick={() => navigate(`/free-share/${post.id}`)}>
+                      상세·수정
+                    </button>
+                  ) : null}
+                  {canEditCommunityPost(user, post.author_id, post.district) && canDeleteCommunityPost(user)
+                    ? ' · '
+                    : null}
+                  {canDeleteCommunityPost(user) ? (
+                    <button type="button" className="compact-link" onClick={() => handleDelete(post.id)}>
+                      삭제(관리자)
+                    </button>
+                  ) : null}
                 </p>
               ) : null}
             </li>

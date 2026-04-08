@@ -1,102 +1,65 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { fetchRestaurants, type RestaurantListItem } from '../api/restaurants'
 import { FoodPhotoWithMenuOverlay } from '../components/FoodPhotoWithMenuOverlay'
+import { HomeAccountDock } from '../components/HomeAccountDock'
+import { HomeKakaoMap } from '../components/HomeKakaoMap'
 import { SaloonWelcome } from '../components/SaloonWelcome'
-import { resolveMediaUrl } from '../lib/mediaUrl'
+import { useSeoulMapUserLocation } from '../hooks/useSeoulMapUserLocation'
 import {
-  DEFAULT_HOME_DISTRICT,
-  resolveSeoulDistrictFromCoords,
-  type ResolveDistrictReason,
-} from '../lib/resolveSeoulDistrictFromCoords'
-import { seoulDistricts } from '../data/regions'
+  brogDistrictOptionsForUi,
+  clampBrogDistrictForPhase1,
+  isBrogPhase1Restricted,
+} from '../lib/brogPhase1'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
+import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
+import { DEFAULT_HOME_DISTRICT } from '../lib/resolveSeoulDistrictFromCoords'
 
 /** 홈 상단 공지 — 문구만 바꿔 운영 안내에 활용 */
 const HOME_NOTICE_TITLE = '공지사항'
-const HOME_NOTICE_BODY =
-  'Broke Gourmet(고단한 미식가)는 서울 기준 대표 주 메뉴 1만 원 이하 맛집을 소개합니다. 위치 권한을 허용하면 현재 구가 자동으로 선택되며, 언제든지 아래 메뉴에서 구를 바꿀 수 있습니다.'
-
-function geoHintMessage(reason: ResolveDistrictReason, district: string): string {
-  switch (reason) {
-    case 'ok':
-      return `위치를 기준으로 ${district}를 선택했습니다.`
-    case 'outside_seoul':
-      return `서울 외 지역이 감지되어 기본 구(${DEFAULT_HOME_DISTRICT})를 사용합니다.`
-    case 'no_key':
-      return `현재 위치로 구를 자동 설정할 수 없어 기본 구(${district})를 사용합니다. 아래에서 구를 바꿀 수 있습니다.`
-    case 'denied':
-      return '위치 권한이 없어 기본 구를 사용합니다. 구는 아래에서 바꿀 수 있습니다.'
-    case 'position_error':
-      return '위치를 가져오지 못해 기본 구를 사용합니다.'
-    case 'network':
-    case 'unknown_address':
-      return '주소를 확인하지 못해 기본 구를 사용합니다.'
-    default:
-      return '기본 구를 사용합니다.'
-  }
-}
+const HOME_NOTICE_BODY_FULL =
+  'Broke Gourmet(고단한 미식가)는 서울 기준 대표 주 메뉴 1만 원 이하 맛집을 소개합니다. GPS로 위치를 받거나, 지도를 길게 누르거나 우클릭해 그 지점을 내 위치로 잡을 수 있으며, 아래에서 위도·경도를 직접 넣어 「좌표 적용」할 수도 있습니다. 지도 「내 위치」 버튼은 GPS 기준이며, 구는 드롭다운에서도 바꿀 수 있습니다.'
+const HOME_NOTICE_BODY_PHASE1 =
+  '현재 빌드는 1단계 테스트 버전입니다. 지역 선택은 마포·용산·서대문·영등포·종로·중구 6개 구로 한정됩니다. 각 구 안 BroG는 가격 조건에 맞게 노출됩니다. 정식 오픈·서울 전 구 확장 시 빌드 옵션(VITE_BROG_FULL_MAP)과 공지로 안내합니다.'
 
 export function HomePage() {
-  const [district, setDistrict] = useState(DEFAULT_HOME_DISTRICT)
-  const [geoHint, setGeoHint] = useState('위치 확인 중…')
+  const [district, setDistrictState] = useState(DEFAULT_HOME_DISTRICT)
+  const setDistrict = useCallback((gu: string) => {
+    setDistrictState(clampBrogDistrictForPhase1(gu))
+  }, [])
   const [recommendedRestaurants, setRecommendedRestaurants] = useState<RestaurantListItem[]>([])
   const [listError, setListError] = useState('')
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function locate() {
-      if (!navigator.geolocation) {
-        if (!cancelled) {
-          setGeoHint(geoHintMessage('position_error', DEFAULT_HOME_DISTRICT))
-        }
-        return
-      }
-
-      await new Promise<void>((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            if (cancelled) {
-              resolve()
-              return
-            }
-            const { district: gu, reason } = await resolveSeoulDistrictFromCoords(
-              pos.coords.latitude,
-              pos.coords.longitude,
-            )
-            if (cancelled) {
-              resolve()
-              return
-            }
-            setDistrict(gu)
-            setGeoHint(geoHintMessage(reason, gu))
-            resolve()
-          },
-          (err: GeolocationPositionError) => {
-            if (!cancelled) {
-              if (err.code === err.PERMISSION_DENIED) {
-                setGeoHint(geoHintMessage('denied', DEFAULT_HOME_DISTRICT))
-              } else {
-                setGeoHint(geoHintMessage('position_error', DEFAULT_HOME_DISTRICT))
-              }
-            }
-            resolve()
-          },
-          { enableHighAccuracy: false, timeout: 14_000, maximumAge: 120_000 },
-        )
-      })
-    }
-
-    void locate()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const {
+    geoHint,
+    geoBusy,
+    setGeoRetryToken,
+    mapUserCoords,
+    latInput,
+    setLatInput,
+    lngInput,
+    setLngInput,
+    coordApplyError,
+    handleApplyManualCoords,
+    myLocationFromDevice,
+    applyLatLng,
+  } = useSeoulMapUserLocation(setDistrict)
 
   useEffect(() => {
     let cancelled = false
-    fetchRestaurants({ district, max_price: 10000, limit: 4 })
+    const base = { district, max_price: 10000, limit: 4 } as const
+    const params =
+      mapUserCoords != null
+        ? {
+            ...base,
+            near_lat: mapUserCoords.lat,
+            near_lng: mapUserCoords.lng,
+            radius_m: MAP_NEAR_RADIUS_M,
+          }
+        : base
+
+    fetchRestaurants(params)
       .then((rows) => {
         if (!cancelled) {
           setRecommendedRestaurants(rows)
@@ -112,9 +75,24 @@ export function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [district])
+  }, [district, mapUserCoords])
 
   const slots = Array.from({ length: 4 }, (_, i) => recommendedRestaurants[i] ?? null)
+
+  const onMapLocate = useCallback(() => {
+    void myLocationFromDevice()
+  }, [myLocationFromDevice])
+
+  const onPickUserLocationOnMap = useCallback(
+    (lat: number, lng: number) => {
+      void applyLatLng(lat, lng)
+    },
+    [applyLatLng],
+  )
+
+  const homeNoticeBody = isBrogPhase1Restricted() ? HOME_NOTICE_BODY_PHASE1 : HOME_NOTICE_BODY_FULL
+  const homeNoticeTitle = isBrogPhase1Restricted() ? '공지 · 1단계 테스트 버전' : HOME_NOTICE_TITLE
+  const brogDistrictOptions = brogDistrictOptionsForUi()
 
   return (
     <>
@@ -124,9 +102,17 @@ export function HomePage() {
 
         <section className="service-overview home-notice" aria-labelledby="home-notice-heading">
           <p className="eyebrow">Stack</p>
-          <h2 id="home-notice-heading">{HOME_NOTICE_TITLE}</h2>
-          <p className="description">{HOME_NOTICE_BODY}</p>
+          <h2 id="home-notice-heading">{homeNoticeTitle}</h2>
+          <p className="description">{homeNoticeBody}</p>
         </section>
+
+        <HomeKakaoMap
+          userCoords={mapUserCoords}
+          restaurants={recommendedRestaurants}
+          locating={geoBusy}
+          onMyLocationClick={onMapLocate}
+          onPickUserLocationOnMap={onPickUserLocationOnMap}
+        />
 
         <section className="home-hub" aria-labelledby="home-hub-region-label">
           <span id="home-hub-region-label" className="visually-hidden">
@@ -137,14 +123,81 @@ export function HomePage() {
             <label>
               서울시 구
               <select value={district} onChange={(e) => setDistrict(e.target.value)}>
-                {seoulDistricts.map((gu) => (
+                {brogDistrictOptions.map((gu) => (
                   <option key={gu} value={gu}>
                     {gu}
                   </option>
                 ))}
               </select>
             </label>
-            <p className="home-hub__geo-hint">{geoHint}</p>
+            <p className="home-hub__geo-hint">
+              {geoBusy ? `${geoHint} (최대 약 1분까지 시도 중…)` : geoHint}
+              {navigator.geolocation ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="home-hub__geo-retry"
+                    disabled={geoBusy}
+                    onClick={() => setGeoRetryToken((t) => t + 1)}
+                  >
+                    {geoBusy ? '위치 받는 중…' : '위치 다시 받기'}
+                  </button>
+                </>
+              ) : null}
+            </p>
+            <div
+              className="home-hub__coord-edit"
+              aria-label="위도 경도 직접 입력"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleApplyManualCoords()
+                }
+              }}
+            >
+              <div className="home-hub__coord-row">
+                <label className="home-hub__coord-field">
+                  위도
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="home-hub__coord-input"
+                    value={latInput}
+                    onChange={(e) => setLatInput(e.target.value)}
+                    placeholder="예: 37.56650"
+                    aria-label="위도"
+                  />
+                </label>
+                <label className="home-hub__coord-field">
+                  경도
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="home-hub__coord-input"
+                    value={lngInput}
+                    onChange={(e) => setLngInput(e.target.value)}
+                    placeholder="예: 126.97800"
+                    aria-label="경도"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="home-hub__coord-apply"
+                  onClick={() => void handleApplyManualCoords()}
+                >
+                  좌표 적용
+                </button>
+              </div>
+              {coordApplyError ? <p className="error home-hub__coord-error">{coordApplyError}</p> : null}
+              <p className="helper home-hub__coord-hint">
+                적용 시 지도 중심·내 위치 마커·선택 구·추천 4곳이 이 좌표 기준으로 갱신됩니다. 좌표가 있으면 선택한 구 안에서 약 5km 이내 가까운 순으로 골라옵니다. 소수점은 쉼표 대신 마침표도 됩니다.
+              </p>
+            </div>
           </div>
 
           {listError ? <p className="error home-hub__error">{listError}</p> : null}
@@ -171,6 +224,7 @@ export function HomePage() {
           </div>
         </section>
       </div>
+      <HomeAccountDock />
     </>
   )
 }
@@ -190,7 +244,14 @@ function HomePhotoSlot({ restaurant }: { restaurant: RestaurantListItem }) {
       priceKrw={restaurant.main_menu_price}
     >
       {showImg ? (
-        <img src={src!} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+        <img
+          src={src!}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy={imgReferrerPolicyForResolvedSrc(src)}
+          onError={() => setFailed(true)}
+        />
       ) : (
         <span className="food-photo-overlay-wrap__filler home-hub__photo-placeholder" aria-hidden />
       )}

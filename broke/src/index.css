@@ -51,10 +51,38 @@ input {
   min-height: 100vh;
 }
 
+.route-fallback {
+  margin: 0;
+  padding: 20px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
 .app-shell {
   width: min(960px, calc(100% - 32px));
   margin: 0 auto;
   padding: 20px 0 24px;
+}
+
+.test-ui-admin-banner {
+  margin: -4px 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--cream);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.test-ui-admin-banner p {
+  margin: 0;
+}
+
+.test-ui-admin-banner__mode {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .topbar {
@@ -208,6 +236,53 @@ input {
   cursor: progress;
 }
 
+/* BroG 작성·수정 — 카테고리 칩(일반 제출 버튼 스타일과 구분) */
+.form .brog-category-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.form .brog-category-fieldset legend {
+  font-weight: 600;
+  padding: 0;
+  margin: 0;
+}
+
+.form .brog-category-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.form .brog-category-picker__btn {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.9);
+  color: #f0c27a;
+  font-weight: 700;
+  font-size: 0.88rem;
+  box-shadow: none;
+}
+
+.form .brog-category-picker__btn:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+.form .brog-category-picker__btn--active {
+  border-color: rgba(201, 162, 39, 0.85);
+  background: rgba(40, 52, 82, 0.75);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.18);
+}
+
+.form .brog-category-picker__btn:focus-visible {
+  outline: 2px solid rgba(201, 162, 39, 0.85);
+  outline-offset: 2px;
+}
+
 .success,
 .error,
 .helper {
@@ -228,6 +303,22 @@ input {
 
 .helper a {
   color: var(--gold-soft);
+}
+
+.form-exif-gps-hint {
+  margin-top: 8px;
+}
+
+/* BroG 작성: 위도·경도 위 지도(홈과 동일 shell·canvas 클래스 사용) */
+.restaurant-manage-location-map {
+  margin: 18px 0 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.restaurant-manage-location-map__hint {
+  margin: 10px 0 0;
+  line-height: 1.45;
 }
 
 .profile {
@@ -265,6 +356,117 @@ input {
   align-content: start;
 }
 
+.home-hub__map-shell {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto 10px;
+  width: calc(100% - 0px);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--gold-dim);
+  background: rgba(10, 14, 22, 0.75);
+  box-shadow: var(--shadow);
+}
+
+.home-hub__map-shell--placeholder {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.home-hub__map-placeholder-text {
+  text-align: center;
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: 28rem;
+  line-height: 1.5;
+}
+
+.home-hub__map-error {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+}
+
+.home-hub__map-canvas {
+  width: 100%;
+  height: min(42vh, 380px);
+  min-height: 240px;
+}
+
+.home-hub__map-locate {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(18, 22, 36, 0.94);
+  color: #f0c27a;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.home-hub__map-locate:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(212, 175, 55, 0.65);
+}
+
+.home-hub__map-locate:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.home-hub__map-locate-icon {
+  display: flex;
+}
+
+.home-hub__map-locate-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.brog-map-longpress-hint {
+  margin: 0;
+  padding: 8px 12px 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.brog-map-marker-legend {
+  margin: 0;
+  padding: 8px 12px 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.brog-map-marker-legend__franchise {
+  color: #d32f2f;
+}
+
+.brog-map-marker-legend__brog {
+  color: #2e7dd4;
+}
+
+.brog-map-marker-legend__myg {
+  color: #e6b422;
+}
+
 .home-hub {
   display: grid;
   gap: 26px;
@@ -297,6 +499,85 @@ input {
   font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.home-hub__coord-edit {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.home-hub__coord-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 14px;
+}
+
+.home-hub__coord-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-heading);
+  min-width: 0;
+}
+
+.home-hub__coord-input {
+  width: min(100%, 11.5rem);
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.88rem;
+}
+
+.home-hub__coord-apply {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(40, 52, 82, 0.75);
+  color: #f0c27a;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.home-hub__coord-apply:hover {
+  border-color: rgba(212, 175, 55, 0.65);
+}
+
+.home-hub__coord-error {
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+}
+
+.home-hub__coord-hint {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.home-hub__geo-retry {
+  margin: 8px 0 0;
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.85);
+  color: #f0c27a;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.home-hub__geo-retry:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .home-hub__error {
@@ -351,6 +632,184 @@ input {
   height: 100%;
   min-height: 120px;
   background: linear-gradient(160deg, rgba(212, 175, 55, 0.06), rgba(16, 20, 34, 0.9));
+}
+
+/* 홈 첫 화면 하단 우측: Myinfo (탈퇴는 /me) */
+.home-account-dock {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.home-account-dock__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.92);
+  color: #f0c27a;
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.1),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.home-account-dock__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.22),
+    0 14px 36px rgba(0, 0, 0, 0.5);
+}
+
+.home-account-dock__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.home-account-dock__btn--withdraw {
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.35);
+}
+
+.home-account-dock__icon {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.home-account-dock__label {
+  line-height: 1;
+}
+
+.home-account-dock__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(6, 8, 14, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.home-account-dock__modal {
+  width: min(100%, 400px);
+  padding: 22px 22px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--gold-dim);
+  background: linear-gradient(165deg, rgba(30, 42, 68, 0.98), rgba(14, 18, 30, 0.99));
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.12),
+    0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.home-account-dock__modal-title {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+  color: var(--text-heading);
+}
+
+.home-account-dock__modal-desc {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.home-account-dock__field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.home-account-dock__field input {
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
+  font: inherit;
+}
+
+.home-account-dock__error {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  color: #f87171;
+}
+
+.home-account-dock__modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.home-account-dock__modal-actions .ghost-button:disabled,
+.home-account-dock__modal-actions button.compact-link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Myinfo 하단 — 회원 탈퇴 */
+.my-page__footer-link {
+  margin-top: 20px;
+}
+
+.withdraw-account-section {
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.withdraw-account-section__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 165, 165, 0.35);
+  background: rgba(24, 18, 22, 0.75);
+  color: #fca5a5;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition:
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.withdraw-account-section__btn:hover {
+  border-color: rgba(252, 165, 165, 0.55);
+  transform: translateY(-1px);
+}
+
+.withdraw-account-section__icon {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.withdraw-account-section__label {
+  line-height: 1;
 }
 
 /* 음식 사진 하단 — 대표 메뉴명 · 가격 (BroG 카드·홈·갤러리 등) */
@@ -717,6 +1176,40 @@ button.compact-link.danger-text {
 
 .map-page-map-section {
   padding: 22px 24px 24px;
+}
+
+/* BroG/MyG 지도: 홈과 동일 UX(내 위치 버튼), 크기는 아래 --below 유지 */
+.kakao-map-embed {
+  position: relative;
+  width: 100%;
+}
+
+.map-page__coord-edit {
+  margin-top: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+.myg-map-post-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.myg-map-post-list__item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--gold-dim);
+  background: var(--navy-card);
+}
+
+.myg-map-post-list__meta {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
 }
 
 .kakao-map-container--below {
@@ -1181,6 +1674,80 @@ ul.brog-rank-grid {
 .brog-screen__toolbar {
   padding: 14px 18px;
   margin-bottom: 12px;
+}
+
+.brog-screen__toolbar--list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px 28px;
+}
+
+.brog-list-toolbar__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: min(200px, 100%);
+}
+
+.brog-list-toolbar__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.brog-list-toolbar__notes {
+  flex: 1;
+  min-width: min(420px, 100%);
+}
+
+.brog-list-toolbar__note {
+  margin: 0;
+}
+
+.brog-list-toolbar__note + .brog-list-toolbar__note {
+  margin-top: 8px;
+}
+
+.brog-list-toolbar__note--muted {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.brog-list-body__count {
+  margin: 4px 4px 14px;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.brog-list-body__count strong {
+  color: var(--text-heading);
+}
+
+.brog-list-body__error {
+  margin: 0 4px 12px;
+}
+
+.brog-list-body__empty-hint {
+  margin-top: 6px;
+}
+
+.my-page__verify-callout {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(252, 165, 165, 0.45);
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.my-page__verify-callout-title {
+  margin: 0;
+  font-weight: 700;
+  color: #fecaca;
+  font-size: 1rem;
 }
 
 /* BroG 상세 (풀스크린형) */
@@ -2071,9 +2638,9 @@ ul.brog-rank-grid {
   margin-right: auto;
   margin-bottom: clamp(16px, 4.5vh, 44px);
   padding-top: min(3vh, 28px);
-  /* Since · 연도 동일 크기 — Sacramento */
-  font-size: clamp(2.5rem, 7.5vw, 3.85rem);
-  transform: skewX(-11deg);
+  /* Since · 연도 — Pinyon Script (Google Fonts) */
+  font-size: clamp(2.2rem, 6.8vw, 3.5rem);
+  transform: skewX(-6deg);
   transform-origin: center center;
 }
 
@@ -2090,12 +2657,12 @@ ul.brog-rank-grid {
 
 .saloon-since--lower .saloon-since__label,
 .saloon-since--lower .saloon-since__year {
-  font-family: 'Sacramento', 'Brush Script MT', cursive;
+  font-family: 'Pinyon Script', 'Source Serif 4', Georgia, 'Times New Roman', serif;
   font-size: 1em;
   font-style: normal;
   font-weight: 400;
   letter-spacing: 0.04em;
-  line-height: 1.05;
+  line-height: 1.1;
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.4),
     0 2px 18px rgba(0, 0, 0, 0.45),
@@ -2109,11 +2676,11 @@ ul.brog-rank-grid {
 }
 
 .saloon-since__year {
-  font-family: 'Sacramento', 'Brush Script MT', cursive;
-  font-size: clamp(2.5rem, 7.5vw, 3.65rem);
+  font-family: 'Pinyon Script', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.2rem, 6.8vw, 3.5rem);
   font-weight: 400;
-  letter-spacing: 0.03em;
-  line-height: 0.9;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
   color: #f0e4c4;
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.4),
@@ -2164,6 +2731,317 @@ ul.brog-rank-grid {
   font-weight: 400;
   letter-spacing: 0.26em;
   color: rgba(232, 223, 200, 0.88);
+}
+
+/* Game — 점메추천 SADARI */
+.page-title {
+  margin: 0 0 10px;
+  font-size: 1.65rem;
+  color: var(--text-heading);
+}
+
+.game-page__hook {
+  margin: 0 0 12px;
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
+  font-weight: 700;
+  color: var(--text-heading);
+  line-height: 1.25;
+}
+
+.game-page__intro {
+  margin: 0 0 22px;
+  max-width: 52rem;
+  line-height: 1.55;
+}
+
+.game-page__taste-block {
+  margin: 0 0 22px;
+  padding: 16px 18px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(14, 18, 30, 0.72);
+  max-width: 52rem;
+}
+
+.game-page__taste-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  color: var(--text-heading);
+}
+
+.game-page__taste-hint {
+  margin: 0 0 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.game-page__taste-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.game-page__taste-btn {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.9);
+  color: #f0c27a;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.game-page__taste-btn:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+.game-page__taste-btn--active {
+  border-color: rgba(201, 162, 39, 0.85);
+  background: rgba(40, 52, 82, 0.75);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.18);
+}
+
+.game-page__taste-btn--any {
+  color: var(--text-muted);
+  border-color: rgba(154, 166, 188, 0.35);
+}
+
+.game-page__taste-btn--any.game-page__taste-btn--active {
+  color: #e8dfd0;
+}
+
+.game-page__taste-reset {
+  margin-top: 14px;
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: #8b97ad;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.game-page__pick-first {
+  margin: 8px 0 0;
+  max-width: 40rem;
+}
+
+.game-page__geo-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.game-page__geo-ok {
+  font-size: 0.82rem;
+  margin: 0 0 12px;
+}
+
+.game-page__map-section {
+  margin: 18px 0 20px;
+}
+
+.game-page__map-fallback {
+  margin: 12px 0 16px;
+  font-size: 0.88rem;
+}
+
+.ladder-game {
+  margin-top: 8px;
+  padding: 18px 0 28px;
+}
+
+.ladder-game__toolbar {
+  margin-bottom: 14px;
+}
+
+.ladder-game__shuffle {
+  font-size: 0.88rem;
+}
+
+.ladder-game__labels {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ladder-game__labels > * {
+  flex: 1 1 0;
+  min-width: 72px;
+}
+
+.ladder-game__labels--top {
+  margin-bottom: 8px;
+}
+
+.ladder-game__labels--bottom {
+  margin-top: 8px;
+}
+
+.ladder-game__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(16, 20, 34, 0.88);
+  color: var(--cream);
+  cursor: pointer;
+  text-align: center;
+  min-width: 0;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ladder-game__pick:hover {
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.ladder-game__pick--active {
+  border-color: rgba(201, 162, 39, 0.75);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+.ladder-game__pick--running {
+  background: rgba(40, 55, 90, 0.55);
+}
+
+.ladder-game__pick-num {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--gold-soft);
+}
+
+.ladder-game__pick-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ladder-game__pick-src {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.ladder-game__svg-wrap {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(10, 14, 24, 0.65);
+  padding: 8px;
+}
+
+.ladder-game__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  min-height: 180px;
+}
+
+.ladder-game__vline {
+  stroke: rgba(212, 175, 55, 0.35);
+  stroke-width: 0.55;
+}
+
+.ladder-game__rung {
+  stroke: rgba(232, 210, 160, 0.85);
+  stroke-width: 0.65;
+  stroke-linecap: round;
+}
+
+.ladder-game__path {
+  stroke: rgba(250, 204, 21, 0.95);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.35));
+}
+
+.ladder-game__slot {
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  background: rgba(14, 18, 30, 0.75);
+  text-align: center;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ladder-game__slot--hit {
+  border-color: rgba(250, 204, 21, 0.55);
+  background: rgba(55, 48, 20, 0.45);
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.12);
+}
+
+.ladder-game__slot-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ladder-game__actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.ladder-game__actions .primary-link {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ladder-game__actions .primary-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ladder-game__result {
+  margin: 20px 0 0;
+  text-align: center;
+  font-size: 1.05rem;
+  color: var(--text-heading);
+}
+
+.ladder-game__result-link {
+  color: #f0c27a;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ladder-game__result-meta {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 @media (prefers-reduced-motion: reduce) {

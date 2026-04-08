@@ -1,0 +1,62 @@
+BroGourmet run.txt
+목적: 새 작업·새 대화 시작할 때 AI(브로)에게 인사 후, 로컬에서 먼저 돌릴 것. 잊지 않도록 이 파일을 열어 두거나 「run.txt 읽고 시작」이라고 말하기.
+
+================================================================================
+[0] AI에게 시작할 때 한 줄로
+================================================================================
+  「run.txt 기준으로 백엔드·프론트 구동 상태 확인해 줘」또는
+  「gourmet venv 켜고 uvicorn, broke는 npm run dev 맞는지 봐 줘」
+
+================================================================================
+[1] 백엔드 gourmet (FastAPI) — venv 권장
+================================================================================
+  위치: d:\brogourmet\gourmet
+
+  (처음 한 번) 가상환경 만들기
+    cd d:\brogourmet\gourmet
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    pip install -r requirements.txt
+
+  매번 구동
+    cd d:\brogourmet\gourmet
+    .\.venv\Scripts\Activate.ps1
+    # .env 확인: DATABASE_URL, BROG_UPLOAD_DIR·MYG_UPLOAD_DIR·레거시(COMMUNITY_IMAGE_DIR), JWT 등
+    python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+
+  ※ broke\.env 의 VITE_API_BASE_URL 이 위 포트와 같아야 함 (예: http://localhost:8001)
+  ※ venv 없이 전역 Python으로 돌리면 될 수는 있으나, 의존성 꼬임 방지용으로 venv 권장.
+
+================================================================================
+[2] 프론트 broke (Vite)
+================================================================================
+  위치: d:\brogourmet\broke
+
+    cd d:\brogourmet\broke
+    npm install
+    npm run dev
+
+  기본: http://localhost:5173
+
+================================================================================
+[3] 자주 쓰는 경로·파일
+================================================================================
+  dial.txt          — 대화·규칙 기록 (brogourmet 루트)
+  API_key.txt       — 카카오·API 키 안내 (비밀값은 파일에 적지 말 것)
+  gourmet\.env      — DB, SMTP, BROG_UPLOAD_DIR·MYG_UPLOAD_DIR·레거시 평면(COMMUNITY_IMAGE_DIR) 등
+  broke\.env        — VITE_API_BASE_URL, VITE_KAKAO_MAP_APP_KEY, VITE_KAKAO_REST_API_KEY
+
+================================================================================
+[4] 업로드 이미지 저장
+================================================================================
+  BroG: BROG_UPLOAD_DIR (기본 gourmet\uploads\brog) → URL /uploads/brog/{uuid}.jpg
+        1단계 배포 시 BroG만 서버(UNC 등) 경로로 지정 가능.
+  MyG·무료나눔: MYG_UPLOAD_DIR (기본 gourmet\uploads\myg) → /uploads/myg/{uuid}.jpg (로컬 유지 권장)
+  레거시 평면: LEGACY_UPLOAD_DIR 또는 COMMUNITY_IMAGE_DIR → /uploads/{uuid}.jpg (구 DB 호환)
+
+================================================================================
+[5] 선택 점검 스크립트
+================================================================================
+  gourmet 에서 업로드 API·디스크 저장 확인:
+    pip install httpx
+    python scripts\test_upload_probe.py

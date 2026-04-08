@@ -34,6 +34,10 @@ class RestaurantListItem(BaseModel):
     main_menu_price: int
     # 동일 위치 중복 매장 중 첫 등록(이름_* 등)만 True — 목록에서 굵은 제목 표시용
     points_eligible: bool = True
+    # 등록 계정이 가맹 역할이면 True — 지도 깃발(청록) 구분용
+    is_franchise: bool = False
+    # 목록·지도에서 본인 글 숨김 등 UI 판별용 (없으면 레거시 데이터)
+    submitted_by_user_id: int | None = None
 
 
 class RestaurantDetailRead(BaseModel):
@@ -59,6 +63,7 @@ class RestaurantDetailRead(BaseModel):
     submitted_by_user_id: int | None = None
     submitted_by_nickname: str | None = None
     submitted_by_role: str | None = None
+    is_franchise: bool = False
 
 
 class ExtraCardMenuWrite(BaseModel):

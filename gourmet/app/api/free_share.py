@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.deps import (
     ensure_community_post_author_or_moderation,
+    ensure_community_post_super_admin_delete,
     get_current_user,
     get_db,
 )
@@ -112,6 +113,6 @@ def delete_post(
     post = db.query(FreeSharePost).filter(FreeSharePost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    ensure_community_post_author_or_moderation(current_user, post.author_id, post.district, db)
+    ensure_community_post_super_admin_delete(current_user)
     db.delete(post)
     db.commit()

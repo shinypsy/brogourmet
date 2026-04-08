@@ -1,31 +1,39 @@
-import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { fetchDistricts, type District } from '../api/districts'
 import { uploadCommunityImage } from '../api/community'
+import { KAKAO_MAP_APP_KEY } from '../api/config'
 import {
   createRestaurant,
+  fetchRestaurant,
   fetchRestaurantForManage,
   purgeRestaurantPermanent,
   restoreRestaurant,
   updateRestaurant,
   type RestaurantWritePayload,
 } from '../api/restaurants'
+import { BrogKakaoMap } from '../components/BrogKakaoMap'
 import {
   clampMenuTextLineCount,
   MAX_MENU_LINES,
   menuItemsToMenuLinesText,
   parseMenuLinesText,
 } from '../lib/menuLines'
+import { coordsFieldsBothEmpty, readGpsFromImageFile } from '../lib/imageExifGps'
+import { mapGeoHintMessage } from '../lib/mapGeoHint'
+import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
+import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
 import {
-  canManageBrog,
-  canManageBrogForDistrict,
+  assumeAdminUi,
+  canAccessBrogManageForRestaurant,
   isSuperAdmin,
   ROLE_SUPER_ADMIN,
 } from '../lib/roles'
+import { TEST_UI_SUPER_ADMIN_PERSONA } from '../lib/testUiAdminPersona'
 
 const MAX_BROG_IMAGES = 5
 
@@ -58,11 +66,51 @@ export function RestaurantManagePage() {
   const [menuLinesText, setMenuLinesText] = useState('')
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [brogImageBusy, setBrogImageBusy] = useState(false)
+  const [exifGpsHint, setExifGpsHint] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(Boolean(id))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loadedIsDeleted, setLoadedIsDeleted] = useState(false)
+  const [mapLocateBusy, setMapLocateBusy] = useState(false)
+  const [coordPickHint, setCoordPickHint] = useState('')
+
+  const onMapPickUserLocation = useCallback(
+    async (lat: number, lng: number) => {
+      const latR = Number(lat.toFixed(6))
+      const lngR = Number(lng.toFixed(6))
+      const r = await resolveCoordAddressForManageForm(lat, lng)
+      const did = districts.find((d) => d.name === r.districtName)?.id
+      setForm((f) => ({
+        ...f,
+        latitude: latR,
+        longitude: lngR,
+        ...(did ? { district_id: did } : {}),
+      }))
+      const hintParts: string[] = []
+      if (r.addressLine) hintParts.push(r.addressLine)
+      hintParts.push(mapGeoHintMessage(r.reason, r.districtName))
+      setCoordPickHint(hintParts.filter(Boolean).join(' · '))
+    },
+    [districts],
+  )
+
+  const onMapLocateGps = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setCoordPickHint('이 브라우저에서는 위치를 사용할 수 없습니다.')
+      return
+    }
+    setMapLocateBusy(true)
+    setCoordPickHint('위치 확인 중…')
+    try {
+      const c = await requestGeolocation()
+      await onMapPickUserLocation(c.latitude, c.longitude)
+    } catch (e) {
+      setCoordPickHint(geolocationFailureMessage(e))
+    } finally {
+      setMapLocateBusy(false)
+    }
+  }, [onMapPickUserLocation])
 
   useEffect(() => {
     if (!id) {
@@ -78,6 +126,12 @@ export function RestaurantManagePage() {
 
   useEffect(() => {
     if (!token) {
+      if (assumeAdminUi()) {
+        setUser(TEST_UI_SUPER_ADMIN_PERSONA)
+        setError('')
+        return
+      }
+      setUser(null)
       setError('로그인이 필요합니다.')
       setIsLoading(false)
       return
@@ -88,9 +142,6 @@ export function RestaurantManagePage() {
       .then((me) => {
         if (!cancelled) {
           setUser(me)
-          if (!canManageBrog(me.role)) {
-            setError('슈퍼 관리자 또는 지역 담당자만 접근할 수 있습니다.')
-          }
         }
       })
       .catch((e) => {
@@ -118,11 +169,12 @@ export function RestaurantManagePage() {
       setIsLoading(false)
       return
     }
-    if (!token) return
+    if (!token && !assumeAdminUi()) return
 
     let cancelled = false
     setIsLoading(true)
-    fetchRestaurantForManage(token, numericId)
+    const load = token ? fetchRestaurantForManage(token, numericId) : fetchRestaurant(numericId)
+    load
       .then((restaurant) => {
         if (cancelled) return
         setLoadedIsDeleted(Boolean(restaurant.is_deleted))
@@ -148,11 +200,10 @@ export function RestaurantManagePage() {
           more_menu_items: [],
           status: restaurant.status === 'draft' ? 'draft' : 'published',
         })
-        if (
-          user &&
-          !canManageBrogForDistrict(user.role, user.managed_district_id, restaurant.district_id)
-        ) {
-          setError('이 맛집이 속한 구를 담당하지 않아 수정할 수 없습니다.')
+        if (user && !canAccessBrogManageForRestaurant(user, restaurant)) {
+          setError('이 BroG를 수정할 권한이 없습니다.')
+        } else {
+          setError((msg) => (msg === '이 BroG를 수정할 권한이 없습니다.' ? '' : msg))
         }
       })
       .catch((e) => {
@@ -167,19 +218,53 @@ export function RestaurantManagePage() {
     }
   }, [id, token, user])
 
-  async function handleBrogImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+  async function handleBrogImagesChange(event: ChangeEvent<HTMLInputElement>) {
+    const chosen = Array.from(event.target.files ?? [])
     event.target.value = ''
-    if (!file || !file.type.startsWith('image/') || !token) return
-    if (imageUrls.length >= MAX_BROG_IMAGES) {
+    const files = chosen.filter((f) => f.type.startsWith('image/'))
+    if (!chosen.length) return
+    if (!files.length) {
+      setError('이미지 파일(jpeg, png, webp, gif)만 선택할 수 있습니다.')
+      return
+    }
+    if (!token) {
+      setError(assumeAdminUi() ? '테스트 UI: 이미지 업로드는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
+    const room = MAX_BROG_IMAGES - imageUrls.length
+    if (room <= 0) {
       setError(`사진은 최대 ${MAX_BROG_IMAGES}장까지 등록할 수 있습니다.`)
       return
     }
+    const slice = files.slice(0, room)
     setError('')
+    setExifGpsHint('')
     setBrogImageBusy(true)
     try {
-      const url = await uploadCommunityImage(token, file)
-      setImageUrls((prev) => [...prev, url].slice(0, MAX_BROG_IMAGES))
+      const urls = await Promise.all(
+        slice.map((file) => uploadCommunityImage(token, file, 'brog')),
+      )
+      setImageUrls((prev) => [...prev, ...urls].slice(0, MAX_BROG_IMAGES))
+      const gpsResults = await Promise.all(slice.map((file) => readGpsFromImageFile(file)))
+      let filledFromExif = false
+      setForm((prev) => {
+        if (!coordsFieldsBothEmpty(prev.latitude, prev.longitude)) return prev
+        for (const gps of gpsResults) {
+          if (gps) {
+            filledFromExif = true
+            return { ...prev, latitude: gps.latitude, longitude: gps.longitude }
+          }
+        }
+        return prev
+      })
+      const parts: string[] = []
+      if (filledFromExif) {
+        parts.push('업로드한 사진 중 GPS가 있는 첫 파일로 위도·경도를 채웠습니다. 필요하면 수정하세요.')
+      }
+      if (files.length > slice.length) {
+        parts.push(`${files.length}장 중 ${slice.length}장만 반영했습니다(최대 ${MAX_BROG_IMAGES}장).`)
+      }
+      if (parts.length) setExifGpsHint(parts.join(' '))
     } catch (e) {
       setError(e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.')
     } finally {
@@ -199,7 +284,7 @@ export function RestaurantManagePage() {
     setOcrBusy(true)
     try {
       const lines = await recognizeMenuImageToMenuLines(file)
-      setMenuLinesText(lines)
+      setMenuLinesText(clampMenuTextLineCount(lines))
     } catch (e) {
       setError(e instanceof Error ? e.message : '사진 인식에 실패했습니다.')
     } finally {
@@ -208,7 +293,11 @@ export function RestaurantManagePage() {
   }
 
   async function handlePurgePermanent() {
-    if (!token || !id || !isSuperAdmin(user?.role)) return
+    if (!id || !isSuperAdmin(user?.role)) return
+    if (!token) {
+      setError(assumeAdminUi() ? '테스트 UI: 영구 삭제는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     if (!window.confirm('DB에서 이 BroG와 메뉴 행을 완전히 지웁니다. 되돌릴 수 없습니다. 계속할까요?')) {
       return
     }
@@ -222,7 +311,11 @@ export function RestaurantManagePage() {
   }
 
   async function handleRestoreVisible() {
-    if (!token || !id || !isSuperAdmin(user?.role)) return
+    if (!id || !isSuperAdmin(user?.role)) return
+    if (!token) {
+      setError(assumeAdminUi() ? '테스트 UI: 다시 공개는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     if (!window.confirm('지도·목록에 이 BroG를 다시 보이게 할까요?')) return
     setError('')
     try {
@@ -235,8 +328,8 @@ export function RestaurantManagePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!token || !canManageBrog(user?.role)) {
-      setError('슈퍼 관리자 또는 지역 담당자만 저장할 수 있습니다.')
+    if (!token) {
+      setError(assumeAdminUi() ? '테스트 UI: 저장하려면 로그인하세요.' : '로그인이 필요합니다.')
       return
     }
     if (!form.district_id) {
@@ -307,6 +400,14 @@ export function RestaurantManagePage() {
         {' · '}
         <Link to="/map">지도</Link>
       </p>
+      {id ? (
+        <p className="helper" style={{ marginTop: 8 }}>
+          <Link className="compact-link" to={`/restaurants/${id}`}>
+            공개 상세 보기
+          </Link>
+          {' — '}목록·지도에서 숨기기, 댓글 정리, DB 영구 삭제(슈퍼)는 상세 화면 「관리」에서 할 수 있습니다.
+        </p>
+      ) : null}
 
       {isLoading ? <p>불러오는 중...</p> : null}
       {loadedIsDeleted ? (
@@ -372,31 +473,30 @@ export function RestaurantManagePage() {
               ))}
             </select>
           </label>
-          <label>
-            카테고리
-            <select
-              value={form.category}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  category: e.target.value as RestaurantManageFormState['category'],
-                })
-              }
-              required
-            >
-              <option value="" disabled>
-                선택
-              </option>
-              {form.category && !isBrogCategory(form.category) ? (
-                <option value={form.category}>{form.category} (기존 값, 목록에 없음)</option>
-              ) : null}
+          <fieldset className="brog-category-fieldset">
+            <legend>카테고리</legend>
+            {form.category && !isBrogCategory(form.category) ? (
+              <p className="helper" style={{ margin: 0 }}>
+                저장된 값 「{form.category}」은(는) 현재 표준 목록에 없습니다. 아래에서 카테고리를 다시 골라
+                주세요.
+              </p>
+            ) : null}
+            <div className="brog-category-picker" role="group" aria-label="카테고리 선택">
               {BROG_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
+                <button
+                  key={c}
+                  type="button"
+                  className={
+                    'brog-category-picker__btn' +
+                    (form.category === c ? ' brog-category-picker__btn--active' : '')
+                  }
+                  onClick={() => setForm({ ...form, category: c })}
+                >
                   {c}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
           <label>
             소개
             <textarea
@@ -409,14 +509,17 @@ export function RestaurantManagePage() {
           <label>
             사진 (최대 {MAX_BROG_IMAGES}장)
             <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
-              첫 장이 목록·지도 대표 썸네일입니다. 업로드는 서버 저장(최대 5MB/장) 또는 아래에 URL을 직접 적어도 됩니다.
+              첫 장이 목록·지도 대표 썸네일입니다. 한 번에 최대 {MAX_BROG_IMAGES}장까지 선택해 동시에 올릴 수 있습니다(남은
+              슬롯만큼만 업로드). 서버 저장(최대 5MB/장) 또는 아래 URL 입력도 가능합니다. GPS가 있는 사진은 위도·경도가 비어 있을
+              때 EXIF로 채웁니다.
             </p>
             <input
               ref={brogImageInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
               style={{ display: 'none' }}
-              onChange={handleBrogImageChange}
+              onChange={handleBrogImagesChange}
             />
             <p style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
               <button
@@ -425,7 +528,7 @@ export function RestaurantManagePage() {
                 disabled={brogImageBusy || imageUrls.length >= MAX_BROG_IMAGES}
                 onClick={() => brogImageInputRef.current?.click()}
               >
-                {brogImageBusy ? '업로드 중…' : '파일에서 추가'}
+                {brogImageBusy ? '업로드 중…' : '파일에서 추가 (여러 장 선택 가능)'}
               </button>
               <span className="helper">
                 {imageUrls.length}/{MAX_BROG_IMAGES}장
@@ -465,6 +568,38 @@ export function RestaurantManagePage() {
               </button>
             ) : null}
           </label>
+          <div className="restaurant-manage-location-map">
+            <p className="helper" style={{ marginBottom: 8 }}>
+              <strong>위치 지도</strong> · 메인과 비슷한 크기입니다. 지도를 <strong>길게 누르거나 우클릭</strong>하면 그
+              지점의 위도·경도가 아래에 들어가고, 카카오 REST 키가 있으면 <strong>주소·구</strong>도 맞춰 집니다. 우측 하단
+              「내 위치」는 GPS입니다.
+            </p>
+            {KAKAO_MAP_APP_KEY ? (
+              <BrogKakaoMap
+                userCoords={
+                  form.latitude != null && form.longitude != null
+                    ? { lat: form.latitude, lng: form.longitude }
+                    : null
+                }
+                pins={[]}
+                locating={mapLocateBusy}
+                onMyLocationClick={() => void onMapLocateGps()}
+                onPickUserLocationOnMap={(la, ln) => void onMapPickUserLocation(la, ln)}
+                getDetailPath={(_id) => '/restaurants/manage/new'}
+                mapAriaLabel="BroG 매장 위치 선택 지도"
+              />
+            ) : (
+              <p className="helper">
+                지도를 쓰려면 <code>broke/.env</code>에 <code>VITE_KAKAO_MAP_APP_KEY</code>(JavaScript 키)를 넣으세요.
+                주소·구 자동 입력에는 <code>VITE_KAKAO_REST_API_KEY</code>도 필요합니다.
+              </p>
+            )}
+            {coordPickHint ? (
+              <p className="helper restaurant-manage-location-map__hint" role="status">
+                {coordPickHint}
+              </p>
+            ) : null}
+          </div>
           <label>
             위도
             <input
@@ -487,6 +622,7 @@ export function RestaurantManagePage() {
               }
             />
           </label>
+          {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
           <label>
             메뉴 목록 (최대 {MAX_MENU_LINES}줄)
             <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
@@ -515,12 +651,13 @@ export function RestaurantManagePage() {
                 disabled={ocrBusy}
                 onClick={() => menuPhotoInputRef.current?.click()}
               >
-                {ocrBusy ? '사진에서 읽는 중…' : '메뉴판 사진에서 불러오기 (최대 10줄)'}
+                {ocrBusy ? '사진에서 읽는 중…' : '메뉴판 사진에서 불러오기 → 메뉴 목록에 자동 반영'}
               </button>
             </p>
             <p className="helper" style={{ marginTop: 4 }}>
-              사진 인식은 기기에서 처리됩니다. 처음에는 한글 OCR 데이터를 받아오느라 시간이 걸릴 수 있습니다. 인식 후
-              줄마다 형식을 한 번씩 확인해 주세요.
+              인식 결과는 아래 메뉴 목록 텍스트에 <strong>덮어씁니다</strong>(기존 입력은 사라집니다). 브라우저에서
+              Tesseract로 처리하며 첫 실행 시 한글 모델 로딩에 시간이 걸릴 수 있습니다. 클라우드 OCR 등은 서비스
+              운영 단계에서 재논의 예정입니다. <code>메뉴명 : 가격</code> 형식인지 꼭 확인하세요.
             </p>
           </label>
           <button type="submit" disabled={isSubmitting}>

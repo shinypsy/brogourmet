@@ -5,3 +5,5 @@ gourmet/.venv/
 *.pyc
 smtp_config.ps1
 IP_dial.txt
+API_key.txt
+gourmet/uploads/

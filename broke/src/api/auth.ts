@@ -77,3 +77,17 @@ export async function fetchMe(token: string): Promise<User> {
     },
   })
 }
+
+export async function deleteAccount(password: string): Promise<void> {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  if (!token) {
+    throw new Error('로그인이 필요합니다.')
+  }
+  return requestJson<void>('/users/me/delete-account', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+}

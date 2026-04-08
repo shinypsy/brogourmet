@@ -1,3 +1,4 @@
+import logging
 import os
 
 from datetime import datetime, timezone
@@ -23,9 +24,18 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserCreate, UserRead
 from app.services.user_read import build_user_read
-from app.services.verification_smtp import send_verification_email
+from app.services.verification_smtp import (
+    VerificationEmailNotConfigured,
+    deliver_verification_email,
+    send_verification_email,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
+
+
+def _require_verification_email_on_signup() -> bool:
+    return os.getenv("REQUIRE_VERIFICATION_EMAIL_ON_SIGNUP", "").lower() in ("1", "true", "yes")
 
 
 def _dev_return_verification_plain() -> bool:
@@ -60,10 +70,35 @@ def signup(
     )
     plain = _set_verification_token_on_user(user)
     db.add(user)
-    db.commit()
+    require_mail = _require_verification_email_on_signup()
+    try:
+        if require_mail:
+            db.flush()
+            deliver_verification_email(user.email, plain, user.nickname)
+        db.commit()
+    except VerificationEmailNotConfigured:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "회원가입을 처리할 수 없습니다. gourmet .env 에 SMTP_ENABLED=true 및 "
+                "SMTP_USER, SMTP_PASSWORD(Gmail 은 앱 비밀번호)를 설정하세요."
+            ),
+        )
+    except Exception:
+        if require_mail:
+            db.rollback()
+            logger.exception("가입 중 인증 메일 발송 실패: email=%s", payload.email)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.",
+            )
+        raise
+
     db.refresh(user)
 
-    background_tasks.add_task(send_verification_email, user.email, plain, user.nickname)
+    if not require_mail:
+        background_tasks.add_task(send_verification_email, user.email, plain, user.nickname)
 
     return SignupResponse(
         user=build_user_read(db, user),

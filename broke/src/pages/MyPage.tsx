@@ -8,7 +8,9 @@ import {
   restoreRestaurant,
   type RestaurantManageRow,
 } from '../api/restaurants'
-import { canManageBrog, isSuperAdmin } from '../lib/roles'
+import { WithdrawAccountSection } from '../components/WithdrawAccountSection'
+import { assumeAdminUi, isSuperAdmin, ROLE_REGIONAL_MANAGER } from '../lib/roles'
+import { TEST_UI_SUPER_ADMIN_PERSONA } from '../lib/testUiAdminPersona'
 
 export function MyPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -23,6 +25,12 @@ export function MyPage() {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY)
 
     if (!token) {
+      if (assumeAdminUi()) {
+        setUser(TEST_UI_SUPER_ADMIN_PERSONA)
+        setError('')
+        setIsLoading(false)
+        return
+      }
       setError('저장된 토큰이 없습니다. 먼저 로그인해주세요.')
       setIsLoading(false)
       return
@@ -44,7 +52,7 @@ export function MyPage() {
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY)
-    if (!token || !user || !canManageBrog(user.role)) {
+    if (!user || !token) {
       setBrogRows([])
       return
     }
@@ -75,17 +83,26 @@ export function MyPage() {
   }
 
   return (
-    <section className="card">
+    <section className="card my-page">
       <h1>Myinfo</h1>
       <p className="description">
-        로그인한 사용자 정보는 <code>/users/me</code> API 응답을 그대로 보여 줍니다. BroG 담당 권한이 있으면 관리
-        목록도 이 페이지에서 이어집니다.
+        로그인 계정의 프로필입니다. 이메일·닉네임·권한을 확인할 수 있고, BroG 작성 링크와 본인이 등록한 BroG 목록이
+        아래에 이어집니다.
       </p>
 
       {isLoading ? <p>불러오는 중...</p> : null}
 
       {user ? (
         <>
+          {!user.email_verified_at ? (
+            <div className="my-page__verify-callout" role="status">
+              <p className="my-page__verify-callout-title">이메일 인증이 필요합니다</p>
+              <p className="helper" style={{ margin: '6px 0 0' }}>
+                인증 후 로그인하면 <strong>바로 홈(메인)</strong>으로 들어갑니다.{' '}
+                <Link to="/verify-email">이메일 인증하기</Link>
+              </p>
+            </div>
+          ) : null}
           <dl className="profile">
             <div>
               <dt>이메일</dt>
@@ -126,68 +143,78 @@ export function MyPage() {
               <Link to="/verify-email">이메일 인증하기</Link>
             </p>
           ) : null}
-          {canManageBrog(user.role) ? (
-            <>
-              <p className="helper">
-                <Link to="/restaurants/manage/new">BroG 작성</Link>
-              </p>
-              {isSuperAdmin(user.role) ? (
-                <label className="helper" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={includeHiddenBrogs}
-                    onChange={(e) => setIncludeHiddenBrogs(e.target.checked)}
-                  />
-                  숨긴 BroG 포함 (슈퍼만)
-                </label>
-              ) : null}
-              {brogListError ? <p className="error">{brogListError}</p> : null}
-              {brogListLoading ? <p className="helper">BroG 목록 불러오는 중...</p> : null}
-              {brogRows.length > 0 ? (
-                <>
-                  <h2 style={{ fontSize: '1.1rem', marginTop: '1.25rem' }}>BroG 관리 목록</h2>
-                  <ul className="compact-list" style={{ marginTop: '0.5rem', paddingLeft: '1.1rem' }}>
-                    {brogRows.map((row) => (
-                      <li key={row.id} style={{ marginBottom: '0.35rem' }}>
-                        <Link to={`/restaurants/manage/${row.id}`}>
-                          {row.name}
-                        </Link>{' '}
-                        <span className="muted" style={{ fontSize: '0.85rem' }}>
-                          · {row.district} · {row.status === 'draft' ? '초안' : '공개'}
-                          {row.is_deleted ? ' · 숨김' : ''}
-                        </span>
-                        {isSuperAdmin(user.role) && row.is_deleted ? (
-                          <>
-                            {' '}
-                            <button
-                              type="button"
-                              className="compact-link"
-                              style={{ fontSize: '0.8rem', padding: '2px 8px', marginLeft: 4 }}
-                              onClick={() => void handleRestoreBroG(row.id)}
-                            >
-                              다시 공개
-                            </button>
-                          </>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : !brogListLoading && !brogListError ? (
-                <p className="helper" style={{ marginTop: '0.5rem' }}>
-                  등록된 BroG가 없습니다.
-                </p>
-              ) : null}
-            </>
+          <p className="helper">
+            <Link to="/restaurants/manage/new">BroG 작성</Link>
+          </p>
+          {isSuperAdmin(user.role) ? (
+            <label className="helper" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={includeHiddenBrogs}
+                onChange={(e) => setIncludeHiddenBrogs(e.target.checked)}
+              />
+              숨긴 BroG 포함 (슈퍼만)
+            </label>
           ) : null}
+          {brogListError ? <p className="error">{brogListError}</p> : null}
+          {brogListLoading ? <p className="helper">BroG 목록 불러오는 중...</p> : null}
+          {brogRows.length > 0 ? (
+            <>
+              <h2 style={{ fontSize: '1.1rem', marginTop: '1.25rem' }}>
+                {isSuperAdmin(user.role) || user.role === ROLE_REGIONAL_MANAGER
+                  ? 'BroG 관리 목록'
+                  : '내가 등록한 BroG'}
+              </h2>
+              <ul className="compact-list" style={{ marginTop: '0.5rem', paddingLeft: '1.1rem' }}>
+                {brogRows.map((row) => (
+                  <li key={row.id} style={{ marginBottom: '0.35rem' }}>
+                    <Link to={`/restaurants/manage/${row.id}`}>
+                      {row.name}
+                    </Link>{' '}
+                    <span className="muted" style={{ fontSize: '0.85rem' }}>
+                      · {row.district} · {row.status === 'draft' ? '초안' : '공개'}
+                      {row.is_deleted ? ' · 숨김' : ''}
+                    </span>
+                    {isSuperAdmin(user.role) && row.is_deleted ? (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="compact-link"
+                          style={{ fontSize: '0.8rem', padding: '2px 8px', marginLeft: 4 }}
+                          onClick={() => void handleRestoreBroG(row.id)}
+                        >
+                          다시 공개
+                        </button>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : !brogListLoading && !brogListError ? (
+            <p className="helper" style={{ marginTop: '0.5rem' }}>
+              {assumeAdminUi() && !localStorage.getItem(ACCESS_TOKEN_KEY)
+                ? '테스트 UI: BroG 목록은 로그인 후 API에서 불러옵니다.'
+                : isSuperAdmin(user.role) || user.role === ROLE_REGIONAL_MANAGER
+                  ? '등록된 BroG가 없습니다.'
+                  : '아직 등록한 BroG가 없습니다.'}
+            </p>
+          ) : null}
+          <p className="helper my-page__footer-link">
+            <Link to="/">홈으로</Link>
+          </p>
+          <WithdrawAccountSection />
         </>
       ) : null}
 
       {error ? <p className="error">{error}</p> : null}
 
-      <p className="helper">
-        <Link to="/login">다시 로그인</Link>
-      </p>
+      {!user && !isLoading ? (
+        <p className="helper">
+          <Link to="/login">로그인하기</Link>
+        </p>
+      ) : null}
     </section>
   )
 }

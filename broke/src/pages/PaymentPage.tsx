@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY } from '../api/auth'
@@ -15,7 +15,7 @@ export function PaymentPage() {
 
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
 
-  function reload() {
+  const reload = useCallback(() => {
     if (!token) {
       setIntents([])
       setIsLoading(false)
@@ -30,11 +30,11 @@ export function PaymentPage() {
         setError(loadError instanceof Error ? loadError.message : '내역을 불러오지 못했습니다.')
       })
       .finally(() => setIsLoading(false))
-  }
+  }, [token])
 
   useEffect(() => {
-    reload()
-  }, [token])
+    void Promise.resolve().then(() => reload())
+  }, [reload])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

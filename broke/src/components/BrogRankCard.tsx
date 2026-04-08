@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 import type { RestaurantListItem } from '../api/restaurants'
 import { FoodPhotoWithMenuOverlay } from './FoodPhotoWithMenuOverlay'
-import { resolveMediaUrl } from '../lib/mediaUrl'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
 
 /** BroG: 다이닝코드 랭킹형 — 주메뉴(대표) 사진 · 가게명 · 대표가격만 */
 export function BrogRankCard({
@@ -44,6 +44,7 @@ export function BrogRankCard({
                   alt=""
                   loading="lazy"
                   decoding="async"
+                  referrerPolicy={imgReferrerPolicyForResolvedSrc(heroSrc)}
                   onError={() => setImgFailed(true)}
                 />
               ) : (

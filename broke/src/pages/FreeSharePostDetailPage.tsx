@@ -9,8 +9,8 @@ import {
   uploadCommunityImage,
   type FreeSharePost,
 } from '../api/community'
-import { API_BASE_URL } from '../api/config'
-import { canEditOrDeleteCommunityPost } from '../lib/roles'
+import { assumeAdminUi, canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
 
 export function FreeSharePostDetailPage() {
   const { id } = useParams()
@@ -60,14 +60,17 @@ export function FreeSharePostDetailPage() {
     }
   }, [numericId])
 
-  const canEdit = Boolean(
-    post && user && canEditOrDeleteCommunityPost(user, post.author_id, post.district),
-  )
+  const canEdit = Boolean(post && canEditCommunityPost(user, post.author_id, post.district))
+  const canDelete = Boolean(post && canDeleteCommunityPost(user))
 
   async function handleImageFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file || !file.type.startsWith('image/') || !token) return
+    if (!file || !file.type.startsWith('image/')) return
+    if (!token) {
+      setSaveError(assumeAdminUi() ? '테스트 UI: 업로드는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     setUploadBusy(true)
     setSaveError('')
     try {
@@ -82,7 +85,11 @@ export function FreeSharePostDetailPage() {
 
   async function handleSave(event: FormEvent) {
     event.preventDefault()
-    if (!token || !post) return
+    if (!post) return
+    if (!token) {
+      setSaveError(assumeAdminUi() ? '테스트 UI: 저장은 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     setSaveError('')
     setBusy(true)
     try {
@@ -101,7 +108,11 @@ export function FreeSharePostDetailPage() {
   }
 
   async function handleDelete() {
-    if (!token || !post) return
+    if (!post) return
+    if (!token) {
+      setSaveError(assumeAdminUi() ? '테스트 UI: 삭제는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     if (!window.confirm('이 글을 삭제할까요?')) return
     setSaveError('')
     setBusy(true)
@@ -152,7 +163,12 @@ export function FreeSharePostDetailPage() {
 
         {imageUrl ? (
           <p>
-            <img className="post-image" src={`${API_BASE_URL}${imageUrl}`} alt="" />
+            <img
+              className="post-image"
+              src={resolveMediaUrl(imageUrl)}
+              alt=""
+              referrerPolicy={imgReferrerPolicyForResolvedSrc(resolveMediaUrl(imageUrl))}
+            />
           </p>
         ) : null}
 
@@ -207,9 +223,11 @@ export function FreeSharePostDetailPage() {
               <button type="submit" disabled={busy}>
                 {busy ? '저장 중…' : '저장'}
               </button>
-              <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
-                삭제
-              </button>
+              {canDelete ? (
+                <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
+                  삭제(관리자)
+                </button>
+              ) : null}
             </p>
           </form>
         ) : (
@@ -217,7 +235,16 @@ export function FreeSharePostDetailPage() {
             <h2>{post.title}</h2>
             <p className="post-body">{post.body}</p>
             {post.district ? <p className="helper">구: {post.district}</p> : null}
-            {!token ? <p className="helper">로그인 후 본인 글이면 수정·삭제할 수 있습니다.</p> : null}
+            {!token ? (
+              <p className="helper">로그인 후 권한에 따라 수정할 수 있습니다. 삭제는 최종 관리자만 가능합니다.</p>
+            ) : null}
+            {token && canDelete && !canEdit ? (
+              <p className="helper">
+                <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
+                  삭제(관리자)
+                </button>
+              </p>
+            ) : null}
           </>
         )}
         {saveError ? <p className="error">{saveError}</p> : null}

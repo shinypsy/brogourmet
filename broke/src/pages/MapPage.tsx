@@ -1,103 +1,72 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { deleteRestaurant, fetchRestaurants, type RestaurantListItem } from '../api/restaurants'
-import { BrogRankCard } from '../components/BrogRankCard'
-import { canManageBrogForDistrict, isSuperAdmin } from '../lib/roles'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
-import { ensureKakaoMapsReady } from '../lib/kakaoMapsSdk'
-
-type LocationState = {
-  latitude: number
-  longitude: number
-}
-
-type KakaoMapInstance = {
-  setCenter: (latlng: unknown) => void
-  setBounds: (bounds: unknown) => void
-  setLevel?: (level: number) => void
-  relayout?: () => void
-}
-
-type KakaoMarkerInstance = {
-  setMap: (map: KakaoMapInstance | null) => void
-}
-
-/** 카카오맵 깃발 마커 (SVG data URL) */
-const BROG_FLAG_MARKER_SVG = encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 48" width="40" height="48">
-    <ellipse cx="20" cy="44" rx="5" ry="3" fill="rgba(0,0,0,.18)"/>
-    <rect x="17" y="10" width="3.5" height="34" rx="1" fill="#2a3142"/>
-    <path d="M20.5 10 L38 19 L20.5 28 Z" fill="#c9a227" stroke="#8b7324" stroke-width="1"/>
-    <path d="M20.5 12 L35 19 L20.5 26 Z" fill="#f5e6b8" opacity=".4"/>
-  </svg>`,
-)
-const BROG_FLAG_MARKER_URL = `data:image/svg+xml,${BROG_FLAG_MARKER_SVG}`
-
-declare global {
-  interface Window {
-    kakao?: {
-      maps: {
-        load: (callback: () => void) => void
-        event?: {
-          addListener: (target: unknown, type: string, handler: () => void) => void
-        }
-        LatLng: new (lat: number, lng: number) => unknown
-        LatLngBounds: new () => {
-          extend: (latlng: unknown) => void
-        }
-        Map: new (container: HTMLElement, options: Record<string, unknown>) => KakaoMapInstance
-        Marker: new (options: Record<string, unknown>) => KakaoMarkerInstance
-        MarkerImage: new (
-          src: string,
-          size: unknown,
-          options?: { offset?: unknown },
-        ) => unknown
-        Size: new (width: number, height: number) => unknown
-        Point: new (x: number, y: number) => unknown
-      }
-    }
-  }
-}
+import { BrogKakaoMap } from '../components/BrogKakaoMap'
+import { BrogRankCard } from '../components/BrogRankCard'
+import { useSeoulMapUserLocation } from '../hooks/useSeoulMapUserLocation'
+import {
+  brogDistrictOptionsForUi,
+  clampBrogDistrictForPhase1,
+  isBrogPhase1Restricted,
+} from '../lib/brogPhase1'
+import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
+import { assumeAdminUi, canSoftDeleteBrogListing } from '../lib/roles'
 
 const PRICE_FILTER_MAX_OPTIONS = [10000, 9000, 8000, 7000, 6000, 5000] as const
 
-const MAP_LOG = '[Brogourmet Map]'
 const DEFAULT_DISTRICT = '마포구'
-const MAPO_LOCATION: LocationState = {
-  latitude: 37.5563,
-  longitude: 126.922,
-}
 
 export function MapPage() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [currentLocation, setCurrentLocation] = useState<LocationState | null>(null)
-  const [locationError, setLocationError] = useState('')
-  const [isLocating, setIsLocating] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const city = searchParams.get('city') ?? '서울특별시'
+  const districtFromUrl = searchParams.get('district') ?? DEFAULT_DISTRICT
+
+  const [district, setDistrictState] = useState(districtFromUrl)
   const [maxPrice, setMaxPrice] = useState(10000)
   const [restaurants, setRestaurants] = useState<RestaurantListItem[]>([])
   const [listError, setListError] = useState('')
   const [isListLoading, setIsListLoading] = useState(true)
-  const [mapSdkReady, setMapSdkReady] = useState(false)
-  const [mapLoadError, setMapLoadError] = useState('')
   const [user, setUser] = useState<User | null>(null)
-  const mapRef = useRef<KakaoMapInstance | null>(null)
-  const mapContainerRef = useRef<HTMLDivElement | null>(null)
-  const markersRef = useRef<KakaoMarkerInstance[]>([])
-  const userMarkerRef = useRef<KakaoMarkerInstance | null>(null)
 
-  const mode = searchParams.get('mode')
-  const city = searchParams.get('city') ?? '서울특별시'
-  const district = searchParams.get('district') ?? DEFAULT_DISTRICT
+  useEffect(() => {
+    setDistrictState(clampBrogDistrictForPhase1(districtFromUrl))
+  }, [districtFromUrl])
 
-  const pageTitle = useMemo(() => {
-    if (mode === 'current') {
-      return '마포구 BroG'
+  useEffect(() => {
+    if (!isBrogPhase1Restricted()) return
+    const next = clampBrogDistrictForPhase1(districtFromUrl)
+    if (next !== districtFromUrl) {
+      setSearchParams({ city, district: next }, { replace: true })
     }
-    return `${district} BroG`
-  }, [district, mode])
+  }, [city, districtFromUrl, setSearchParams])
+
+  const setDistrict = useCallback(
+    (gu: string) => {
+      const next = clampBrogDistrictForPhase1(gu)
+      setDistrictState(next)
+      const c = searchParams.get('city') ?? '서울특별시'
+      setSearchParams({ city: c, district: next }, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  const {
+    geoHint,
+    geoBusy,
+    setGeoRetryToken,
+    mapUserCoords,
+    latInput,
+    setLatInput,
+    lngInput,
+    setLngInput,
+    coordApplyError,
+    handleApplyManualCoords,
+    myLocationFromDevice,
+    applyLatLng,
+  } = useSeoulMapUserLocation(setDistrict)
 
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
 
@@ -110,14 +79,14 @@ export function MapPage() {
   }, [token])
 
   function canDeleteRow(r: RestaurantListItem): boolean {
-    if (!user) return false
-    if (isSuperAdmin(user.role)) return true
-    return canManageBrogForDistrict(user.role, user.managed_district_id, r.district_id)
+    return canSoftDeleteBrogListing(user, r)
   }
 
   async function handleSoftDelete(restaurant: RestaurantListItem) {
     if (!token) {
-      window.alert('로그인 후 삭제할 수 있습니다.')
+      window.alert(
+        assumeAdminUi() ? '테스트 UI: 숨김은 로그인 후 API 호출이 필요합니다.' : '로그인 후 삭제할 수 있습니다.',
+      )
       return
     }
     if (!window.confirm(`「${restaurant.name}」을(를) 지도·목록에서 숨길까요?`)) {
@@ -136,214 +105,70 @@ export function MapPage() {
     setIsListLoading(true)
     setListError('')
 
-    async function load() {
-      try {
-        if (mode === 'current') {
-          const data = await fetchRestaurants({ district: DEFAULT_DISTRICT, max_price: maxPrice, limit: 4 })
-          if (!cancelled) {
-            setRestaurants(data)
+    const base = { district, max_price: maxPrice } as const
+    const params =
+      mapUserCoords != null
+        ? {
+            ...base,
+            near_lat: mapUserCoords.lat,
+            near_lng: mapUserCoords.lng,
+            radius_m: MAP_NEAR_RADIUS_M,
           }
-        } else {
-          const data = await fetchRestaurants({ district, max_price: maxPrice })
-          if (!cancelled) {
-            setRestaurants(data)
-          }
+        : base
+
+    void fetchRestaurants(params)
+      .then((data) => {
+        if (!cancelled) {
+          setRestaurants(data)
+          setListError('')
         }
-      } catch (error) {
+      })
+      .catch((error) => {
         if (!cancelled) {
           setRestaurants([])
           setListError(error instanceof Error ? error.message : '맛집 목록을 불러오지 못했습니다.')
         }
-      } finally {
-        if (!cancelled) {
-          setIsListLoading(false)
-        }
-      }
-    }
+      })
+      .finally(() => {
+        if (!cancelled) setIsListLoading(false)
+      })
 
-    void load()
     return () => {
       cancelled = true
     }
-  }, [district, maxPrice, mode])
+  }, [district, maxPrice, mapUserCoords])
 
-  useEffect(() => {
-    setIsLocating(true)
-    setCurrentLocation(MAPO_LOCATION)
-    setLocationError('')
-    setIsLocating(false)
-  }, [])
+  const pageTitle = `${district} BroG`
+  const brogDistrictOptions = brogDistrictOptionsForUi()
+  const mapMetaExtra = isBrogPhase1Restricted()
+    ? ' 1단계: 지역은 마포·용산·서대문·영등포·종로·중구 6개 구만 선택할 수 있습니다.'
+    : ''
 
-  useEffect(() => {
-    if (!KAKAO_MAP_APP_KEY) {
-      console.warn(MAP_LOG, 'MapPage: VITE_KAKAO_MAP_APP_KEY 없음 — .env 확인')
-      return
-    }
+  const pins = useMemo(
+    () =>
+      restaurants
+        .filter((r) => r.latitude != null && r.longitude != null)
+        .map((r, idx) => ({
+          id: r.id,
+          title: r.name,
+          latitude: r.latitude as number,
+          longitude: r.longitude as number,
+          rank: idx + 1,
+          markerKind: r.is_franchise ? ('franchise' as const) : ('brog' as const),
+        })),
+    [restaurants],
+  )
 
-    console.log(MAP_LOG, 'MapPage: SDK 로드 effect 시작', {
-      href: typeof window !== 'undefined' ? window.location.href : '',
-    })
+  const onMapLocate = useCallback(() => {
+    void myLocationFromDevice()
+  }, [myLocationFromDevice])
 
-    let cancelled = false
-
-    ensureKakaoMapsReady(KAKAO_MAP_APP_KEY)
-      .then(() => {
-        if (cancelled) {
-          console.log(MAP_LOG, 'MapPage: SDK 준비됐으나 effect 이미 취소(Strict Mode 등)')
-          return
-        }
-        console.log(MAP_LOG, 'MapPage: setMapSdkReady(true)')
-        setMapSdkReady(true)
-        setMapLoadError('')
-      })
-      .catch((err) => {
-        console.error(MAP_LOG, 'MapPage: ensureKakaoMapsReady 실패', err)
-        if (!cancelled) {
-          setMapSdkReady(false)
-          const origin = typeof window !== 'undefined' ? window.location.origin : '(현재 주소)'
-          const base = `주소창 origin과 콘솔 등록이 일치해야 합니다. 《${origin}》 (localhost와 http://127.0.0.1:5173 은 서로 다름) 카카오 콘솔 → 앱 → 플랫폼 Web 사이트 도메인 + JavaScript 키 항목의 SDK 도메인을 둘 다 확인하세요. `
-          const hint =
-            'sdk.js 401·실패 시: JavaScript 키(플랫폼 키)인지, JavaScript SDK 도메인에 현재 주소가 등록됐는지 확인하세요. REST API 키는 appkey에 넣지 마세요.'
-          setMapLoadError(
-            `${err instanceof Error ? `${err.message} ` : ''}${base}${hint}`,
-          )
-        }
-      })
-
-    return () => {
-      console.log(MAP_LOG, 'MapPage: SDK 로드 effect cleanup')
-      cancelled = true
-    }
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!mapSdkReady || !window.kakao?.maps) {
-      if (mapSdkReady && !window.kakao?.maps) {
-        console.warn(MAP_LOG, 'MapPage: mapSdkReady인데 window.kakao.maps 없음')
-      }
-      return
-    }
-    const container = mapContainerRef.current
-    if (!container) {
-      console.warn(MAP_LOG, 'MapPage: mapContainerRef 없음 — DOM 미연결')
-      return
-    }
-    if (mapRef.current) {
-      console.log(MAP_LOG, 'MapPage: 지도 인스턴스 이미 있음 — 생성 스킵')
-      return
-    }
-
-    console.log(MAP_LOG, 'MapPage: new kakao.maps.Map 생성', {
-      containerSize: { w: container.offsetWidth, h: container.offsetHeight },
-    })
-
-    const { maps } = window.kakao
-    mapRef.current = new maps.Map(container, {
-      center: new maps.LatLng(MAPO_LOCATION.latitude, MAPO_LOCATION.longitude),
-      level: 6,
-    })
-
-    const map = mapRef.current
-    const scheduleRelayout = () => {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          map.relayout?.()
-        })
-      })
-    }
-    scheduleRelayout()
-
-    const ro = new ResizeObserver(() => {
-      map.relayout?.()
-    })
-    ro.observe(container)
-
-    return () => {
-      console.log(MAP_LOG, 'MapPage: 지도 layout effect cleanup')
-      ro.disconnect()
-      markersRef.current.forEach((m) => m.setMap(null))
-      markersRef.current = []
-      userMarkerRef.current?.setMap(null)
-      userMarkerRef.current = null
-      mapRef.current = null
-    }
-  }, [mapSdkReady])
-
-  useEffect(() => {
-    if (!mapSdkReady || !mapRef.current || !window.kakao?.maps) {
-      return
-    }
-
-    console.log(MAP_LOG, 'MapPage: 센터/마커 갱신', {
-      mode,
-      hasCurrentLocation: Boolean(currentLocation),
-      restaurantCount: restaurants.length,
-    })
-
-    const { maps } = window.kakao
-    const map = mapRef.current
-    const seoulDefault = new maps.LatLng(MAPO_LOCATION.latitude, MAPO_LOCATION.longitude)
-    const fallbackCenter = currentLocation
-      ? new maps.LatLng(currentLocation.latitude, currentLocation.longitude)
-      : seoulDefault
-
-    markersRef.current.forEach((m) => m.setMap(null))
-    markersRef.current = []
-    userMarkerRef.current?.setMap(null)
-    userMarkerRef.current = null
-
-    if (currentLocation) {
-      const me = new maps.LatLng(currentLocation.latitude, currentLocation.longitude)
-      userMarkerRef.current = new maps.Marker({
-        map,
-        position: me,
-        title: '내 위치',
-      })
-    }
-
-    let flagImage: unknown
-    try {
-      const size = new maps.Size(40, 48)
-      const offset = new maps.Point(20, 48)
-      flagImage = new maps.MarkerImage(BROG_FLAG_MARKER_URL, size, { offset })
-    } catch {
-      flagImage = undefined
-    }
-
-    const withCoords = restaurants.filter((r) => r.latitude != null && r.longitude != null)
-    withCoords.forEach((restaurant) => {
-      const marker = new maps.Marker({
-        map,
-        position: new maps.LatLng(restaurant.latitude as number, restaurant.longitude as number),
-        title: restaurant.name,
-        ...(flagImage ? { image: flagImage } : {}),
-      })
-      maps.event?.addListener(marker, 'click', () => {
-        navigate(`/restaurants/${restaurant.id}`)
-      })
-      markersRef.current.push(marker)
-    })
-
-    if (withCoords.length > 0 && typeof maps.LatLngBounds === 'function') {
-      const bounds = new maps.LatLngBounds()
-      withCoords.forEach((r) => {
-        bounds.extend(new maps.LatLng(r.latitude as number, r.longitude as number))
-      })
-      if (currentLocation) {
-        bounds.extend(new maps.LatLng(currentLocation.latitude, currentLocation.longitude))
-      }
-      map.setBounds(bounds)
-    } else if (mode === 'current' && currentLocation) {
-      map.setCenter(new maps.LatLng(currentLocation.latitude, currentLocation.longitude))
-      map.setLevel?.(4)
-    } else {
-      map.setCenter(fallbackCenter)
-    }
-
-    window.requestAnimationFrame(() => {
-      mapRef.current?.relayout?.()
-    })
-  }, [mapSdkReady, restaurants, currentLocation, mode, navigate])
+  const onPickUserLocationOnMap = useCallback(
+    (lat: number, lng: number) => {
+      void applyLatLng(lat, lng)
+    },
+    [applyLatLng],
+  )
 
   return (
     <div className="map-layout map-layout--brog brog-screen brog-screen--map">
@@ -352,8 +177,9 @@ export function MapPage() {
           <p className="eyebrow">BroG · 지도</p>
           <h2 className="brog-screen__title">{pageTitle}</h2>
           <p className="description map-hero__meta brog-screen__meta">
-            {mode === 'current' ? '마포구 고정 위치 기준' : `${city} ${district}`} · 대표 메뉴{' '}
-            {maxPrice.toLocaleString()}원 이하
+            {city} {district} · 대표 메뉴 {maxPrice.toLocaleString()}원 이하 · GPS·수동 좌표가 있으면 가까운 순(약 5km
+            이내)으로 불러옵니다.
+            {mapMetaExtra}
           </p>
         </div>
         <div className="hero-actions brog-screen__header-actions">
@@ -383,21 +209,82 @@ export function MapPage() {
             ))}
           </select>
         </label>
-        <p className="map-page-toolbar__geo">
-          <span className="helper" style={{ display: 'block', marginBottom: 6 }}>
+        <label className="price-filter map-page-toolbar__filter">
+          서울시 구
+          <select value={district} onChange={(e) => setDistrict(e.target.value)}>
+            {brogDistrictOptions.map((gu) => (
+              <option key={gu} value={gu}>
+                {gu}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="map-page-toolbar__geo">
+          <p className="helper" style={{ margin: '0 0 8px' }}>
             담당 권한이 있으면 아래 카드에서 바로 숨김 삭제할 수 있습니다.
-          </span>
-          {isLocating ? '마포구 기준 위치 반영 중…' : null}
-          {!isLocating && currentLocation ? (
-            <span>{mode === 'current' ? '마포구 기준 · ' : ''}지도에 고정 위치 표시됨</span>
-          ) : null}
-          {!isLocating && !currentLocation && locationError ? (
-            <span className="error">{locationError}</span>
-          ) : null}
-          {!isLocating && !currentLocation && !locationError && mode !== 'current' ? (
-            <span className="muted">지역은 홈에서 선택한 구 기준입니다.</span>
-          ) : null}
-        </p>
+          </p>
+          <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#8892a8' }}>
+            {geoBusy ? `${geoHint} (최대 약 1분까지 시도 중…)` : geoHint}
+            {navigator.geolocation ? (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="home-hub__geo-retry"
+                  disabled={geoBusy}
+                  onClick={() => setGeoRetryToken((t) => t + 1)}
+                >
+                  {geoBusy ? '위치 받는 중…' : '위치 다시 받기'}
+                </button>
+              </>
+            ) : null}
+          </p>
+          <div
+            className="home-hub__coord-edit map-page__coord-edit"
+            aria-label="위도 경도 직접 입력"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void handleApplyManualCoords()
+              }
+            }}
+          >
+            <div className="home-hub__coord-row">
+              <label className="home-hub__coord-field">
+                위도
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="home-hub__coord-input"
+                  value={latInput}
+                  onChange={(e) => setLatInput(e.target.value)}
+                  placeholder="예: 37.56650"
+                  aria-label="위도"
+                />
+              </label>
+              <label className="home-hub__coord-field">
+                경도
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="home-hub__coord-input"
+                  value={lngInput}
+                  onChange={(e) => setLngInput(e.target.value)}
+                  placeholder="예: 126.97800"
+                  aria-label="경도"
+                />
+              </label>
+              <button type="button" className="home-hub__coord-apply" onClick={() => void handleApplyManualCoords()}>
+                좌표 적용
+              </button>
+            </div>
+            {coordApplyError ? <p className="error home-hub__coord-error">{coordApplyError}</p> : null}
+          </div>
+        </div>
       </div>
 
       <section className="home-section brog-rank-section">
@@ -407,7 +294,7 @@ export function MapPage() {
         {!isListLoading && restaurants.length === 0 && !listError ? (
           <article className="brog-rank-card brog-rank-card--empty">
             <p className="brog-rank-card__name brog-rank-card__name--primary">조건에 맞는 맛집이 없습니다</p>
-            <p className="brog-rank-section__sub">가격 상한을 조정하거나 홈에서 다른 구를 선택해 보세요.</p>
+            <p className="brog-rank-section__sub">가격·구·좌표 반경을 조정해 보세요.</p>
           </article>
         ) : (
           <ul className="brog-rank-grid">
@@ -436,12 +323,22 @@ export function MapPage() {
 
       <section className="map-page-map-section map-card">
         <h3 className="map-page-map-section__title">위치 지도</h3>
-        <p className="map-page-map-section__hint">깃발 마커는 등록된 음식점 위치입니다.</p>
+        <p className="map-page-map-section__hint">
+          깃발 마커는 등록된 음식점 위치입니다. 클릭 시 상세로 이동합니다. 지도를 길게 누르거나 우클릭하면 그 지점을 내
+          위치로 잡습니다.
+        </p>
         {KAKAO_MAP_APP_KEY ? (
-          <>
-            {mapLoadError ? <p className="error">{mapLoadError}</p> : null}
-            <div ref={mapContainerRef} className="kakao-map-container kakao-map-container--below" />
-          </>
+          <BrogKakaoMap
+            userCoords={mapUserCoords}
+            pins={pins}
+            locating={geoBusy}
+            onMyLocationClick={onMapLocate}
+            onPickUserLocationOnMap={onPickUserLocationOnMap}
+            getDetailPath={(id) => `/restaurants/${id}`}
+            mapAriaLabel="BroG 위치 지도"
+            shellClassName="kakao-map-embed"
+            canvasClassName="kakao-map-container kakao-map-container--below"
+          />
         ) : (
           <>
             <p className="muted">

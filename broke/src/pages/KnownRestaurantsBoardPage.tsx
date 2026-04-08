@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { deleteKnownRestaurantPost, fetchKnownRestaurantPosts, type KnownRestaurantPost } from '../api/community'
-import { API_BASE_URL } from '../api/config'
-import { canEditOrDeleteCommunityPost } from '../lib/roles'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
+import { canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
 
 export function KnownRestaurantsBoardPage() {
   const navigate = useNavigate()
@@ -13,7 +13,7 @@ export function KnownRestaurantsBoardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
 
-  function reload() {
+  const reload = useCallback(() => {
     setIsLoading(true)
     setError('')
     fetchKnownRestaurantPosts()
@@ -23,11 +23,11 @@ export function KnownRestaurantsBoardPage() {
         setError(loadError instanceof Error ? loadError.message : '목록을 불러오지 못했습니다.')
       })
       .finally(() => setIsLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
-    reload()
-  }, [])
+    void Promise.resolve().then(() => reload())
+  }, [reload])
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -54,11 +54,13 @@ export function KnownRestaurantsBoardPage() {
         <h1>MyG</h1>
         <p className="description">
           개인 일기에 가깝게 남기는 맛집 메모입니다. <strong>가격 제한은 없습니다</strong> — BroG(지도·카드 맛집)의
-          1만 원 정책과는 따로 둡니다.           가입 회원은 글을 쓸 수 있고, 수정·삭제는 작성자 본인 또는 최종 관리자·해당 구 지역 담당자가 할 수
-          있습니다. 제목을 누르면 상세에서 사진·메뉴까지 수정할 수 있습니다.
+          1만 원 정책과는 따로 둡니다. 로그인한 회원은 누구나 글을 쓸 수 있습니다. 수정은 작성자 본인·해당 구 지역
+          담당자·최종 관리자만 할 수 있고, 삭제는 최종 관리자만 할 수 있습니다.
         </p>
         <p className="helper">
           <Link to="/">홈으로</Link>
+          {' · '}
+          <Link to="/known-restaurants/map">지도</Link>
           {' · '}
           <Link to="/known-restaurants/write">글쓰기</Link>
         </p>
@@ -94,27 +96,38 @@ export function KnownRestaurantsBoardPage() {
                 : post.image_url
                   ? [post.image_url]
                   : []
-              ).map((url, i) => (
+              ).map((url, i) => {
+                const src = resolveMediaUrl(url)
+                return (
                 <img
                   key={`${post.id}-${i}-${url.slice(0, 24)}`}
                   className="post-image"
-                  src={`${API_BASE_URL}${url}`}
+                  src={src}
                   alt={`${post.title} 첨부 ${i + 1}`}
+                  loading="lazy"
+                  referrerPolicy={imgReferrerPolicyForResolvedSrc(src)}
                 />
-              ))}
-              {canEditOrDeleteCommunityPost(user, post.author_id, post.district) ? (
+                )
+              })}
+              {canEditCommunityPost(user, post.author_id, post.district) || canDeleteCommunityPost(user) ? (
                 <p className="helper">
-                  <button
-                    type="button"
-                    className="compact-link"
-                    onClick={() => navigate(`/known-restaurants/${post.id}`)}
-                  >
-                    상세·수정
-                  </button>
-                  {' · '}
-                  <button type="button" className="compact-link" onClick={() => handleDelete(post.id)}>
-                    삭제
-                  </button>
+                  {canEditCommunityPost(user, post.author_id, post.district) ? (
+                    <button
+                      type="button"
+                      className="compact-link"
+                      onClick={() => navigate(`/known-restaurants/${post.id}`)}
+                    >
+                      상세·수정
+                    </button>
+                  ) : null}
+                  {canEditCommunityPost(user, post.author_id, post.district) && canDeleteCommunityPost(user)
+                    ? ' · '
+                    : null}
+                  {canDeleteCommunityPost(user) ? (
+                    <button type="button" className="compact-link" onClick={() => handleDelete(post.id)}>
+                      삭제(관리자)
+                    </button>
+                  ) : null}
                 </p>
               ) : null}
             </li>

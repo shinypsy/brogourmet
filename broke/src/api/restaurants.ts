@@ -17,6 +17,9 @@ export type RestaurantListItem = {
   main_menu_price: number
   /** false면 동일 위치 중복 등록(_1, _2 …) — 목록에서 제목 굵기 약화 */
   points_eligible?: boolean
+  /** true면 지도에서 가맹점용 깃발(청록). 백엔드 필드 추가 시 자동 반영 */
+  is_franchise?: boolean
+  submitted_by_user_id?: number | null
 }
 
 export type MenuItem = {
@@ -50,6 +53,8 @@ export type RestaurantDetail = {
   submitted_by_nickname?: string | null
   /** `super_admin` | `regional_manager` | `user` 등 */
   submitted_by_role?: string | null
+  /** true면 지도 가맹 깃발 */
+  is_franchise?: boolean
 }
 
 export type RestaurantListParams = {
@@ -57,6 +62,10 @@ export type RestaurantListParams = {
   district_id?: number
   max_price?: number
   limit?: number
+  /** BroG 거리 필터(WGS84). 셋 다 있을 때만 적용됩니다. */
+  near_lat?: number
+  near_lng?: number
+  radius_m?: number
 }
 
 export type ExtraCardMenuPayload = { name: string; price_krw: number }
@@ -103,6 +112,15 @@ export async function fetchRestaurants(params: RestaurantListParams = {}): Promi
   }
   if (params.limit != null) {
     search.set('limit', String(params.limit))
+  }
+  if (params.near_lat != null) {
+    search.set('near_lat', String(params.near_lat))
+  }
+  if (params.near_lng != null) {
+    search.set('near_lng', String(params.near_lng))
+  }
+  if (params.radius_m != null) {
+    search.set('radius_m', String(params.radius_m))
   }
   const query = search.toString()
   return requestJson<RestaurantListItem[]>(`/restaurants${query ? `?${query}` : ''}`)

@@ -29,7 +29,9 @@ export function VerifyEmailPage() {
     setIsSubmitting(true)
     try {
       const user = await verifyEmail(token.trim())
-      setMessage(`인증 완료: ${user.nickname} (${user.email})`)
+      setMessage(
+        `인증 완료: ${user.nickname} (${user.email}). 로그인하면 이메일이 인증된 계정은 홈(메인)으로 이동합니다.`,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : '인증 중 오류가 발생했습니다.')
     } finally {
@@ -42,7 +44,7 @@ export function VerifyEmailPage() {
       <h1>이메일 인증</h1>
       <p className="description">
         가입 시 받은 인증 토큰을 아래에 입력하세요. 메일 링크에 <code>?token=...</code>가 있으면 이 페이지를 열 때
-        입력란에 채워집니다.
+        입력란에 채워집니다. (자동 전송은 하지 않으니 <strong>인증하기</strong>를 한 번 눌러 주세요.)
       </p>
 
       <form className="form" onSubmit={handleSubmit}>
@@ -63,7 +65,16 @@ export function VerifyEmailPage() {
         </button>
       </form>
 
-      {message ? <p className="success">{message}</p> : null}
+      {message ? (
+        <div className="verify-email-success-block">
+          <p className="success">{message}</p>
+          <p className="helper" style={{ marginTop: 10 }}>
+            <Link className="compact-link" to="/login?verified=1">
+              로그인하기 (인증 완료 안내 표시)
+            </Link>
+          </p>
+        </div>
+      ) : null}
       {error ? <p className="error">{error}</p> : null}
 
       <hr style={{ margin: '1.5rem 0', border: 'none', borderTop: '1px solid #f0c9d6' }} />

@@ -10,15 +10,16 @@ import {
   type KnownRestaurantPost,
 } from '../api/community'
 import { fetchDistricts, type District } from '../api/districts'
-import { API_BASE_URL } from '../api/config'
 import {
   clampMenuTextLineCount,
   MAX_MENU_LINES,
   parseMenuLinesText,
 } from '../lib/menuLines'
+import { coordsFieldsBothEmpty, readGpsFromImageFile } from '../lib/imageExifGps'
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
-import { canEditOrDeleteCommunityPost } from '../lib/roles'
+import { assumeAdminUi, canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
 
 const MAX_MY_G_IMAGES = 5
 
@@ -46,6 +47,8 @@ export function KnownRestaurantPostDetailPage() {
   const [menuLinesText, setMenuLinesText] = useState('')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
+  const latLngRef = useRef({ lat: null as number | null, lng: null as number | null })
+  latLngRef.current = { lat: latitude, lng: longitude }
   const [imageUrls, setImageUrls] = useState<string[]>([])
 
   const [legTitle, setLegTitle] = useState('')
@@ -60,6 +63,7 @@ export function KnownRestaurantPostDetailPage() {
   const [saveError, setSaveError] = useState('')
   const [busy, setBusy] = useState(false)
   const [brogImageBusy, setBrogImageBusy] = useState(false)
+  const [exifGpsHint, setExifGpsHint] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
 
   const numericId = id ? Number(id) : NaN
@@ -125,9 +129,8 @@ export function KnownRestaurantPostDetailPage() {
     }
   }, [numericId])
 
-  const canEdit = Boolean(
-    post && user && canEditOrDeleteCommunityPost(user, post.author_id, post.district),
-  )
+  const canEdit = Boolean(post && canEditCommunityPost(user, post.author_id, post.district))
+  const canDelete = Boolean(post && canDeleteCommunityPost(user))
 
   const gallery =
     post && (post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [])
@@ -135,13 +138,28 @@ export function KnownRestaurantPostDetailPage() {
   async function handleBrogImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file || !file.type.startsWith('image/') || !token) return
+    if (!file || !file.type.startsWith('image/')) return
+    if (!token) {
+      setSaveError(assumeAdminUi() ? '테스트 UI: 업로드는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     if (imageUrls.length >= MAX_MY_G_IMAGES) return
     setBrogImageBusy(true)
     setSaveError('')
+    setExifGpsHint('')
+    const gpsPromise = readGpsFromImageFile(file)
     try {
       const url = await uploadCommunityImage(token, file)
       setImageUrls((prev) => [...prev, url].slice(0, MAX_MY_G_IMAGES))
+      const gps = await gpsPromise
+      if (brogMode && gps) {
+        const { lat, lng } = latLngRef.current
+        if (coordsFieldsBothEmpty(lat, lng)) {
+          setLatitude(gps.latitude)
+          setLongitude(gps.longitude)
+          setExifGpsHint('사진 EXIF에 GPS가 있어 위도·경도를 채웠습니다. 필요하면 수정하세요.')
+        }
+      }
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : '업로드 실패')
     } finally {
@@ -151,7 +169,11 @@ export function KnownRestaurantPostDetailPage() {
 
   async function handleSave(event: FormEvent) {
     event.preventDefault()
-    if (!token || !post) return
+    if (!post) return
+    if (!token) {
+      setSaveError(assumeAdminUi() ? '테스트 UI: 저장은 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     setSaveError('')
     setBusy(true)
     try {
@@ -206,13 +228,17 @@ export function KnownRestaurantPostDetailPage() {
   }
 
   async function handleDelete() {
-    if (!token || !post) return
+    if (!post) return
+    if (!token) {
+      setSaveError(assumeAdminUi() ? '테스트 UI: 삭제는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
     if (!window.confirm('이 글을 삭제할까요?')) return
     setBusy(true)
     setSaveError('')
     try {
       await deleteKnownRestaurantPost(token, post.id)
-      navigate('/known-restaurants')
+      navigate('/known-restaurants/list')
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : '삭제 실패')
     } finally {
@@ -225,7 +251,7 @@ export function KnownRestaurantPostDetailPage() {
       <div className="board-layout">
         <section className="card">
           <p className="error">{loadError}</p>
-          <Link className="compact-link" to="/known-restaurants">
+          <Link className="compact-link" to="/known-restaurants/list">
             목록
           </Link>
         </section>
@@ -247,7 +273,7 @@ export function KnownRestaurantPostDetailPage() {
         <p className="eyebrow">Community</p>
         <h1>MyG 글</h1>
         <p className="helper">
-          <Link to="/known-restaurants">목록</Link>
+          <Link to="/known-restaurants/list">목록</Link>
           {' · '}
           <Link to="/known-restaurants/write">새 글</Link>
         </p>
@@ -306,6 +332,9 @@ export function KnownRestaurantPostDetailPage() {
                 </label>
                 <label>
                   사진 (최대 {MAX_MY_G_IMAGES}장)
+                  <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
+                    GPS가 포함된 JPEG 등은 위도·경도가 비어 있을 때 「파일에서 추가」로 넣으면 EXIF에서 자동으로 채웁니다.
+                  </p>
                   <input
                     ref={brogImageInputRef}
                     type="file"
@@ -324,8 +353,18 @@ export function KnownRestaurantPostDetailPage() {
                     </button>
                   </p>
                   <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {imageUrls.map((url, i) => (
-                      <li key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    {imageUrls.map((url, i) => {
+                      const preview = resolveMediaUrl(url.trim())
+                      return (
+                      <li key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                        {preview ? (
+                          <img
+                            src={preview}
+                            alt=""
+                            style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+                            referrerPolicy={imgReferrerPolicyForResolvedSrc(preview)}
+                          />
+                        ) : null}
                         <input
                           style={{ flex: 1 }}
                           value={url}
@@ -337,7 +376,8 @@ export function KnownRestaurantPostDetailPage() {
                           제거
                         </button>
                       </li>
-                    ))}
+                      )
+                    })}
                   </ul>
                   {imageUrls.length < MAX_MY_G_IMAGES ? (
                     <button
@@ -367,6 +407,7 @@ export function KnownRestaurantPostDetailPage() {
                     onChange={(e) => setLongitude(e.target.value === '' ? null : Number(e.target.value))}
                   />
                 </label>
+                {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
                 <label>
                   메뉴 목록 (최대 {MAX_MENU_LINES}줄)
                   <textarea
@@ -449,9 +490,11 @@ export function KnownRestaurantPostDetailPage() {
               <button type="submit" disabled={busy}>
                 {busy ? '저장 중…' : '저장'}
               </button>
-              <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
-                삭제
-              </button>
+              {canDelete ? (
+                <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
+                  삭제(관리자)
+                </button>
+              ) : null}
             </p>
           </form>
         ) : (
@@ -464,15 +507,27 @@ export function KnownRestaurantPostDetailPage() {
             {post.summary ? <p className="post-body">{post.summary}</p> : <p className="post-body">{post.body}</p>}
             {gallery && gallery.length > 0 ? (
               <div>
-                {gallery.map((url, i) => (
+                {gallery.map((url, i) => {
+                  const src = resolveMediaUrl(url)
+                  return (
                   <img
                     key={i}
                     className="post-image"
-                    src={`${API_BASE_URL}${url}`}
+                    src={src}
                     alt=""
+                    loading="lazy"
+                    referrerPolicy={imgReferrerPolicyForResolvedSrc(src)}
                   />
-                ))}
+                  )
+                })}
               </div>
+            ) : null}
+            {token && canDelete && !canEdit ? (
+              <p className="helper">
+                <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
+                  삭제(관리자)
+                </button>
+              </p>
             ) : null}
           </>
         )}

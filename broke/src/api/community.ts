@@ -33,6 +33,8 @@ export type KnownRestaurantPost = {
   longitude?: number | null
   image_urls?: string[] | null
   menu_lines?: string | null
+  /** true면 지도에서 가맹점용 깃발. API 연동 시 사용 */
+  is_franchise?: boolean
 }
 
 export type KnownRestaurantPostCreatePayload = {
@@ -134,10 +136,23 @@ export async function deleteKnownRestaurantPost(token: string, id: number): Prom
   })
 }
 
-export async function uploadCommunityImage(token: string, file: File): Promise<string> {
+/** BroG → 서버(배포 시) 저장소, MyG·무료나눔 → 로컬 저장소. 레거시 평면은 `/uploads/image`. */
+export type UploadImageScope = 'brog' | 'myg' | 'legacy'
+
+export async function uploadCommunityImage(
+  token: string,
+  file: File,
+  scope: UploadImageScope = 'myg',
+): Promise<string> {
+  const path =
+    scope === 'brog'
+      ? '/uploads/brog/image'
+      : scope === 'myg'
+        ? '/uploads/myg/image'
+        : '/uploads/image'
   const formData = new FormData()
   formData.append('file', file)
-  const response = await fetch(`${API_BASE_URL}/uploads/image`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,

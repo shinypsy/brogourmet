@@ -9,6 +9,7 @@ import {
   MAX_MENU_LINES,
   parseMenuLinesText,
 } from '../lib/menuLines'
+import { coordsFieldsBothEmpty, readGpsFromImageFile } from '../lib/imageExifGps'
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
 
@@ -30,8 +31,11 @@ export function KnownRestaurantsWritePage() {
   const [menuLinesText, setMenuLinesText] = useState('')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
+  const latLngRef = useRef({ lat: null as number | null, lng: null as number | null })
+  latLngRef.current = { lat: latitude, lng: longitude }
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [brogImageBusy, setBrogImageBusy] = useState(false)
+  const [exifGpsHint, setExifGpsHint] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -62,10 +66,19 @@ export function KnownRestaurantsWritePage() {
       return
     }
     setSubmitError('')
+    setExifGpsHint('')
     setBrogImageBusy(true)
+    const gpsPromise = readGpsFromImageFile(file)
     try {
       const url = await uploadCommunityImage(token, file)
       setImageUrls((prev) => [...prev, url].slice(0, MAX_MY_G_IMAGES))
+      const gps = await gpsPromise
+      const { lat, lng } = latLngRef.current
+      if (gps && coordsFieldsBothEmpty(lat, lng)) {
+        setLatitude(gps.latitude)
+        setLongitude(gps.longitude)
+        setExifGpsHint('사진 EXIF에 GPS가 있어 위도·경도를 채웠습니다. 필요하면 수정하세요.')
+      }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.')
     } finally {
@@ -132,7 +145,7 @@ export function KnownRestaurantsWritePage() {
         longitude: longitude == null || Number.isNaN(Number(longitude)) ? null : Number(longitude),
         image_urls: trimmedImages,
       })
-      navigate('/known-restaurants')
+      navigate('/known-restaurants/list')
     } catch (submitErr) {
       setSubmitError(submitErr instanceof Error ? submitErr.message : '작성에 실패했습니다.')
     } finally {
@@ -151,7 +164,7 @@ export function KnownRestaurantsWritePage() {
           다시 맞춰야 합니다).
         </p>
         <p className="helper">
-          <Link to="/known-restaurants">목록으로</Link>
+          <Link to="/known-restaurants/list">목록으로</Link>
           {' · '}
           <Link to="/restaurants/manage/new">BroG 등록</Link>
           {' · '}
@@ -206,7 +219,8 @@ export function KnownRestaurantsWritePage() {
           <label>
             사진 (최대 {MAX_MY_G_IMAGES}장)
             <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
-              첫 장이 목록 썸네일입니다. BroG와 동일하게 URL 직접 입력 또는 파일 업로드할 수 있습니다.
+              첫 장이 목록 썸네일입니다. BroG와 동일하게 URL 직접 입력 또는 파일 업로드할 수 있습니다. GPS가 포함된 JPEG
+              등은 위도·경도가 비어 있을 때 「파일에서 추가」로 넣으면 EXIF에서 자동으로 채웁니다.
             </p>
             <input
               ref={brogImageInputRef}
@@ -284,6 +298,7 @@ export function KnownRestaurantsWritePage() {
               }
             />
           </label>
+          {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
           <label>
             메뉴 목록 (최대 {MAX_MENU_LINES}줄)
             <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>

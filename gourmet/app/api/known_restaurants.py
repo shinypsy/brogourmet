@@ -3,12 +3,15 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.deploy_stage1 import district_name_in_stage1, stage1_district_names
 from app.deps import (
     ensure_community_post_author_or_moderation,
+    ensure_community_post_super_admin_delete,
     get_current_user,
     get_db,
 )
 from app.models.district import District
+from app.core.roles import FRANCHISE
 from app.models.known_restaurant_post import KnownRestaurantPost
 from app.models.user import User
 from app.schemas.community import KnownRestaurantPostCreate, KnownRestaurantPostRead
@@ -37,6 +40,11 @@ def _apply_payload_to_post(db: Session, post: KnownRestaurantPost, payload: Know
         )
         if not d:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid district_id")
+        if not district_name_in_stage1(d.name):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="1단계 배포에서는 선택 가능한 구만 사용할 수 있습니다.",
+            )
         if not (payload.category and payload.summary and payload.menu_lines):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -77,6 +85,11 @@ def _apply_payload_to_post(db: Session, post: KnownRestaurantPost, payload: Know
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="district, title, body가 필요합니다.",
         )
+    if not district_name_in_stage1(payload.district.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="1단계 배포에서는 선택 가능한 구만 사용할 수 있습니다.",
+        )
     if payload.main_menu_name is None or payload.main_menu_price is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -103,6 +116,7 @@ def _apply_payload_to_post(db: Session, post: KnownRestaurantPost, payload: Know
 
 
 def _to_read(p: KnownRestaurantPost) -> KnownRestaurantPostRead:
+    author_role = getattr(p.author, "role", None)
     return KnownRestaurantPostRead(
         id=p.id,
         author_id=p.author_id,
@@ -123,6 +137,7 @@ def _to_read(p: KnownRestaurantPost) -> KnownRestaurantPostRead:
         longitude=p.longitude,
         image_urls=p.image_urls,
         menu_lines=p.menu_lines,
+        is_franchise=author_role == FRANCHISE,
     )
 
 
@@ -134,6 +149,9 @@ def list_posts(db: Session = Depends(get_db)):
         .order_by(KnownRestaurantPost.created_at.desc())
         .all()
     )
+    allowed = stage1_district_names()
+    if allowed is not None:
+        posts = [p for p in posts if p.district and p.district.strip() in allowed]
     return [_to_read(p) for p in posts]
 
 
@@ -146,6 +164,8 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
         .first()
     )
     if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if not district_name_in_stage1(post.district):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     return _to_read(post)
 
@@ -211,6 +231,6 @@ def delete_post(
     post = db.query(KnownRestaurantPost).filter(KnownRestaurantPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    ensure_community_post_author_or_moderation(current_user, post.author_id, post.district, db)
+    ensure_community_post_super_admin_delete(current_user)
     db.delete(post)
     db.commit()

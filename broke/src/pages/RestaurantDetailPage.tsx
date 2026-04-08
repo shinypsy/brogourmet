@@ -20,9 +20,17 @@ import {
   type RestaurantDetail,
 } from '../api/restaurants'
 import { FoodPhotoWithMenuOverlay } from '../components/FoodPhotoWithMenuOverlay'
-import { resolveMediaUrl } from '../lib/mediaUrl'
+import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
 import { brogSubmitterRoleLabel } from '../lib/brogSubmitter'
-import { canEditOrDeleteRestaurantComment, canManageBrogForDistrict, isSuperAdmin } from '../lib/roles'
+import { isBrogPhase1Restricted } from '../lib/brogPhase1'
+import { restaurantDistrictVisibleInStage1 } from '../lib/deployStage1'
+import {
+  assumeAdminUi,
+  canAccessBrogManageForRestaurant,
+  canDeleteRestaurantComment,
+  canEditRestaurantComment,
+  isSuperAdmin,
+} from '../lib/roles'
 
 export function RestaurantDetailPage() {
   const { id } = useParams()
@@ -42,6 +50,7 @@ export function RestaurantDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
   const [commentEditText, setCommentEditText] = useState('')
   const [commentEditBusy, setCommentEditBusy] = useState(false)
+  const [heroImgFailed, setHeroImgFailed] = useState(false)
 
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
 
@@ -105,8 +114,18 @@ export function RestaurantDetailPage() {
     }
   }, [id, reloadSocial])
 
+  useEffect(() => {
+    setHeroImgFailed(false)
+  }, [restaurant?.id])
+
   async function handleSoftRemove() {
-    if (!token || !restaurant) return
+    if (!restaurant) return
+    if (!token) {
+      window.alert(
+        assumeAdminUi() ? '테스트 UI: 목록 숨김은 로그인 후 API 호출이 필요합니다.' : '로그인 후 삭제할 수 있습니다.',
+      )
+      return
+    }
     if (
       !window.confirm(
         '지도·목록에서 이 BroG를 숨길까요? (데이터는 DB에 남으며, 슈퍼 관리자만 영구 삭제할 수 있습니다.)',
@@ -123,7 +142,13 @@ export function RestaurantDetailPage() {
   }
 
   async function handlePurgePermanent() {
-    if (!token || !restaurant) return
+    if (!restaurant) return
+    if (!token) {
+      window.alert(
+        assumeAdminUi() ? '테스트 UI: 영구 삭제는 로그인 후 가능합니다.' : '로그인 후 이용할 수 있습니다.',
+      )
+      return
+    }
     if (!window.confirm('DB에서 이 BroG와 메뉴 행을 완전히 지웁니다. 되돌릴 수 없습니다. 계속할까요?')) {
       return
     }
@@ -136,8 +161,9 @@ export function RestaurantDetailPage() {
   }
 
   async function toggleLike() {
-    if (!token || !restaurant) {
-      window.alert('로그인 후 좋아요할 수 있습니다.')
+    if (!restaurant) return
+    if (!token) {
+      window.alert(assumeAdminUi() ? '테스트 UI: 좋아요는 로그인 후 가능합니다.' : '로그인 후 좋아요할 수 있습니다.')
       return
     }
     setLikeBusy(true)
@@ -158,8 +184,9 @@ export function RestaurantDetailPage() {
 
   async function submitComment(event: FormEvent) {
     event.preventDefault()
-    if (!token || !restaurant) {
-      window.alert('로그인 후 댓글을 쓸 수 있습니다.')
+    if (!restaurant) return
+    if (!token) {
+      window.alert(assumeAdminUi() ? '테스트 UI: 댓글 등록은 로그인 후 가능합니다.' : '로그인 후 댓글을 쓸 수 있습니다.')
       return
     }
     const text = commentDraft.trim()
@@ -191,7 +218,11 @@ export function RestaurantDetailPage() {
   }
 
   async function removeComment(commentId: number) {
-    if (!token || !restaurant) return
+    if (!restaurant) return
+    if (!token) {
+      window.alert(assumeAdminUi() ? '테스트 UI: 댓글 삭제는 로그인 후 가능합니다.' : '로그인 후 이용할 수 있습니다.')
+      return
+    }
     if (!window.confirm('이 댓글을 삭제할까요?')) return
     setActionError('')
     try {
@@ -212,7 +243,11 @@ export function RestaurantDetailPage() {
   }
 
   async function saveCommentEdit(commentId: number) {
-    if (!token || !restaurant) return
+    if (!restaurant) return
+    if (!token) {
+      window.alert(assumeAdminUi() ? '테스트 UI: 댓글 수정은 로그인 후 가능합니다.' : '로그인 후 이용할 수 있습니다.')
+      return
+    }
     const text = commentEditText.trim()
     if (!text) return
     setCommentEditBusy(true)
@@ -249,12 +284,24 @@ export function RestaurantDetailPage() {
     )
   }
 
+  if (isBrogPhase1Restricted() && !restaurantDistrictVisibleInStage1(restaurant.district)) {
+    return (
+      <div className="brog-detail brog-detail--error card">
+        <h1>1단계에서 아직 공개하지 않는 구의 BroG입니다</h1>
+        <p className="description">
+          현재 앱은 마포·용산·서대문·영등포·종로·중구 6개 구만 선택할 수 있습니다. 2단계에서 서울 전 구로 확장되면 다시 확인할 수 있습니다.
+        </p>
+        <Link className="compact-link" to="/brog/list">
+          BroG 리스트
+        </Link>
+      </div>
+    )
+  }
+
   const mainItem = restaurant.menu_items.find((item) => item.is_main_menu)
   const heroMenuName = mainItem?.name ?? restaurant.menu_items[0]?.name ?? '대표 메뉴'
   const heroMenuPrice = mainItem?.price_krw ?? restaurant.menu_items[0]?.price_krw ?? 0
-  const canManage = Boolean(
-    user && canManageBrogForDistrict(user.role, user.managed_district_id, restaurant.district_id),
-  )
+  const canManage = canAccessBrogManageForRestaurant(user, restaurant)
   const galleryUrls =
     restaurant.image_urls && restaurant.image_urls.length > 0
       ? restaurant.image_urls
@@ -262,6 +309,7 @@ export function RestaurantDetailPage() {
         ? [restaurant.image_url]
         : []
   const heroSrc = galleryUrls[0] ? resolveMediaUrl(galleryUrls[0]) : ''
+  const showHeroImg = Boolean(heroSrc) && !heroImgFailed
   const registrarRoleLabel = brogSubmitterRoleLabel(restaurant.submitted_by_role)
 
   return (
@@ -277,10 +325,16 @@ export function RestaurantDetailPage() {
       </header>
 
       <div className="brog-detail__hero">
-        {heroSrc ? (
-          <img src={heroSrc} alt="" className="brog-detail__hero-img" />
+        {showHeroImg ? (
+          <img
+            src={heroSrc}
+            alt=""
+            className="brog-detail__hero-img"
+            referrerPolicy={imgReferrerPolicyForResolvedSrc(heroSrc)}
+            onError={() => setHeroImgFailed(true)}
+          />
         ) : (
-          <div className="brog-detail__hero-placeholder">사진 없음</div>
+          <div className="brog-detail__hero-placeholder">{heroSrc ? '이미지를 불러올 수 없습니다' : '사진 없음'}</div>
         )}
         <div className="brog-detail__hero-overlay">
           <p className="brog-detail__eyebrow">BroG</p>
@@ -304,7 +358,9 @@ export function RestaurantDetailPage() {
 
       {galleryUrls.length > 1 ? (
         <div className="brog-detail__gallery">
-          {galleryUrls.slice(1).map((u, i) => (
+          {galleryUrls.slice(1).map((u, i) => {
+            const thumb = resolveMediaUrl(u)
+            return (
             <FoodPhotoWithMenuOverlay
               key={`${i}-${u}`}
               menuName={heroMenuName}
@@ -312,13 +368,15 @@ export function RestaurantDetailPage() {
               className="brog-detail__gallery-item"
             >
               <img
-                src={resolveMediaUrl(u)}
+                src={thumb}
                 alt=""
                 className="brog-detail__gallery-thumb"
                 loading="lazy"
+                referrerPolicy={imgReferrerPolicyForResolvedSrc(thumb)}
               />
             </FoodPhotoWithMenuOverlay>
-          ))}
+            )
+          })}
         </div>
       ) : null}
 
@@ -381,7 +439,12 @@ export function RestaurantDetailPage() {
             </button>
             <span className="brog-detail__comment-count">댓글 {engagement?.comment_count ?? 0}</span>
           </div>
-          {!token ? <p className="helper">좋아요·댓글은 로그인 후 이용할 수 있습니다.</p> : null}
+          {!token && !assumeAdminUi() ? (
+            <p className="helper">좋아요·댓글은 로그인 후 이용할 수 있습니다.</p>
+          ) : null}
+          {!token && assumeAdminUi() ? (
+            <p className="helper">테스트 UI: 좋아요·댓글 폼은 보이며, 실제 반영은 로그인 후입니다.</p>
+          ) : null}
         </section>
 
         <section className="brog-detail__section">
@@ -410,9 +473,12 @@ export function RestaurantDetailPage() {
           <h2>댓글</h2>
           <ul className="brog-detail__comments">
             {comments.map((c) => {
-              const canModerateComment = Boolean(
-                user && canEditOrDeleteRestaurantComment(user, c.user_id, restaurant.district_id),
+              const canEditComment = canEditRestaurantComment(
+                user,
+                c.user_id,
+                restaurant.district_id,
               )
+              const canDelComment = canDeleteRestaurantComment(user)
               return (
                 <li key={c.id} className="brog-detail__comment">
                   <div className="brog-detail__comment-head">
@@ -431,28 +497,28 @@ export function RestaurantDetailPage() {
                             timeStyle: 'short',
                           })}
                     </time>
-                    {canModerateComment && editingCommentId !== c.id ? (
-                      <>
-                        <button
-                          type="button"
-                          className="brog-detail__comment-del"
-                          onClick={() => {
-                            setEditingCommentId(c.id)
-                            setCommentEditText(c.body)
-                          }}
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          className="brog-detail__comment-del"
-                          onClick={() => void removeComment(c.id)}
-                        >
-                          삭제
-                        </button>
-                      </>
+                    {canEditComment && editingCommentId !== c.id ? (
+                      <button
+                        type="button"
+                        className="brog-detail__comment-del"
+                        onClick={() => {
+                          setEditingCommentId(c.id)
+                          setCommentEditText(c.body)
+                        }}
+                      >
+                        수정
+                      </button>
                     ) : null}
-                    {canModerateComment && editingCommentId === c.id ? (
+                    {canDelComment && editingCommentId !== c.id ? (
+                      <button
+                        type="button"
+                        className="brog-detail__comment-del"
+                        onClick={() => void removeComment(c.id)}
+                      >
+                        삭제
+                      </button>
+                    ) : null}
+                    {canEditComment && editingCommentId === c.id ? (
                       <>
                         <button
                           type="button"
@@ -493,7 +559,7 @@ export function RestaurantDetailPage() {
               )
             })}
           </ul>
-          {token ? (
+          {token || assumeAdminUi() ? (
             <form className="form brog-detail__comment-form" onSubmit={submitComment}>
               <label>
                 댓글 작성

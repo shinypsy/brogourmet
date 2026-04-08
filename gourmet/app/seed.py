@@ -3,16 +3,8 @@ from sqlalchemy.orm import Session
 from app.models.district import District
 from app.models.restaurant import Restaurant, RestaurantMenuItem
 
-_SAMPLE_FOOD_IMAGES = [
-    "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1579584421335-c3e9bc87fad0?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1617093727343-374698b1b08d?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&w=480&q=80",
-    "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&w=480&q=80",
-]
+# 브라우저 Referer·CDN 정책으로 언스플래시 직링크가 깨질 수 있어 picsum 고정 시드 URL 사용.
+_SAMPLE_FOOD_IMAGES = [f"https://picsum.photos/seed/brogourmet{i}/480/360" for i in range(12)]
 
 _DISTRICT_SEED: list[tuple[str, int]] = [
     ("마포구", 1),
@@ -24,6 +16,89 @@ _DISTRICT_SEED: list[tuple[str, int]] = [
     ("강남구", 20),
     ("송파구", 21),
     ("성동구", 22),
+]
+
+# BroG 리스트·지도 기본 구(마포구) 데모: 1만 원 이하 대표 메뉴 6곳 + 다중 이미지 샘플 1곳.
+# 1단계 배포 구 한정: broke `deployStage1.ts` / gourmet `deploy_stage1.py` 의 6개 구와 시드 districts 상단 6개 정렬 맞출 것.
+MAPO_BROG_DEMO_SPECS: list[dict] = [
+    {
+        "district": "마포구",
+        "name": "연남동 파스타 하우스",
+        "category": "양식",
+        "summary": "대표 주 메뉴는 1만원 이하, 프리미엄 파스타는 부메뉴로 선택할 수 있는 매장입니다.",
+        "image_urls_i": [2, 6, 0],
+        "lat": 37.560,
+        "lng": 126.925,
+        "menus": [
+            ("런치 토마토 파스타", 10000, True, 1),
+            ("트러플 크림 파스타", 16000, False, None),
+        ],
+    },
+    {
+        "district": "마포구",
+        "name": "망원 수제버거 키친",
+        "category": "패스트푸드",
+        "summary": "기본 버거는 부담 없이 즐기고, 추가 토핑 메뉴는 부메뉴로 확장되는 구조입니다.",
+        "image_i": 3,
+        "lat": 37.556,
+        "lng": 126.910,
+        "menus": [
+            ("클래식 버거", 8000, True, 1),
+            ("더블치즈 버거", 12500, False, None),
+        ],
+    },
+    {
+        "district": "마포구",
+        "name": "합정 돈가스 살롱",
+        "category": "일식",
+        "summary": "바삭한 튀김옷과 진한 소스, 점심 특선으로 부담 없는 가격대를 유지합니다.",
+        "image_i": 9,
+        "lat": 37.549,
+        "lng": 126.914,
+        "menus": [
+            ("등심돈까스 정식", 9000, True, 1),
+            ("치즈 돈까스", 11000, False, None),
+        ],
+    },
+    {
+        "district": "마포구",
+        "name": "상수동 쌀국수 길",
+        "category": "분식",
+        "summary": "향신료를 줄인 국물과 쌀면으로 가볍게 먹기 좋은 동남아 스타일 쌀국수 전문입니다.",
+        "image_i": 8,
+        "lat": 37.547,
+        "lng": 126.922,
+        "menus": [
+            ("얼큰 쌀국수", 9500, True, 1),
+            ("짜조 반채", 6000, False, None),
+        ],
+    },
+    {
+        "district": "마포구",
+        "name": "DMC역 김치찌개 백반",
+        "category": "한식",
+        "summary": "직장인 단골이 많은 백반집으로, 김치찌개와 반찬이 안정적인 편입니다.",
+        "image_i": 10,
+        "lat": 37.577,
+        "lng": 126.897,
+        "menus": [
+            ("김치찌개 백반", 9000, True, 1),
+            ("제육볶음 추가", 8000, False, None),
+        ],
+    },
+    {
+        "district": "마포구",
+        "name": "홍대 입구 에그토스트",
+        "category": "패스트푸드",
+        "summary": "이동 중에도 먹기 좋은 에그토스트와 음료 조합이 인기입니다.",
+        "image_i": 11,
+        "lat": 37.556,
+        "lng": 126.923,
+        "menus": [
+            ("베이컨 에그토스트", 5000, True, 1),
+            ("아메리카노", 3000, False, None),
+        ],
+    },
 ]
 
 
@@ -39,6 +114,44 @@ def _did(db: Session, name: str) -> int:
     d = db.query(District).filter(District.name == name).first()
     assert d is not None, f"district not seeded: {name}"
     return d.id
+
+
+def _resolve_sample_images(spec: dict) -> tuple[str | None, list[str] | None]:
+    if "image_urls_i" in spec:
+        urls = [_SAMPLE_FOOD_IMAGES[i] for i in spec["image_urls_i"]]
+        return urls[0], urls
+    i = int(spec["image_i"])
+    u = _SAMPLE_FOOD_IMAGES[i]
+    return u, None
+
+
+def _add_restaurant_from_spec(db: Session, spec: dict) -> None:
+    did = _did(db, spec["district"])
+    image_url, image_urls = _resolve_sample_images(spec)
+    r = Restaurant(
+        name=spec["name"],
+        city="서울특별시",
+        district_id=did,
+        category=spec["category"],
+        summary=spec["summary"],
+        image_url=image_url,
+        image_urls=image_urls,
+        latitude=spec["lat"],
+        longitude=spec["lng"],
+        status="published",
+    )
+    db.add(r)
+    db.flush()
+    for mname, price, is_main, slot in spec["menus"]:
+        db.add(
+            RestaurantMenuItem(
+                restaurant_id=r.id,
+                name=mname,
+                price_krw=price,
+                is_main_menu=is_main,
+                card_slot=slot,
+            )
+        )
 
 
 def seed_restaurants(db: Session) -> None:
@@ -72,32 +185,7 @@ def seed_restaurants(db: Session) -> None:
                 ("사이드 사시미", 14000, False, None),
             ],
         },
-        {
-            "district": "마포구",
-            "name": "연남동 파스타 하우스",
-            "category": "양식",
-            "summary": "대표 주 메뉴는 1만원 이하, 프리미엄 파스타는 부메뉴로 선택할 수 있는 매장입니다.",
-            "image_i": 2,
-            "lat": 37.560,
-            "lng": 126.925,
-            "menus": [
-                ("런치 토마토 파스타", 10000, True, 1),
-                ("트러플 크림 파스타", 16000, False, None),
-            ],
-        },
-        {
-            "district": "마포구",
-            "name": "망원 수제버거 키친",
-            "category": "패스트푸드",
-            "summary": "기본 버거는 부담 없이 즐기고, 추가 토핑 메뉴는 부메뉴로 확장되는 구조입니다.",
-            "image_i": 3,
-            "lat": 37.556,
-            "lng": 126.910,
-            "menus": [
-                ("클래식 버거", 8000, True, 1),
-                ("더블치즈 버거", 12500, False, None),
-            ],
-        },
+        *MAPO_BROG_DEMO_SPECS,
         {
             "district": "송파구",
             "name": "송리단길 스시 바",
@@ -153,29 +241,40 @@ def seed_restaurants(db: Session) -> None:
     ]
 
     for spec in specs:
-        did = _did(db, spec["district"])
-        r = Restaurant(
-            name=spec["name"],
-            city="서울특별시",
-            district_id=did,
-            category=spec["category"],
-            summary=spec["summary"],
-            image_url=_SAMPLE_FOOD_IMAGES[spec["image_i"]],
-            latitude=spec["lat"],
-            longitude=spec["lng"],
-            status="published",
-        )
-        db.add(r)
-        db.flush()
-        for mname, price, is_main, slot in spec["menus"]:
-            db.add(
-                RestaurantMenuItem(
-                    restaurant_id=r.id,
-                    name=mname,
-                    price_krw=price,
-                    is_main_menu=is_main,
-                    card_slot=slot,
-                )
-            )
+        _add_restaurant_from_spec(db, spec)
 
     db.commit()
+
+
+def ensure_mapo_brog_demo_restaurants(db: Session) -> None:
+    """기존 DB에도 마포구 데모 BroG 6곳이 없으면 추가(이름 기준 idempotent)."""
+    mapo = db.query(District).filter(District.name == "마포구").first()
+    if mapo is None:
+        return
+    did = mapo.id
+    added = False
+    for spec in MAPO_BROG_DEMO_SPECS:
+        exists = (
+            db.query(Restaurant)
+            .filter(Restaurant.district_id == did, Restaurant.name == spec["name"])
+            .first()
+        )
+        if exists is not None:
+            continue
+        _add_restaurant_from_spec(db, spec)
+        added = True
+
+    # 예전 시드(단일 image_url만 있던 연남동) → 갤러리 데모용 다중 URL 보강
+    yeonnam = (
+        db.query(Restaurant)
+        .filter(Restaurant.district_id == did, Restaurant.name == "연남동 파스타 하우스")
+        .first()
+    )
+    if yeonnam is not None and not yeonnam.image_urls:
+        gallery = [_SAMPLE_FOOD_IMAGES[i] for i in [2, 6, 0]]
+        yeonnam.image_urls = gallery
+        yeonnam.image_url = gallery[0]
+        added = True
+
+    if added:
+        db.commit()

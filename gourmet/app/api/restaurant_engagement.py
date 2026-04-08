@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.roles import SUPER_ADMIN
 from app.deps import can_manage_brog_in_district, get_current_user, get_current_user_optional, get_db
 from app.models.restaurant import Restaurant
 from app.models.restaurant_social import RestaurantComment, RestaurantLike
@@ -183,10 +184,10 @@ def delete_comment(
     )
     if not c:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
-    if c.user_id != current_user.id and not can_manage_brog_in_district(current_user, r.district_id):
+    if current_user.role != SUPER_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="댓글 삭제는 본인 또는 최종 관리자·해당 구 담당자만 가능합니다.",
+            detail="댓글 삭제는 최종 관리자만 할 수 있습니다.",
         )
     db.delete(c)
     db.commit()

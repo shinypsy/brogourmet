@@ -1,15 +1,24 @@
 import json
+import math
 import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.roles import SUPER_ADMIN
-from app.deps import ensure_brog_district_access, get_current_user, get_db, get_super_admin_user
+from app.core.deploy_stage1 import district_name_in_stage1, stage1_district_names
+from app.core.roles import FRANCHISE, REGIONAL_MANAGER, SUPER_ADMIN
+from app.deps import (
+    ensure_can_access_brog_manage,
+    ensure_can_create_brog_in_chosen_district,
+    get_current_user,
+    get_db,
+    get_super_admin_user,
+)
 from app.models.district import District
 from app.models.restaurant import Restaurant, RestaurantMenuItem
 from app.models.user import User
+from app.geo_utils import haversine_m
 from app.schemas.restaurant import (
     MenuItemRead,
     RestaurantDetailRead,
@@ -171,6 +180,7 @@ def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
             db, restaurant.district_id
         )
     img_urls = _restaurant_image_urls_list(restaurant)
+    sb_uid, _, sb_role = _submitter_public_fields(db, restaurant)
     return {
         "id": restaurant.id,
         "name": restaurant.name,
@@ -186,6 +196,8 @@ def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
         "main_menu_name": main.name,
         "main_menu_price": main.price_krw,
         "points_eligible": bool(getattr(restaurant, "points_eligible", True)),
+        "is_franchise": sb_role == FRANCHISE,
+        "submitted_by_user_id": sb_uid,
     }
 
 
@@ -241,6 +253,7 @@ def _detail_item_from(db: Session, restaurant: Restaurant) -> RestaurantDetailRe
         submitted_by_user_id=sb_uid,
         submitted_by_nickname=sb_nick,
         submitted_by_role=sb_role,
+        is_franchise=sb_role == FRANCHISE,
     )
 
 
@@ -303,7 +316,10 @@ def list_restaurants(
     district: str | None = None,
     district_id: int | None = Query(default=None, ge=1),
     max_price: int = Query(default=10_000, ge=1, le=10_000),
-    limit: int | None = Query(default=None, ge=1, le=100),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    near_lat: float | None = Query(default=None),
+    near_lng: float | None = Query(default=None),
+    radius_m: int | None = Query(default=None, ge=1, le=15_000),
     db: Session = Depends(get_db),
 ):
     cap = min(max_price, MAX_MAIN_MENU_KRW)
@@ -318,14 +334,48 @@ def list_restaurants(
     q = _public_restaurant_filter(q)
     q = q.distinct().options(selectinload(Restaurant.menu_items), selectinload(Restaurant.district))
 
+    stage1 = stage1_district_names()
+    if stage1 is not None:
+        q = q.filter(District.name.in_(list(stage1)))
+
     if district_id is not None:
         q = q.filter(Restaurant.district_id == district_id)
     elif district:
         q = q.filter(District.name == district.strip())
 
+    use_near = (
+        near_lat is not None
+        and near_lng is not None
+        and radius_m is not None
+    )
+    if use_near:
+        lat_delta = radius_m / 111_000.0
+        cos_lat = max(abs(math.cos(math.radians(near_lat))), 0.25)
+        lng_delta = radius_m / (111_000.0 * cos_lat)
+        q = q.filter(Restaurant.latitude.isnot(None), Restaurant.longitude.isnot(None))
+        q = q.filter(Restaurant.latitude.between(near_lat - lat_delta, near_lat + lat_delta))
+        q = q.filter(Restaurant.longitude.between(near_lng - lng_delta, near_lng + lng_delta))
+
     restaurants = q.order_by(Restaurant.name.asc()).all()
-    if limit is not None:
+
+    if use_near:
+        assert near_lat is not None and near_lng is not None and radius_m is not None
+        in_circle: list[Restaurant] = []
+        for r in restaurants:
+            if r.latitude is None or r.longitude is None:
+                continue
+            if haversine_m(near_lat, near_lng, float(r.latitude), float(r.longitude)) <= radius_m:
+                in_circle.append(r)
+        in_circle.sort(
+            key=lambda x: haversine_m(
+                near_lat, near_lng, float(x.latitude or 0), float(x.longitude or 0)
+            )
+        )
+        cap_n = limit if limit is not None else 200
+        restaurants = in_circle[:cap_n]
+    elif limit is not None:
         restaurants = restaurants[:limit]
+
     return [RestaurantListItem.model_validate(_list_item_from(db, r)) for r in restaurants]
 
 
@@ -336,19 +386,21 @@ def list_restaurants_for_manage(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in (SUPER_ADMIN, REGIONAL_MANAGER):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="BroG staff only")
-
     q = db.query(Restaurant)
-    if not (current_user.role == SUPER_ADMIN and include_deleted):
-        q = q.filter(Restaurant.is_deleted.is_(False))
-    if current_user.role == REGIONAL_MANAGER:
+    if current_user.role == SUPER_ADMIN:
+        if not include_deleted:
+            q = q.filter(Restaurant.is_deleted.is_(False))
+        if district_id is not None:
+            q = q.filter(Restaurant.district_id == district_id)
+    elif current_user.role == REGIONAL_MANAGER:
         mid = current_user.managed_district_id
         if mid is None:
             return []
         q = q.filter(Restaurant.district_id == mid)
-    elif district_id is not None:
-        q = q.filter(Restaurant.district_id == district_id)
+        q = q.filter(Restaurant.is_deleted.is_(False))
+    else:
+        q = q.filter(Restaurant.submitted_by_user_id == current_user.id)
+        q = q.filter(Restaurant.is_deleted.is_(False))
 
     rows = (
         q.options(selectinload(Restaurant.district))
@@ -375,9 +427,6 @@ def get_restaurant_for_manage(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in (SUPER_ADMIN, REGIONAL_MANAGER):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="BroG staff only")
-
     restaurant = (
         db.query(Restaurant)
         .options(
@@ -393,7 +442,7 @@ def get_restaurant_for_manage(
     if restaurant.is_deleted and current_user.role != SUPER_ADMIN:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
 
-    ensure_brog_district_access(current_user, restaurant.district_id)
+    ensure_can_access_brog_manage(current_user, restaurant)
     return _detail_item_from(db, restaurant)
 
 
@@ -412,6 +461,11 @@ def get_restaurant(restaurant_id: int, db: Session = Depends(get_db)):
     if not restaurant or restaurant.is_deleted or restaurant.status != "published":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
 
+    drow = db.query(District).filter(District.id == restaurant.district_id).first()
+    dname = drow.name if drow else ""
+    if not district_name_in_stage1(dname):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
+
     return _detail_item_from(db, restaurant)
 
 
@@ -424,8 +478,13 @@ def create_restaurant(
     d = db.query(District).filter(District.id == payload.district_id).first()
     if not d or not d.active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid district_id")
+    if not district_name_in_stage1(d.name):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="1단계 배포에서는 선택 가능한 구만 등록할 수 있습니다.",
+        )
 
-    ensure_brog_district_access(current_user, payload.district_id)
+    ensure_can_create_brog_in_chosen_district(current_user, payload.district_id)
 
     # 지역 담당자 작성은 항상 즉시 공개. 슈퍼만 초안(draft) 선택 가능.
     if current_user.role == SUPER_ADMIN:
@@ -492,7 +551,7 @@ def update_restaurant(
     if not restaurant or restaurant.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
 
-    ensure_brog_district_access(current_user, restaurant.district_id)
+    ensure_can_access_brog_manage(current_user, restaurant)
     if payload.district_id != restaurant.district_id and current_user.role != SUPER_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -502,6 +561,11 @@ def update_restaurant(
     d = db.query(District).filter(District.id == payload.district_id).first()
     if not d or not d.active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid district_id")
+    if not district_name_in_stage1(d.name):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="1단계 배포에서는 선택 가능한 구만 사용할 수 있습니다.",
+        )
 
     now = datetime.now(timezone.utc)
     if current_user.role == SUPER_ADMIN:
@@ -514,7 +578,7 @@ def update_restaurant(
             restaurant.approved_at = None
         restaurant.status = new_status
     else:
-        # 지역 담당자: 수정도 즉시 공개 반영
+        # 지역 담당자·등록 회원: 수정도 즉시 공개 반영
         if restaurant.status != "published":
             restaurant.approved_by_user_id = current_user.id
             restaurant.approved_at = now
@@ -614,7 +678,7 @@ def delete_restaurant(
     restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
     if not restaurant or restaurant.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
-    ensure_brog_district_access(current_user, restaurant.district_id)
+    ensure_can_access_brog_manage(current_user, restaurant)
     restaurant.is_deleted = True
     restaurant.deleted_at = datetime.now(timezone.utc)
     db.commit()

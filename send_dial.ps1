@@ -1,5 +1,8 @@
 ﻿. "$PSScriptRoot\smtp_config.ps1"
 
+# 규칙4: dial 로그 수신 (고정)
+$DialRecipients = @("shinypsy@naver.com", "shinypsy@gmail.com")
+
 $today    = Get-Date -Format "yyyy-MM-dd"
 $dialPath = "$PSScriptRoot\dial.txt"
 $ipPath   = "$PSScriptRoot\IP_dial.txt"
@@ -24,8 +27,8 @@ $securePassword = ConvertTo-SecureString $SMTP_PASSWORD -AsPlainText -Force
 $credential = New-Object System.Management.Automation.PSCredential($SMTP_FROM, $securePassword)
 
 try {
-    Send-MailMessage -From $SMTP_FROM -To $SMTP_TO -Subject "[BroGourmet] $today dial" -Body $body -Attachments $attachments -SmtpServer $SMTP_HOST -Port $SMTP_PORT -UseSsl -Credential $credential -Encoding UTF8
-    Write-Host "OK - mail sent to $($SMTP_TO -join ', ')"
+    Send-MailMessage -From $SMTP_FROM -To $DialRecipients -Subject "[BroGourmet] $today dial" -Body $body -Attachments $attachments -SmtpServer $SMTP_HOST -Port $SMTP_PORT -UseSsl -Credential $credential -Encoding UTF8
+    Write-Host "OK - mail sent to $($DialRecipients -join ', ')"
     if ($sendIpFile) {
         Remove-Item $ipPath -Force
         Write-Host "IP_dial.txt deleted"

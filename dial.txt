@@ -1,11 +1,10 @@
-=== BroGourmet dial.txt ===
-기록 규칙: 중간 삭제·끼워넣기·문장 임의 수정 금지. 새 대화는 파일 끝에만 Gee: / 브로(AI): 순서로 추가.
-호칭: 사용자 Gee, AI 브로(AI). (과거 브로: 표기 구간은 그대로 보존)
-일일 블록 <N월N일 요약>: Gee가 「오늘 그만」할 때만 브로(AI)가 작성.
-월 단위: 매월 1일 새 dial 파일 시작(운영 시).
+BroGourmet dial.txt
+규칙1 (dial·대화): 호칭 Gee·브로(AI). 중간 삭제·끼워넣기·임의 수정 금지. 새 대화는 파일 끝에만 Gee:/브로(AI): 로 추가. 대화 시작 시 dial 먼저 읽기. 매월 1일 새 dial 파일. 이 대화·dial 내용 프로젝트 외 유출·언급 금지. Gee 「오늘 그만」= 그날 <N월N일 요약>만 작성(메일·git 없음).
+규칙2 (코드 수정): 수정 요청 시 diff 먼저 제시. Gee가 「수정해」한 뒤에만 파일 반영. 적용 전 원본을 .old 로 백업.
+규칙3 (작업 태도): Gee 「점심」= AI 잠시 멈춤. BroGourmet 최종 그림 항상 염두. 작업 마무리 시 git 동기화 안내·실행.
+규칙4 (이제 그만): 당일 대화·결정을 <N월N일 요약> 형식으로 dial.txt 맨 끝에 정리 → dial.txt 를 shinypsy@naver.com · shinypsy@gmail.com 으로 send_dial.ps1 발송 → 그날 변경분 git add·commit·push (finish_day.ps1 로 메일+git 일괄 가능).
 
-[TOPIC · grep용] 좋아요정산 | QR포인트 | Clova감정 | 역할권한 | super_admin regional_manager franchise user | 비구독4 | 가맹재적립 | 로컬퍼스트 | BroG UI
-
+[TOPIC · grep용] 좋아요정산 | QR포인트 | Clova감정 | 역할권한 | super_admin regional_manager franchise user | 비구독4 | 가맹재적립 | 로컬퍼스트 | BroG UI | 규칙4 이제그만 | BYOK AI키 | 앱배포 | 온보딩 초기설정
 --- 본문 (시간순 보존) ---
 
 [2026-04-08]
@@ -72,6 +71,7 @@
 9. BroGourmet 최종 그림을 항상 염두에 두고 대화
 10. Gee가 '점심' 이라고 해야 잠시 생각을 멈춤
 11. 이 대화와 dial.txt 내용은 이 프로젝트 외 다른 곳에서 활용/언급 금지
+12. Gee가 「이제 그만」→ 해당일 `<N월N일 요약>`을 dial.txt 맨 끝에 정리 → dial을 shinypsy@naver.com·shinypsy@gmail.com 으로 발송(send_dial.ps1) → 그날 변경분 git 동기화(finish_day.ps1 또는 동일 절차)
 
 === BroGourmet 최종 그림 ===
 1차: 마포구/용산구/서대문구/영등포구/종로구/중구 (서울 도심 6개 구)
@@ -80,6 +80,10 @@
 사진 업로드 → Gemini 분석 → 후보 등록 → 관리자 검수 → BroG 승격
 지도 + 랭킹 + 커뮤니티 + 결제
 PWA → React Native/Expo 앱 → App Store/Google Play 배포
+최종 목표(제품 형태): Gee·브로가 만드는 BroGourmet은 **앱 스토어 배포용 모바일 앱**을 최종 정본으로 둔다(웹·PWA는 같은 코드베이스에서 앱으로 가는 경로상 단계).
+AI 연동(BYOK): **개인 사용자가 자신의 AI API 키**를 앱에 등록·보관하고, 메뉴판 분석 등 AI 기능은 **사용자 키**로 호출 가능하게 설계한다. 키 저장은 기기 로컬(암호화·OS 보안 저장소) 우선, 서버에 사용자 키를 평문 저장하지 않는 방향. 운영자 단일 키로 전 사용자 대행하는 방식은 선택·보조로만 검토(비용·약관·남용 리스크).
+첫 진입(문 통과 후) UX: 살롱 도어를 열고 앱 본문에 들어온 직후 **환영 공지**를 보여 주고, **초기 설정 방법**(특히 AI 키를 어디서 발급·어디에 붙여 넣는지)을 짧게 안내한다. 키 미설정 시 AI 기능은 비활성 또는 안내 모달로 유도.
+배포·환경변수: **스토어 배포 빌드**에는 전 사용자용 **공용 AI 키를 .env에 넣어 배포하지 않는다**(빈 값 또는 비AI 경로만 동작). `.env`의 키 슬롯은 **로컬 개발**에서만 선택적으로 사용. **각 유저는 앱 설정에서 자기 키를 입력**해, 런타임에 개발 시 `.env`에 넣던 그 자리와 **동일한 역할**을 하게 한다(코드상 한 곳에서 "키 출처: 환경변수(개발) | 사용자설정(배포)"로 통합).
 
 브로: 너는 내가 생각하고 있는 최종 그림을 계속 생각하고 있어야 해. 점심 이라는 말을 해야 생각을 멈출 수 있어. 이 내용은 다른 곳에서 활용하면 안돼
 브로(AI): 규칙 9~11 확정. 최종 그림 항상 염두. 점심=잠시 멈춤. 이 대화는 이 프로젝트에서만.
@@ -349,4 +353,30 @@ Gee: 오케이 브로..이제 궁금한 거 없지. 이제 시작해야지?
 
 Gee: dial.txt 정리하고 git 반영해줘
 브로(AI): 상단에 규칙·TOPIC 인덱스 추가. 본문은 보존. BroGourmet 저장소 변경분 스테이징 후 커밋.
+
+[2026-04-09]
+
+Gee: 규칙4 '이제 그만' 이라고 하면 dial.txt 에 해당일의 내용을 요약하여 마지막줄에 정리한다. dial.txt는 shinypsy@naver.com, shinypsy@gmail.com 으로 메일을 자동 발송한다. git에 그 날 하루 작성했던 모든 내용을 동기화 시킨다.
+브로(AI): 확정. 상단 헤더에 규칙4 반영. send_dial.ps1 수신자를 두 주소로 고정. finish_day.ps1 추가(git 동기화 후 send_dial.ps1 호출). 채팅에서 Gee가 「이제 그만」 시 순서: 요약 블록 작성→저장→finish_day.ps1 실행(또는 동일 단계 수동).
+
+Gee: 규칙은 dial.txt에 첫 줄에 배치한다.
+브로(AI): 확정. 규칙1~4 전부를 파일 1행 한 줄에 압축 배치. 2행 TOPIC, 3행 본문 구분선.
+
+Gee: 네가 말한 규칙1, 규칙2, 규칙3, 규칙4로 새롭게 상단에 배치해줘
+브로(AI): 확정. 상단을 제목 1행 + 규칙1~4 각각 독립 행 + 빈 줄 + TOPIC + 본문 구분선으로 재배치.
+
+Gee: 지금부터 말하는 내용을 최종 그림에 추가해서 정리해줘. 너와 내가 만드는 것은 최종적으로 앱으로 배포할 생각이야. 그렇다면 AI연동에 대한 부분은 개인사용자의 key를 가지고 사용할 수 이
+브로(AI): 문장 끝이 잘린 것으로 보고, 의도를 「개인 사용자가 본인 API 키로 AI 기능 사용(BYOK)」로 확정해 최종 그림 블록에 반영. 앱 스토어 배포를 최종 정본으로 명시. TOPIC에 BYOK·앱배포 추가.
+
+Gee: 개인 key를 가지고 사용할 수 있게 해야 해. 그렇다면 첫화면의 문을 열고 들어갔을 때 환영한다는 공지와 초기설정하는 법을 알려줘야 할 것 같아. 배포 시에는 .env에 입력하는 공간의 key값을 유저가 각자의 key값을 사용하게 하는 거지.
+브로(AI): 최종 그림에 반영함. (1) 문 통과 직후 환영+초기설정(특히 AI 키) 안내. (2) 스토어 빌드는 공용 AI 키를 .env에 싣지 않음, 유저는 설정에 자기 키 → 개발 시 .env 키와 동일 역할을 런타임에 치환. TOPIC에 온보딩 초기설정 추가.
+
+Gee: 규칙에 따라 정리해야지
+브로(AI): dial 맨 끝에 해당일 요약 블록 추가, `.gitignore`에 `API_key.txt`·`gourmet/uploads/` 보강 후 `finish_day.ps1`(git 동기화→`send_dial.ps1`) 실행 시도.
+
+<4월9일 요약>
+- 업로드: BroG·MyG·레거시 평면 분리. 백엔드 `BROG_UPLOAD_DIR`·`MYG_UPLOAD_DIR`·`LEGACY_UPLOAD_DIR`(구 `COMMUNITY_IMAGE_DIR`), API `POST /uploads/brog/image`·`/myg/image`·`/image`, 정적 마운트 순서 brog→myg→평면. 프론트 `uploadCommunityImage(..., 'brog'|'myg'|'legacy')`, BroG 관리만 `brog`. 로컬 기본 `gourmet/uploads/brog|myg`, 배포 시 BroG만 서버 경로 지정 가능. `run.txt`·`.env.example`·`test_upload_probe.py` 반영.
+- 지도: `BrogKakaoMap` teardown에서 카카오 `removeListener` TypeError 방지 — 레이아웃 정리 시 컨테이너 `innerHTML` 비우기, `removeListener`는 null·try/catch 가드.
+- 환경: 카카오/브라우저 오류는 `.venv`와 무관. `broke`는 Node만, `gourmet` 백엔드는 `.venv`의 `uvicorn` 권장(전역 `python`은 3.14 등 별도일 수 있음).
+- 규칙: Gee 「이제 그만」 짧은 종료 후, 규칙4 절차에 맞춰 요약·git·메일 정리 진행.
 

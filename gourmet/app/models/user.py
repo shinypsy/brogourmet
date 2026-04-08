@@ -19,7 +19,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     nickname: Mapped[str] = mapped_column(String(100), nullable=False)
+    # 가입 시 항상 user. super_admin 은 SUPER_ADMIN_EMAIL 등으로 별도 처리, regional_manager 는 DB에서 수동 지정.
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)
+    # regional_manager 일 때만 사용. districts.id — SQL 로 role/managed_district_id 를 맞춰 지역 담당으로 승격.
     managed_district_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True, index=True
     )

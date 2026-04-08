@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.storage import COMMUNITY_IMAGE_DIR
+from app.core.storage import BROG_UPLOAD_DIR, LEGACY_UPLOAD_DIR, MYG_UPLOAD_DIR
 from app.api.auth import router as auth_router
 from app.api.districts import router as districts_router
 from app.api.free_share import router as free_share_router
@@ -38,7 +38,7 @@ from app.models import (  # noqa: F401 — register metadata for create_all
     RestaurantMenuItem,
     User,
 )
-from app.seed import seed_districts, seed_restaurants
+from app.seed import ensure_mapo_brog_demo_restaurants, seed_districts, seed_restaurants
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,7 @@ async def lifespan(_: FastAPI):
     try:
         seed_districts(db)
         seed_restaurants(db)
+        ensure_mapo_brog_demo_restaurants(db)
     finally:
         db.close()
     yield
@@ -122,8 +123,13 @@ app.include_router(free_share_router)
 app.include_router(known_restaurants_router)
 app.include_router(payments_router)
 app.include_router(uploads_router)
-COMMUNITY_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=COMMUNITY_IMAGE_DIR), name="uploads")
+# 정적 경로: 구체적인 prefix 먼저 등록 (/uploads/brog, /uploads/myg → 마지막에 평면 레거시 /uploads)
+BROG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+MYG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+LEGACY_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads/brog", StaticFiles(directory=BROG_UPLOAD_DIR), name="uploads_brog")
+app.mount("/uploads/myg", StaticFiles(directory=MYG_UPLOAD_DIR), name="uploads_myg")
+app.mount("/uploads", StaticFiles(directory=LEGACY_UPLOAD_DIR), name="uploads_legacy")
 
 
 @app.get("/")
