@@ -8,14 +8,13 @@ export const ROLE_FRANCHISE = 'franchise'
 export const ROLE_USER = 'user'
 
 /**
- * 테스트·로컬 개발: 커뮤니티·슈퍼 전용 버튼 등 일부 UI는 `assumeAdminUi()` 로 완화합니다.
- * BroG: `canManageBrog` / `canManageBrogForDistrict` 는 슈퍼·지역담당(구 단위)만.
- * 등록자 본인 권한은 `canAccessBrogManageForRestaurant` 와 서버 `ensure_can_access_brog_manage` 와 맞출 것.
- * - `npm run dev` → assumeAdminUi 기본 켜짐
- * - 스테이징: `VITE_ASSUME_ADMIN_UI=1`
+ * 명시할 때만 켜는 “모든 화면을 관리자 권한으로 본다” 완화(로그인 없이 레이아웃만 볼 때 등).
+ * 기본은 끔 — `npm run dev` 여도 실제 `fetchMe` 역할과 동일하게 메뉴·버튼이 갈립니다.
+ * 예전처럼 dev에서 전역 관리자 UI를 쓰려면 broke `.env` 에 `VITE_ASSUME_ADMIN_UI=1`
+ *
+ * BroG 실제 수정 권한은 `canAccessBrogManageForRestaurant` 등(assumeAdminUi 미사용)과 서버가 판별합니다.
  */
 export function assumeAdminUi(): boolean {
-  if (import.meta.env.DEV) return true
   const v = String(import.meta.env.VITE_ASSUME_ADMIN_UI ?? '')
     .trim()
     .toLowerCase()
@@ -106,6 +105,35 @@ export function canEditOrDeleteRestaurantComment(
 /** 슈퍼·지역담당자만 (등록 회원 BroG 작성은 로그인만 있으면 됨 — 서버와 별도) */
 export function canManageBrog(role: string | undefined): boolean {
   return role === ROLE_SUPER_ADMIN || role === ROLE_REGIONAL_MANAGER
+}
+
+/** 상단 이벤트 티커 등록·목록·비활성화: 슈퍼 또는 담당 구가 있는 지역 담당자 */
+export function canWriteSiteEvents(
+  user: Pick<User, 'role' | 'managed_district_id'> | null | undefined,
+): boolean {
+  if (!user) return false
+  if (assumeAdminUi()) return true
+  if (user.role === ROLE_SUPER_ADMIN) return true
+  if (user.role === ROLE_REGIONAL_MANAGER && user.managed_district_id != null) return true
+  return false
+}
+
+/** 이벤트 비활성화·삭제: 슈퍼는 전부, 지역 담당자는 본인 작성만 */
+export function canMutateSiteEvent(
+  user: Pick<User, 'id' | 'role'> | null | undefined,
+  event: { author_id: number | null },
+): boolean {
+  if (!user) return false
+  if (assumeAdminUi()) return true
+  if (user.role === ROLE_SUPER_ADMIN) return true
+  if (
+    user.role === ROLE_REGIONAL_MANAGER &&
+    event.author_id != null &&
+    event.author_id === user.id
+  ) {
+    return true
+  }
+  return false
 }
 
 /** BroG 관리·수정·목록 숨김 — 슈퍼, 담당 구 지역담당자, 또는 등록자 본인 (서버와 동일, assumeAdminUi 미적용) */

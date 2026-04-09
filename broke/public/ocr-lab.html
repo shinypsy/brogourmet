@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CLOVA OCR 실험대 (로컬)</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 720px;
+        margin: 24px auto;
+        padding: 0 16px;
+        line-height: 1.5;
+      }
+      label {
+        display: block;
+        margin-top: 12px;
+        font-weight: 600;
+      }
+      input[type='text'],
+      input[type='password'] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px;
+      }
+      button {
+        margin-top: 16px;
+        padding: 10px 16px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 12px;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CLOVA OCR 실험대</h1>
+    <p>
+      broke 개발 서버에서만 쓰기 위한 간단 페이지입니다. gourmet에 <code>CLOVA_OCR_*</code> 가 설정되어 있고, 아래에 로그인으로 받은 Bearer
+      토큰을 넣으면 <code>POST /ocr/clova/menu-image</code> 를 호출합니다.
+    </p>
+    <label>API 베이스 URL (끝 슬래시 없음)</label>
+    <input type="text" id="base" value="http://localhost:8001" autocomplete="off" />
+    <label>액세스 토큰 (localStorage의 brogourmet_access_token 값)</label>
+    <input type="password" id="token" autocomplete="off" />
+    <label>이미지 (JPEG/PNG)</label>
+    <input type="file" id="file" accept="image/jpeg,image/png" />
+    <button type="button" id="go">OCR 요청</button>
+    <p id="err" style="color: #b00020"></p>
+    <h2>응답 텍스트</h2>
+    <pre id="out"></pre>
+    <script>
+      document.getElementById('go').onclick = async () => {
+        const base = document.getElementById('base').value.trim().replace(/\/$/, '')
+        const token = document.getElementById('token').value.trim()
+        const fileInput = document.getElementById('file')
+        const err = document.getElementById('err')
+        const out = document.getElementById('out')
+        err.textContent = ''
+        out.textContent = ''
+        if (!token) {
+          err.textContent = '토큰이 필요합니다. 앱에서 로그인 후 개발자 도구 → Application → Local Storage 확인.'
+          return
+        }
+        const f = fileInput.files?.[0]
+        if (!f) {
+          err.textContent = '파일을 선택하세요.'
+          return
+        }
+        const fd = new FormData()
+        fd.append('file', f)
+        try {
+          const res = await fetch(base + '/ocr/clova/menu-image', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token },
+            body: fd,
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            err.textContent = data.detail ? String(data.detail) : res.status + ' ' + res.statusText
+            return
+          }
+          out.textContent = data.text ?? JSON.stringify(data, null, 2)
+        } catch (e) {
+          err.textContent = e instanceof Error ? e.message : String(e)
+        }
+      }
+    </script>
+  </body>
+</html>

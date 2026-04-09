@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 
-import { ACCESS_TOKEN_KEY } from './api/auth'
+import { ACCESS_TOKEN_KEY, fetchMe, type User } from './api/auth'
 import { AUTH_CHANGE_EVENT } from './authEvents'
+import { EventTicker } from './components/EventTicker'
 import { TestUiAdminBanner } from './components/TestUiAdminBanner'
 import { BROG_ONLY } from './config/features'
+import { canWriteSiteEvents } from './lib/roles'
 import { HomePage } from './pages/HomePage'
 
 const BrogListPage = lazy(() =>
@@ -40,7 +42,13 @@ const KnownRestaurantPostDetailPage = lazy(() =>
     default: m.KnownRestaurantPostDetailPage,
   })),
 )
+const KnownRestaurantPostEditPage = lazy(() =>
+  import('./pages/KnownRestaurantPostEditPage').then((m) => ({
+    default: m.KnownRestaurantPostEditPage,
+  })),
+)
 const PaymentPage = lazy(() => import('./pages/PaymentPage').then((m) => ({ default: m.PaymentPage })))
+const EventWritePage = lazy(() => import('./pages/EventWritePage').then((m) => ({ default: m.EventWritePage })))
 const SadariPage = lazy(() => import('./pages/SadariPage').then((m) => ({ default: m.SadariPage })))
 const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })))
 const VerifyEmailPage = lazy(() =>
@@ -58,6 +66,7 @@ const prefetch = {
   mygMap: () => void import('./pages/KnownRestaurantsMapPage'),
   freeShare: () => void import('./pages/FreeShareBoardPage'),
   payment: () => void import('./pages/PaymentPage'),
+  eventWrite: () => void import('./pages/EventWritePage'),
   login: () => void import('./pages/LoginPage'),
 } as const
 
@@ -69,6 +78,7 @@ function App() {
   const [hasToken, setHasToken] = useState(() =>
     typeof window !== 'undefined' ? Boolean(localStorage.getItem(ACCESS_TOKEN_KEY)) : false,
   )
+  const [navUser, setNavUser] = useState<User | null>(null)
 
   useEffect(() => {
     function sync() {
@@ -81,6 +91,25 @@ function App() {
       window.removeEventListener('storage', sync)
     }
   }, [])
+
+  useEffect(() => {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!token) {
+      setNavUser(null)
+      return
+    }
+    let cancelled = false
+    void fetchMe(token)
+      .then((me) => {
+        if (!cancelled) setNavUser(me)
+      })
+      .catch(() => {
+        if (!cancelled) setNavUser(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [hasToken])
 
   function logout() {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
@@ -108,21 +137,26 @@ function App() {
             BroG
           </Link>
           {!BROG_ONLY ? (
+            <Link
+              className="main-nav-item"
+              to="/known-restaurants"
+              onMouseEnter={() => {
+                prefetch.mygList()
+                prefetch.mygMap()
+              }}
+              onFocus={() => {
+                prefetch.mygList()
+                prefetch.mygMap()
+              }}
+            >
+              MyG
+            </Link>
+          ) : null}
+          <Link className="main-nav-item" to="/game" onMouseEnter={prefetch.game} onFocus={prefetch.game}>
+            Game
+          </Link>
+          {!BROG_ONLY ? (
             <>
-              <Link
-                className="main-nav-item"
-                to="/known-restaurants"
-                onMouseEnter={() => {
-                  prefetch.mygList()
-                  prefetch.mygMap()
-                }}
-                onFocus={() => {
-                  prefetch.mygList()
-                  prefetch.mygMap()
-                }}
-              >
-                MyG
-              </Link>
               <Link className="main-nav-item" to="/free-share" onMouseEnter={prefetch.freeShare} onFocus={prefetch.freeShare}>
                 Free
               </Link>
@@ -131,9 +165,16 @@ function App() {
               </Link>
             </>
           ) : null}
-          <Link className="main-nav-item" to="/game" onMouseEnter={prefetch.game} onFocus={prefetch.game}>
-            Game
-          </Link>
+          {navUser && canWriteSiteEvents(navUser) ? (
+            <Link
+              className="main-nav-item"
+              to="/events/write"
+              onMouseEnter={prefetch.eventWrite}
+              onFocus={prefetch.eventWrite}
+            >
+              이벤트
+            </Link>
+          ) : null}
           {hasToken ? (
             <button
               type="button"
@@ -151,6 +192,8 @@ function App() {
         </nav>
       </header>
 
+      <EventTicker />
+
       <TestUiAdminBanner />
 
       <main className="content">
@@ -163,6 +206,7 @@ function App() {
             <Route path="/restaurants/manage/new" element={<RestaurantManagePage />} />
             <Route path="/restaurants/manage/:id" element={<RestaurantManagePage />} />
             <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
+            <Route path="/events/write" element={<EventWritePage />} />
             {!BROG_ONLY ? (
               <>
                 <Route path="/free-share" element={<FreeShareBoardPage />} />
@@ -172,6 +216,7 @@ function App() {
                 <Route path="/known-restaurants/list" element={<KnownRestaurantsBoardPage />} />
                 <Route path="/known-restaurants/map" element={<KnownRestaurantsMapPage />} />
                 <Route path="/known-restaurants/write" element={<KnownRestaurantsWritePage />} />
+                <Route path="/known-restaurants/:id/edit" element={<KnownRestaurantPostEditPage />} />
                 <Route path="/known-restaurants/:id" element={<KnownRestaurantPostDetailPage />} />
                 <Route path="/payment" element={<PaymentPage />} />
               </>

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { ACCESS_TOKEN_KEY } from '../api/auth'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
 import { fetchKnownRestaurantPosts, type KnownRestaurantPost } from '../api/community'
 import { BrogKakaoMap } from '../components/BrogKakaoMap'
@@ -12,6 +13,10 @@ import {
   mygDistrictOptionsForUi,
   STAGE1_DEFAULT_DISTRICT,
 } from '../lib/deployStage1'
+
+const mapMetaExtraMyg = isStage1LimitedDistricts()
+  ? ' 1단계: 지역은 마포·용산·서대문·영등포·종로·중구 6개 구만 선택할 수 있습니다.'
+  : ''
 
 const DEFAULT_DISTRICT = STAGE1_DEFAULT_DISTRICT
 
@@ -58,13 +63,32 @@ export function KnownRestaurantsMapPage() {
     handleApplyManualCoords,
     myLocationFromDevice,
     applyLatLng,
-  } = useSeoulMapUserLocation(setDistrict)
+  } = useSeoulMapUserLocation(setDistrict, { initialGeolocationSetsDistrict: false })
+
+  const mapUserCoordsRef = useRef(mapUserCoords)
+  mapUserCoordsRef.current = mapUserCoords
+
+  const onMapViewSettled = useCallback(
+    (lat: number, lng: number) => {
+      const cur = mapUserCoordsRef.current
+      if (
+        cur != null &&
+        Math.abs(cur.lat - lat) < 2e-5 &&
+        Math.abs(cur.lng - lng) < 2e-5
+      ) {
+        return
+      }
+      void applyLatLng(lat, lng)
+    },
+    [applyLatLng],
+  )
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setLoadError('')
-    void fetchKnownRestaurantPosts()
+    const t = localStorage.getItem(ACCESS_TOKEN_KEY)
+    void fetchKnownRestaurantPosts(t)
       .then((rows) => {
         if (!cancelled) {
           setPosts(rows)
@@ -132,25 +156,39 @@ export function KnownRestaurantsMapPage() {
       <section className="map-hero map-hero--compact brog-screen__header brog-screen__header--map">
         <div>
           <p className="eyebrow">MyG · 지도</p>
-          <h2 className="brog-screen__title">{district} 제보</h2>
+          <h2 className="brog-screen__title">{`${district} MyG`}</h2>
           <p className="description map-hero__meta brog-screen__meta">
-            좌표가 있는 글만 지도에 표시됩니다. GPS·수동 좌표가 있으면 목록을 가까운 순으로 정렬합니다.
+            서울특별시 {district} · 가격 상한 없음 · 본인 MyG 글만 · 지도를 움직이거나 GPS·수동 좌표가 있으면 화면
+            중심·기준점 기준 가까운 순으로 목록을 정렬합니다. 좌표가 있는 글만 지도에 깃발로 나옵니다.
+            {mapMetaExtraMyg}
           </p>
         </div>
         <div className="hero-actions brog-screen__header-actions">
-          <Link className="ghost-button" to="/">
-            Home
-          </Link>
-          <Link className="ghost-button" to="/known-restaurants/list">
+          <Link
+            className="ghost-button"
+            to={`/known-restaurants/list?district=${encodeURIComponent(district)}`}
+          >
             목록
           </Link>
+          <Link
+            className="ghost-button"
+            to={`/map?city=${encodeURIComponent('서울특별시')}&district=${encodeURIComponent(district)}`}
+          >
+            BroG 지도
+          </Link>
           <Link className="brog-screen__cta" to="/known-restaurants/write">
-            글쓰기
+            작성
           </Link>
         </div>
       </section>
 
       <div className="map-page-toolbar map-card">
+        <label className="price-filter map-page-toolbar__filter">
+          가격 상한
+          <select value="none" disabled aria-readonly>
+            <option value="none">제한 없음 (MyG)</option>
+          </select>
+        </label>
         <label className="price-filter map-page-toolbar__filter">
           서울시 구
           <select value={district} onChange={(e) => setDistrict(e.target.value)}>
@@ -162,6 +200,9 @@ export function KnownRestaurantsMapPage() {
           </select>
         </label>
         <div className="map-page-toolbar__geo">
+          <p className="helper" style={{ margin: '0 0 8px' }}>
+            본인 글만 표시됩니다. BroG 지도와 동일하게 위치·구를 바꾸면 목록 순서와 마커가 달라질 수 있습니다.
+          </p>
           <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#8892a8' }}>
             {geoBusy ? `${geoHint} (최대 약 1분까지 시도 중…)` : geoHint}
             {navigator.geolocation ? (
@@ -257,8 +298,8 @@ export function KnownRestaurantsMapPage() {
       <section className="map-page-map-section map-card">
         <h3 className="map-page-map-section__title">위치 지도</h3>
         <p className="map-page-map-section__hint">
-          깃발은 좌표가 있는 MyG 글입니다. 클릭 시 상세로 이동합니다. 지도를 길게 누르거나 우클릭하면 그 지점을 내
-          위치로 잡습니다.
+          깃발은 좌표가 있는 MyG 글입니다. 클릭 시 상세로 이동합니다. 지도를 움직이면 중심 기준으로 순서가
+          갱신됩니다. 길게 누르거나 우클릭하면 그 지점을 내 위치로 잡습니다.
         </p>
         {KAKAO_MAP_APP_KEY ? (
           <BrogKakaoMap
@@ -267,6 +308,8 @@ export function KnownRestaurantsMapPage() {
             locating={geoBusy}
             onMyLocationClick={onMapLocate}
             onPickUserLocationOnMap={onPickUserLocationOnMap}
+            onMapViewSettled={mapUserCoords != null ? onMapViewSettled : undefined}
+            autoRefitWhenPinsChange={false}
             getDetailPath={(id) => `/known-restaurants/${id}`}
             mapAriaLabel="MyG 위치 지도"
             shellClassName="kakao-map-embed"

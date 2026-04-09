@@ -34,6 +34,7 @@ type KakaoMapInstance = {
   setBounds: (bounds: unknown) => void
   setLevel?: (level: number) => void
   relayout?: () => void
+  getCenter?: () => KakaoLatLngLike
   getProjection?: () => {
     coordsFromContainerPoint: (point: unknown) => KakaoLatLngLike | null | undefined
   } | null
@@ -71,6 +72,18 @@ export type BrogKakaoMapProps = {
    * (지도 컨테이너에서 `contextmenu` 기본 메뉴는 막습니다.)
    */
   onPickUserLocationOnMap?: (lat: number, lng: number) => void
+  /**
+   * 드래그·줌 등으로 지도가 안정된 뒤(디바운스) 현재 화면 중심 좌표.
+   * 목록 API의 near 기준으로 쓰기 좋음. 프로그램적 setBounds/setCenter 직후 잠깐은 호출되지 않습니다.
+   */
+  onMapViewSettled?: (lat: number, lng: number) => void
+  /** `onMapViewSettled` 디바운스(ms). 기본 450. */
+  mapViewSettleDebounceMs?: number
+  /**
+   * true(기본): 내 위치·깃발이 바뀔 때마다 setBounds로 맞춤.
+   * false: 내 위치 좌표가 바뀔 때만 맞춤 — 목록만 갱신돼 깃발이 바뀌어도 사용자가 옮긴 지도 뷰를 유지.
+   */
+  autoRefitWhenPinsChange?: boolean
   /** 마커 클릭 시 이동할 경로 */
   getDetailPath: (id: number) => string
   mapAriaLabel: string
@@ -87,6 +100,7 @@ const DEFAULT_ERROR = 'home-hub__map-error'
 
 const LONG_PRESS_MS = 550
 const LONG_PRESS_MOVE_PX = 14
+const PROGRAMMATIC_MAP_MOVE_GUARD_MS = 750
 
 export function BrogKakaoMap({
   userCoords,
@@ -94,6 +108,9 @@ export function BrogKakaoMap({
   locating,
   onMyLocationClick,
   onPickUserLocationOnMap,
+  onMapViewSettled,
+  mapViewSettleDebounceMs = 450,
+  autoRefitWhenPinsChange = true,
   getDetailPath,
   mapAriaLabel,
   shellClassName = DEFAULT_SHELL,
@@ -116,6 +133,16 @@ export function BrogKakaoMap({
   useLayoutEffect(() => {
     onPickUserLocationRef.current = onPickUserLocationOnMap
   }, [onPickUserLocationOnMap])
+
+  const onMapViewSettledRef = useRef(onMapViewSettled)
+  useLayoutEffect(() => {
+    onMapViewSettledRef.current = onMapViewSettled
+  }, [onMapViewSettled])
+
+  const ignoreExploreUntilRef = useRef(0)
+  const prevUserAnchorKeyRef = useRef<string | null>(null)
+  const prevPinsCountRef = useRef(-1)
+  const hasDoneInitialFitRef = useRef(false)
 
   useEffect(() => {
     if (!KAKAO_MAP_APP_KEY) return
@@ -217,20 +244,34 @@ export function BrogKakaoMap({
       extendPoints.push(new maps.LatLng(p.latitude, p.longitude))
     })
 
-    if (extendPoints.length >= 2 && typeof maps.LatLngBounds === 'function') {
-      const bounds = new maps.LatLngBounds()
-      extendPoints.forEach((pt) => bounds.extend(pt))
-      map.setBounds(bounds)
-    } else if (extendPoints.length === 1) {
-      map.setCenter(extendPoints[0])
-      map.setLevel?.(5)
-    } else {
-      map.setCenter(new maps.LatLng(SEOUL_DEFAULT.lat, SEOUL_DEFAULT.lng))
-      map.setLevel?.(7)
+    const userAnchorKey = userCoords ? `${userCoords.lat.toFixed(6)},${userCoords.lng.toFixed(6)}` : ''
+    const userAnchorMoved = prevUserAnchorKeyRef.current !== userAnchorKey
+    const pinsFirstBatch = pins.length > 0 && prevPinsCountRef.current <= 0
+    const shouldRefit = autoRefitWhenPinsChange
+      ? true
+      : userAnchorMoved || !hasDoneInitialFitRef.current || pinsFirstBatch
+
+    if (shouldRefit) {
+      ignoreExploreUntilRef.current = Date.now() + PROGRAMMATIC_MAP_MOVE_GUARD_MS
+      if (extendPoints.length >= 2 && typeof maps.LatLngBounds === 'function') {
+        const bounds = new maps.LatLngBounds()
+        extendPoints.forEach((pt) => bounds.extend(pt))
+        map.setBounds(bounds)
+      } else if (extendPoints.length === 1) {
+        map.setCenter(extendPoints[0])
+        map.setLevel?.(5)
+      } else {
+        map.setCenter(new maps.LatLng(SEOUL_DEFAULT.lat, SEOUL_DEFAULT.lng))
+        map.setLevel?.(7)
+      }
+      hasDoneInitialFitRef.current = true
     }
 
+    prevUserAnchorKeyRef.current = userAnchorKey
+    prevPinsCountRef.current = pins.length
+
     window.requestAnimationFrame(() => mapRef.current?.relayout?.())
-  }, [mapSdkReady, userCoords, pins, navigate])
+  }, [mapSdkReady, userCoords, pins, navigate, autoRefitWhenPinsChange])
 
   useEffect(() => {
     const maps = getKakaoMaps()
@@ -361,6 +402,41 @@ export function BrogKakaoMap({
     }
   }, [mapSdkReady, onPickUserLocationOnMap])
 
+  useEffect(() => {
+    const maps = getKakaoMaps()
+    if (!mapSdkReady || !maps?.event || !onMapViewSettled) return
+    const map = mapRef.current
+    if (!map) return
+
+    let debounceTimer: number | null = null
+    const flush = () => {
+      if (Date.now() < ignoreExploreUntilRef.current) return
+      const c = map.getCenter?.()
+      if (!c || typeof c.getLat !== 'function') return
+      onMapViewSettledRef.current?.(c.getLat(), c.getLng())
+    }
+    const onIdle = () => {
+      if (debounceTimer != null) window.clearTimeout(debounceTimer)
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null
+        flush()
+      }, mapViewSettleDebounceMs)
+    }
+
+    const listener = maps.event.addListener(map, 'idle', onIdle)
+
+    return () => {
+      if (debounceTimer != null) window.clearTimeout(debounceTimer)
+      if (listener != null && maps.event && typeof maps.event.removeListener === 'function') {
+        try {
+          maps.event.removeListener(listener)
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }, [mapSdkReady, onMapViewSettled, mapViewSettleDebounceMs])
+
   if (!KAKAO_MAP_APP_KEY) {
     return (
       <div className={shellPlaceholderClassName}>
@@ -375,10 +451,19 @@ export function BrogKakaoMap({
     <div className={shellClassName}>
       {mapLoadError ? <p className={`error ${errorClassName}`}>{mapLoadError}</p> : null}
       <div ref={mapContainerRef} className={canvasClassName} role="application" aria-label={mapAriaLabel} />
-      {onPickUserLocationOnMap ? (
+      {onMapViewSettled || onPickUserLocationOnMap ? (
         <p className="brog-map-longpress-hint helper">
-          지도를 <strong>길게 누르거나</strong> <strong>우클릭</strong>하면 그 지점을 내 위치로 잡습니다. (드래그하면
-          취소)
+          {onMapViewSettled ? (
+            <>
+              지도를 <strong>움직이면</strong> 잠시 뒤 화면 중심 기준으로 목록이 다시 맞춰집니다.{' '}
+            </>
+          ) : null}
+          {onPickUserLocationOnMap ? (
+            <>
+              지도를 <strong>길게 누르거나</strong> <strong>우클릭</strong>하면 그 지점을 내 위치로 잡습니다.
+              {onMapViewSettled ? ' (롱프레스는 드래그하면 취소)' : ' (드래그하면 취소)'}
+            </>
+          ) : null}
         </p>
       ) : null}
       {pins.length > 0 ? (

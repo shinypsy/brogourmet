@@ -1,20 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
-import { deleteRestaurant, fetchRestaurants, type RestaurantListItem } from '../api/restaurants'
+import {
+  cycleBroListPin,
+  deleteRestaurant,
+  fetchRestaurants,
+  type RestaurantListItem,
+} from '../api/restaurants'
 import { BrogRankCard } from '../components/BrogRankCard'
 import {
   brogDistrictOptionsForUi,
   clampBrogDistrictForPhase1,
   isBrogPhase1Restricted,
 } from '../lib/brogPhase1'
-import { assumeAdminUi, canSoftDeleteBrogListing } from '../lib/roles'
+import {
+  BROG_LIST_REFRESH_STATE_KEY,
+  persistBrogListQuery,
+} from '../lib/brogListNavigation'
+import { assumeAdminUi, canManageBrogForDistrict, canSoftDeleteBrogListing } from '../lib/roles'
 
 const PRICE_FILTER_MAX_OPTIONS = [10000, 9000, 8000, 7000, 6000, 5000] as const
 const DEFAULT_DISTRICT = '마포구'
 
 export function BrogListPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const city = searchParams.get('city') ?? '서울특별시'
   const districtRaw = searchParams.get('district') ?? DEFAULT_DISTRICT
@@ -40,7 +51,16 @@ export function BrogListPage() {
   const [restaurants, setRestaurants] = useState<RestaurantListItem[]>([])
   const [listError, setListError] = useState('')
   const [isListLoading, setIsListLoading] = useState(true)
+  const listRefreshAt =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    BROG_LIST_REFRESH_STATE_KEY in location.state
+      ? Number((location.state as { brogListRefreshAt?: number }).brogListRefreshAt)
+      : 0
+
   const [user, setUser] = useState<User | null>(null)
+  const [listReloadTick, setListReloadTick] = useState(0)
+  const [pinBusyId, setPinBusyId] = useState<number | null>(null)
 
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
 
@@ -60,6 +80,14 @@ export function BrogListPage() {
   }, [token])
 
   const pageTitle = useMemo(() => `${district} BroG`, [district])
+
+  useEffect(() => {
+    try {
+      persistBrogListQuery(city, district)
+    } catch {
+      /* */
+    }
+  }, [city, district])
 
   useEffect(() => {
     let cancelled = false
@@ -84,7 +112,13 @@ export function BrogListPage() {
     return () => {
       cancelled = true
     }
-  }, [district, maxPrice])
+  }, [district, maxPrice, listRefreshAt, listReloadTick])
+
+  /** 상세·관리에서 삭제 후 넘어온 state 제거(뒤로가기 시 이상한 재요청 방지) */
+  useEffect(() => {
+    if (listRefreshAt <= 0) return
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true })
+  }, [listRefreshAt, location.pathname, location.search, navigate])
 
   async function handleSoftDelete(restaurant: RestaurantListItem) {
     if (!token) {
@@ -112,6 +146,28 @@ export function BrogListPage() {
     return canSoftDeleteBrogListing(user, r)
   }
 
+  function canPinRow(r: RestaurantListItem): boolean {
+    if (!token || !user) return false
+    if (assumeAdminUi()) return true
+    return canManageBrogForDistrict(user.role, user.managed_district_id, r.district_id)
+  }
+
+  async function handleCycleListPin(restaurantId: number) {
+    if (!token) {
+      window.alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+    setPinBusyId(restaurantId)
+    try {
+      await cycleBroListPin(token, restaurantId)
+      setListReloadTick((t) => t + 1)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '고정 설정에 실패했습니다.')
+    } finally {
+      setPinBusyId(null)
+    }
+  }
+
   const brogDistrictOptions = brogDistrictOptionsForUi()
 
   const emptyHint = isBrogPhase1Restricted()
@@ -129,9 +185,6 @@ export function BrogListPage() {
           </p>
         </div>
         <div className="brog-screen__header-actions">
-          <Link className="ghost-button" to="/">
-            Home
-          </Link>
           <Link
             className="ghost-button"
             to={`/map?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`}
@@ -173,7 +226,9 @@ export function BrogListPage() {
             <p className="helper brog-list-toolbar__note brog-list-toolbar__note--muted">
               {isBrogPhase1Restricted()
                 ? '1단계: 구 선택은 6개 구로 한정됩니다. 슈퍼·지역 담당 또는 본인이 등록한 BroG는 카드에서 바로 숨길 수 있습니다.'
-                : '슈퍼·지역 담당 또는 본인이 등록한 BroG는 카드에서 목록·지도 숨김(소프트 삭제)을 할 수 있습니다.'}
+                : '슈퍼·지역 담당 또는 본인이 등록한 BroG는 카드에서 목록·지도 숨김(소프트 삭제)을 할 수 있습니다.'}{' '}
+              슈퍼·해당 구 지역 담당자는 카드의 「목록 고정」으로 1~4위를 순서대로 지정할 수 있습니다. (다시 누르면
+              다음 슬롯, 4위 다음은 해제.)
             </p>
           </div>
         </div>
@@ -204,16 +259,34 @@ export function BrogListPage() {
                 <BrogRankCard
                   restaurant={restaurant}
                   rank={index + 1}
+                  pinnedSlot={restaurant.bro_list_pin ?? null}
                   footer={
-                    canDeleteRow(restaurant) ? (
-                      <button
-                        type="button"
-                        className="brog-rank-card__delete-btn"
-                        onClick={() => void handleSoftDelete(restaurant)}
-                      >
-                        목록에서 숨기기
-                      </button>
-                    ) : null
+                    <>
+                      {canPinRow(restaurant) ? (
+                        <button
+                          type="button"
+                          className="brog-rank-card__pin-btn"
+                          disabled={pinBusyId === restaurant.id}
+                          title="미고정→1위→2위→3위→4위→해제"
+                          onClick={() => void handleCycleListPin(restaurant.id)}
+                        >
+                          {pinBusyId === restaurant.id
+                            ? '적용 중…'
+                            : restaurant.bro_list_pin == null
+                              ? '목록 고정'
+                              : `고정 ${restaurant.bro_list_pin}위 (다음)`}
+                        </button>
+                      ) : null}
+                      {canDeleteRow(restaurant) ? (
+                        <button
+                          type="button"
+                          className="brog-rank-card__delete-btn"
+                          onClick={() => void handleSoftDelete(restaurant)}
+                        >
+                          목록에서 숨기기
+                        </button>
+                      ) : null}
+                    </>
                   }
                 />
               </li>

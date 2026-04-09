@@ -12,8 +12,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.storage import BROG_UPLOAD_DIR, LEGACY_UPLOAD_DIR, MYG_UPLOAD_DIR
 from app.api.auth import router as auth_router
 from app.api.districts import router as districts_router
+from app.api.events import router as events_router
 from app.api.free_share import router as free_share_router
 from app.api.known_restaurants import router as known_restaurants_router
+from app.api.ocr import router as ocr_router
 from app.api.payments import router as payments_router
 from app.api.restaurant_engagement import router as restaurant_engagement_router
 from app.api.restaurants import router as restaurants_router
@@ -23,6 +25,7 @@ from app.db import Base, SessionLocal, engine
 from app.db_migrate import (
     ensure_known_restaurant_brog_shape,
     ensure_post_image_columns,
+    ensure_restaurant_bro_list_pin,
     ensure_restaurant_image_urls_and_points,
     ensure_super_admin_email,
     ensure_user_role_migration,
@@ -33,6 +36,7 @@ from app.models import (  # noqa: F401 — register metadata for create_all
     KnownRestaurantPost,
     PaymentIntent,
     Restaurant,
+    SiteEvent,
     RestaurantComment,
     RestaurantLike,
     RestaurantMenuItem,
@@ -87,6 +91,7 @@ async def lifespan(_: FastAPI):
     ensure_user_role_migration()
     ensure_post_image_columns()
     ensure_restaurant_image_urls_and_points()
+    ensure_restaurant_bro_list_pin()
     ensure_known_restaurant_brog_shape()
     ensure_super_admin_email()
     db = SessionLocal()
@@ -116,6 +121,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(districts_router)
+app.include_router(events_router)
 app.include_router(users_router)
 app.include_router(restaurants_router)
 app.include_router(restaurant_engagement_router)
@@ -123,6 +129,7 @@ app.include_router(free_share_router)
 app.include_router(known_restaurants_router)
 app.include_router(payments_router)
 app.include_router(uploads_router)
+app.include_router(ocr_router)
 # 정적 경로: 구체적인 prefix 먼저 등록 (/uploads/brog, /uploads/myg → 마지막에 평면 레거시 /uploads)
 BROG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MYG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

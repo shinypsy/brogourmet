@@ -16,6 +16,7 @@ declare global {
           setBounds: (bounds: unknown) => void
           setLevel?: (level: number) => void
           relayout?: () => void
+          getCenter?: () => { getLat: () => number; getLng: () => number }
         }
         Marker: new (options: Record<string, unknown>) => { setMap: (map: unknown) => void }
         MarkerImage: new (

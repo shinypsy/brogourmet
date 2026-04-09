@@ -20,6 +20,8 @@ export type RestaurantListItem = {
   /** true면 지도에서 가맹점용 깃발(청록). 백엔드 필드 추가 시 자동 반영 */
   is_franchise?: boolean
   submitted_by_user_id?: number | null
+  /** 관리자 BroG 리스트 1~4위 고정, 없으면 좋아요 순 */
+  bro_list_pin?: number | null
 }
 
 export type MenuItem = {
@@ -161,6 +163,15 @@ export async function createRestaurant(token: string, body: RestaurantWritePaylo
   })
 }
 
+/** 본인 MyG 글 내용으로 공개 BroG 매장 생성 */
+export async function createRestaurantFromMyGPost(token: string, mygPostId: number): Promise<RestaurantDetail> {
+  return requestJson<RestaurantDetail>(`/restaurants/from-myg/${mygPostId}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  })
+}
+
 export async function updateRestaurant(
   token: string,
   id: number,
@@ -178,6 +189,18 @@ export async function deleteRestaurant(token: string, id: number): Promise<void>
   return requestJson<void>(`/restaurants/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+/** BroG 목록 1~4위 고정 핀: 미고정→1→2→3→4→해제. 슈퍼·해당 구 지역담당만. */
+export async function cycleBroListPin(
+  token: string,
+  restaurantId: number,
+): Promise<{ bro_list_pin: number | null }> {
+  return requestJson<{ bro_list_pin: number | null }>(`/restaurants/${restaurantId}/cycle-bro-list-pin`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
   })
 }
 

@@ -7,3 +7,5 @@ smtp_config.ps1
 IP_dial.txt
 API_key.txt
 gourmet/uploads/
+# 로컬 diff 백업 (규칙2)
+*.old

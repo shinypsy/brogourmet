@@ -1,18 +1,47 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import { BrokeGourmetLogoMark, BrokeGourmetWordmark } from './BrokeGourmetLogoMark'
 
 type Phase = 'welcome' | 'opening' | 'closed'
 
+const SALOON_SEEN_KEY = 'brogourmet_saloon_seen'
+
+/** 이미 입장(탭)했거나 접근성으로 건너뛴 경우에만 생략. 로그인 여부와 무관 — 첫 방문은 항상 인트로 가능. */
+function shouldSkipSaloonIntro(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    if (localStorage.getItem(SALOON_SEEN_KEY) === '1') return true
+  } catch {
+    /* private mode 등 */
+  }
+  return false
+}
+
 export function SaloonWelcome() {
-  const [phase, setPhase] = useState<Phase>('welcome')
+  const [phase, setPhase] = useState<Phase>(() => (shouldSkipSaloonIntro() ? 'closed' : 'welcome'))
   const [heroImgFailed, setHeroImgFailed] = useState(false)
   const enterStartedRef = useRef(false)
+  const overlayRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useRef(
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
 
+  /* React Strict Mode 이중 마운트 등으로 saloon-overlay-in 이 스킵되는 경우 대비 */
+  useLayoutEffect(() => {
+    if (phase !== 'welcome' || reducedMotion.current) return
+    const el = overlayRef.current
+    if (!el) return
+    el.style.animation = 'none'
+    void el.offsetWidth
+    el.style.removeProperty('animation')
+  }, [phase])
+
   const finish = useCallback(() => {
+    try {
+      localStorage.setItem(SALOON_SEEN_KEY, '1')
+    } catch {
+      /* ignore */
+    }
     setPhase('closed')
   }, [])
 
@@ -33,6 +62,7 @@ export function SaloonWelcome() {
 
   return (
     <div
+      ref={overlayRef}
       className={`saloon-overlay${opening ? ' saloon-overlay--opening' : ''}`}
       role="dialog"
       aria-modal="true"

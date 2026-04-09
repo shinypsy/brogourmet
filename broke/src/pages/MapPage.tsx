@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
-import { deleteRestaurant, fetchRestaurants, type RestaurantListItem } from '../api/restaurants'
+import {
+  cycleBroListPin,
+  deleteRestaurant,
+  fetchRestaurants,
+  type RestaurantListItem,
+} from '../api/restaurants'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
 import { BrogKakaoMap } from '../components/BrogKakaoMap'
 import { BrogRankCard } from '../components/BrogRankCard'
@@ -12,8 +17,9 @@ import {
   clampBrogDistrictForPhase1,
   isBrogPhase1Restricted,
 } from '../lib/brogPhase1'
+import { BROG_ONLY } from '../config/features'
 import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
-import { assumeAdminUi, canSoftDeleteBrogListing } from '../lib/roles'
+import { assumeAdminUi, canManageBrogForDistrict, canSoftDeleteBrogListing } from '../lib/roles'
 
 const PRICE_FILTER_MAX_OPTIONS = [10000, 9000, 8000, 7000, 6000, 5000] as const
 
@@ -30,6 +36,8 @@ export function MapPage() {
   const [listError, setListError] = useState('')
   const [isListLoading, setIsListLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [listReloadTick, setListReloadTick] = useState(0)
+  const [pinBusyId, setPinBusyId] = useState<number | null>(null)
 
   useEffect(() => {
     setDistrictState(clampBrogDistrictForPhase1(districtFromUrl))
@@ -66,7 +74,25 @@ export function MapPage() {
     handleApplyManualCoords,
     myLocationFromDevice,
     applyLatLng,
-  } = useSeoulMapUserLocation(setDistrict)
+  } = useSeoulMapUserLocation(setDistrict, { initialGeolocationSetsDistrict: false })
+
+  const mapUserCoordsRef = useRef(mapUserCoords)
+  mapUserCoordsRef.current = mapUserCoords
+
+  const onMapViewSettled = useCallback(
+    (lat: number, lng: number) => {
+      const cur = mapUserCoordsRef.current
+      if (
+        cur != null &&
+        Math.abs(cur.lat - lat) < 2e-5 &&
+        Math.abs(cur.lng - lng) < 2e-5
+      ) {
+        return
+      }
+      void applyLatLng(lat, lng)
+    },
+    [applyLatLng],
+  )
 
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
 
@@ -80,6 +106,28 @@ export function MapPage() {
 
   function canDeleteRow(r: RestaurantListItem): boolean {
     return canSoftDeleteBrogListing(user, r)
+  }
+
+  function canPinRow(r: RestaurantListItem): boolean {
+    if (!token || !user) return false
+    if (assumeAdminUi()) return true
+    return canManageBrogForDistrict(user.role, user.managed_district_id, r.district_id)
+  }
+
+  async function handleCycleListPin(restaurantId: number) {
+    if (!token) {
+      window.alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+    setPinBusyId(restaurantId)
+    try {
+      await cycleBroListPin(token, restaurantId)
+      setListReloadTick((t) => t + 1)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '고정 설정에 실패했습니다.')
+    } finally {
+      setPinBusyId(null)
+    }
   }
 
   async function handleSoftDelete(restaurant: RestaurantListItem) {
@@ -136,7 +184,7 @@ export function MapPage() {
     return () => {
       cancelled = true
     }
-  }, [district, maxPrice, mapUserCoords])
+  }, [district, maxPrice, mapUserCoords, listReloadTick])
 
   const pageTitle = `${district} BroG`
   const brogDistrictOptions = brogDistrictOptionsForUi()
@@ -177,21 +225,26 @@ export function MapPage() {
           <p className="eyebrow">BroG · 지도</p>
           <h2 className="brog-screen__title">{pageTitle}</h2>
           <p className="description map-hero__meta brog-screen__meta">
-            {city} {district} · 대표 메뉴 {maxPrice.toLocaleString()}원 이하 · GPS·수동 좌표가 있으면 가까운 순(약 5km
-            이내)으로 불러옵니다.
+            {city} {district} · 대표 메뉴 {maxPrice.toLocaleString()}원 이하 · 지도를 움직이거나 GPS·수동 좌표가 있으면
+            화면 중심·기준점 주변 가까운 순(약 5km 이내)으로 불러옵니다.
             {mapMetaExtra}
           </p>
         </div>
         <div className="hero-actions brog-screen__header-actions">
-          <Link className="ghost-button" to="/">
-            Home
-          </Link>
           <Link
             className="ghost-button"
             to={`/brog/list?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`}
           >
             리스트
           </Link>
+          {!BROG_ONLY ? (
+            <Link
+              className="ghost-button"
+              to={`/known-restaurants/map?district=${encodeURIComponent(district)}`}
+            >
+              MyG 지도
+            </Link>
+          ) : null}
           <Link className="brog-screen__cta" to="/restaurants/manage/new">
             BroG 등록
           </Link>
@@ -303,16 +356,34 @@ export function MapPage() {
                 <BrogRankCard
                   restaurant={restaurant}
                   rank={index + 1}
+                  pinnedSlot={restaurant.bro_list_pin ?? null}
                   footer={
-                    canDeleteRow(restaurant) ? (
-                      <button
-                        type="button"
-                        className="brog-rank-card__delete-btn"
-                        onClick={() => void handleSoftDelete(restaurant)}
-                      >
-                        목록에서 숨기기
-                      </button>
-                    ) : null
+                    <>
+                      {canPinRow(restaurant) ? (
+                        <button
+                          type="button"
+                          className="brog-rank-card__pin-btn"
+                          disabled={pinBusyId === restaurant.id}
+                          title="미고정→1위→2위→3위→4위→해제"
+                          onClick={() => void handleCycleListPin(restaurant.id)}
+                        >
+                          {pinBusyId === restaurant.id
+                            ? '적용 중…'
+                            : restaurant.bro_list_pin == null
+                              ? '목록 고정'
+                              : `고정 ${restaurant.bro_list_pin}위 (다음)`}
+                        </button>
+                      ) : null}
+                      {canDeleteRow(restaurant) ? (
+                        <button
+                          type="button"
+                          className="brog-rank-card__delete-btn"
+                          onClick={() => void handleSoftDelete(restaurant)}
+                        >
+                          목록에서 숨기기
+                        </button>
+                      ) : null}
+                    </>
                   }
                 />
               </li>
@@ -324,8 +395,7 @@ export function MapPage() {
       <section className="map-page-map-section map-card">
         <h3 className="map-page-map-section__title">위치 지도</h3>
         <p className="map-page-map-section__hint">
-          깃발 마커는 등록된 음식점 위치입니다. 클릭 시 상세로 이동합니다. 지도를 길게 누르거나 우클릭하면 그 지점을 내
-          위치로 잡습니다.
+          깃발 마커는 등록된 음식점 위치입니다. 클릭 시 상세로 이동합니다.           지도를 움직이면 중심 기준으로 맛집이 갱신됩니다. 길게 누르거나 우클릭하면 그 지점을 내 위치로 잡습니다.
         </p>
         {KAKAO_MAP_APP_KEY ? (
           <BrogKakaoMap
@@ -334,6 +404,8 @@ export function MapPage() {
             locating={geoBusy}
             onMyLocationClick={onMapLocate}
             onPickUserLocationOnMap={onPickUserLocationOnMap}
+            onMapViewSettled={mapUserCoords != null ? onMapViewSettled : undefined}
+            autoRefitWhenPinsChange={false}
             getDetailPath={(id) => `/restaurants/${id}`}
             mapAriaLabel="BroG 위치 지도"
             shellClassName="kakao-map-embed"

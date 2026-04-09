@@ -93,6 +93,180 @@ input {
   margin-bottom: 16px;
 }
 
+.event-ticker {
+  display: flex;
+  align-items: stretch;
+  margin: -4px 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: linear-gradient(
+    105deg,
+    rgba(28, 24, 48, 0.97) 0%,
+    rgba(22, 28, 52, 0.96) 35%,
+    rgba(36, 30, 58, 0.97) 55%,
+    rgba(22, 28, 52, 0.96) 100%
+  );
+  background-size: 200% 100%;
+  overflow: hidden;
+  min-height: 40px;
+  animation:
+    event-ticker-glow 2.6s ease-in-out infinite alternate,
+    event-ticker-sheen 8s ease-in-out infinite;
+}
+
+.event-ticker__label {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffe9a8;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 210, 100, 0.22) 0%,
+    rgba(212, 175, 55, 0.14) 50%,
+    rgba(180, 140, 50, 0.12) 100%
+  );
+  border-right: 1px solid rgba(255, 220, 140, 0.35);
+  text-shadow: 0 0 10px rgba(255, 220, 130, 0.45);
+  animation: event-ticker-label-pulse 1.8s ease-in-out infinite alternate;
+}
+
+.event-ticker__viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 200, 80, 0.04) 0%,
+    transparent 18%,
+    transparent 82%,
+    rgba(255, 200, 80, 0.05) 100%
+  );
+}
+
+.event-ticker__rail {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3rem;
+  padding-left: 8px;
+  white-space: nowrap;
+  animation: event-ticker-marquee 32s linear infinite;
+}
+
+.event-ticker__segment {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff8e8;
+  line-height: 1.35;
+  animation: event-ticker-text-sparkle 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes event-ticker-glow {
+  from {
+    box-shadow:
+      0 0 8px rgba(212, 175, 55, 0.2),
+      inset 0 1px 0 rgba(255, 235, 180, 0.06);
+    border-color: rgba(212, 175, 55, 0.4);
+  }
+  to {
+    box-shadow:
+      0 0 22px rgba(255, 210, 100, 0.45),
+      0 0 36px rgba(212, 175, 55, 0.2),
+      inset 0 1px 0 rgba(255, 245, 200, 0.12);
+    border-color: rgba(255, 228, 150, 0.75);
+  }
+}
+
+@keyframes event-ticker-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes event-ticker-label-pulse {
+  from {
+    filter: brightness(1);
+    text-shadow: 0 0 8px rgba(255, 210, 120, 0.4);
+  }
+  to {
+    filter: brightness(1.12);
+    text-shadow:
+      0 0 14px rgba(255, 235, 160, 0.75),
+      0 0 22px rgba(255, 200, 80, 0.35);
+  }
+}
+
+@keyframes event-ticker-text-sparkle {
+  from {
+    color: #f2e8d8;
+    text-shadow:
+      0 0 6px rgba(212, 175, 55, 0.35),
+      0 0 12px rgba(255, 200, 100, 0.2);
+  }
+  to {
+    color: #fffef5;
+    text-shadow:
+      0 0 12px rgba(255, 230, 150, 0.65),
+      0 0 20px rgba(255, 190, 70, 0.4);
+  }
+}
+
+@keyframes event-ticker-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-ticker {
+    animation: none;
+    background: rgba(18, 22, 36, 0.92);
+    border-color: rgba(212, 175, 55, 0.35);
+    box-shadow: none;
+  }
+
+  .event-ticker__label {
+    animation: none;
+    filter: none;
+    text-shadow: none;
+    color: var(--gold-soft);
+    background: rgba(212, 175, 55, 0.12);
+    border-right-color: rgba(212, 175, 55, 0.25);
+  }
+
+  .event-ticker__viewport {
+    background: none;
+  }
+
+  .event-ticker__segment {
+    animation: none;
+    color: var(--cream);
+    font-weight: inherit;
+    text-shadow: none;
+  }
+
+  .event-ticker__rail {
+    animation: none;
+    transform: none;
+    flex-wrap: wrap;
+    white-space: normal;
+    padding: 4px 12px 4px 8px;
+  }
+}
+
 .topbar h1 {
   margin: 8px 0 0;
   font-size: 2rem;
@@ -1106,6 +1280,16 @@ input {
   font-weight: 700;
 }
 
+a.compact-link {
+  text-decoration: none;
+}
+
+.compact-link--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 button.compact-link {
   cursor: pointer;
   font: inherit;
@@ -1335,6 +1519,71 @@ button.compact-link.danger-text {
   margin-top: 0;
 }
 
+.site-event-list-card__title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  color: var(--text-heading);
+}
+
+.site-event-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.site-event-list__item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.75);
+}
+
+.site-event-list__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.site-event-list__badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 151, 173, 0.5);
+  color: var(--text-muted);
+}
+
+.site-event-list__badge--on {
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--gold-soft);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.site-event-list__time {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.site-event-list__body {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--cream);
+  line-height: 1.45;
+  font-size: 0.9rem;
+}
+
+.site-event-list__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .post-list {
   list-style: none;
   margin: 16px 0 0;
@@ -1534,6 +1783,49 @@ ul.brog-rank-grid {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
+.brog-rank-card__pin-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(90, 60, 20, 0.92);
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #f5e6b8;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.brog-rank-card--list-pinned .brog-rank-card__photo {
+  outline: 1px solid rgba(212, 175, 55, 0.35);
+  outline-offset: -1px;
+}
+
+.brog-rank-card__pin-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(40, 32, 22, 0.9);
+  color: #e8cf8a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.brog-rank-card__pin-btn:hover:not(:disabled) {
+  background: rgba(55, 44, 28, 0.95);
+}
+
+.brog-rank-card__pin-btn:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+
 .brog-rank-card__photo {
   position: relative;
   aspect-ratio: 4 / 3;
@@ -1602,6 +1894,9 @@ ul.brog-rank-grid {
 }
 
 .brog-rank-card__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 12px 12px;
   border-top: 1px solid var(--gold-dim);
 }
@@ -1735,6 +2030,13 @@ ul.brog-rank-grid {
   margin-top: 6px;
 }
 
+.brog-list-body__section-title {
+  margin: 8px 4px 12px;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--text-heading);
+}
+
 .my-page__verify-callout {
   margin-bottom: 18px;
   padding: 14px 16px;
@@ -1778,10 +2080,35 @@ ul.brog-rank-grid {
 }
 
 .brog-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 800;
   text-decoration: none;
   color: #e8cf8a;
   font-size: 0.95rem;
+}
+
+.brog-detail__back-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: #e8cf8a;
+  opacity: 0.98;
+}
+
+.brog-detail__back-label {
+  white-space: nowrap;
+}
+
+.brog-detail__error-list-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brog-detail__error-list-link-icon {
+  display: flex;
+  color: var(--gold-soft);
 }
 
 .brog-detail__topbar-links {
@@ -1802,13 +2129,15 @@ ul.brog-rank-grid {
   margin: 0 auto;
   aspect-ratio: 16 / 9;
   max-height: min(52vh, 420px);
-  background: #eee;
+  /* contain 사용 시 세로·가로 여백(레터박스) */
+  background: #161b28;
 }
 
 .brog-detail__hero-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
 }
 
@@ -1829,6 +2158,32 @@ ul.brog-rank-grid {
   padding: 10px 16px 4px;
   background: rgba(16, 20, 34, 0.95);
   border-bottom: 1px solid var(--border);
+}
+
+.brog-detail__gallery-tap {
+  display: block;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.brog-detail__gallery-tap:hover {
+  transform: translateY(-1px);
+}
+
+.brog-detail__gallery-tap:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.brog-detail__gallery-tap--active {
+  box-shadow: 0 0 0 2px var(--gold), 0 4px 14px rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
 }
 
 .brog-detail__gallery-thumb {
@@ -1952,6 +2307,58 @@ ul.brog-rank-grid {
   color: var(--text-muted);
 }
 
+.brog-detail__summary--empty {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.brog-detail__intro-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.brog-detail__intro-table td {
+  vertical-align: top;
+}
+
+.brog-detail__intro-col-text {
+  padding-right: 12px;
+}
+
+.brog-detail__intro-col-action {
+  width: 11rem;
+  padding-left: 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.brog-detail__myg-copy-btn {
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .brog-detail__intro-table,
+  .brog-detail__intro-table tbody,
+  .brog-detail__intro-table tr,
+  .brog-detail__intro-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .brog-detail__intro-col-text {
+    padding-right: 0;
+  }
+
+  .brog-detail__intro-col-action {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 12px;
+    text-align: left;
+    white-space: normal;
+  }
+}
+
 .brog-detail__engagement-row {
   display: flex;
   flex-wrap: wrap;
@@ -2026,8 +2433,109 @@ ul.brog-rank-grid {
   text-decoration: underline;
 }
 
-.brog-detail__comment-form textarea {
+/* .form 기본 display:grid 가 table/td 비율을 깨뜨려서 이 폼만 block */
+form.brog-detail__comment-form {
+  display: block;
+}
+
+/* 댓글란 9:1 · 2행: (1) 라벨 (2) textarea | 저장 — 저장 칸 높이 = textarea 행과 동일 */
+.brog-detail__comment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 9fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(4.5rem, auto);
+  gap: 6px 12px;
+  align-items: stretch;
   width: 100%;
+}
+
+.brog-detail__comment-label-cell {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.brog-detail__comment-textarea-cell {
+  grid-column: 1;
+  grid-row: 2;
+  width: 100%;
+  min-width: 0;
+  min-height: 4.5rem;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.brog-detail__comment-row-save {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.brog-detail__comment-save-btn {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 6px 4px;
+  border-radius: 12px;
+  border: 2px solid var(--gold-dim);
+  background: rgba(16, 20, 34, 0.95);
+  color: #e8cf8a;
+  font-weight: 800;
+  /* 댓글 textarea와 동일 계산값(부모 상속 = .form textarea 와 같음) */
+  font-size: inherit;
+  font-family: inherit;
+  line-height: normal;
+  cursor: pointer;
+  white-space: normal;
+  word-break: keep-all;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.brog-detail__comment-save-btn__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12em;
+  max-width: 100%;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.brog-detail__comment-save-line {
+  display: block;
+  font-size: inherit;
+  line-height: 1.25;
+}
+
+.brog-detail__comment-save-btn:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.45);
+  background: rgba(28, 34, 52, 0.98);
+}
+
+.brog-detail__comment-save-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.brog-detail__comment-form textarea {
+  /* .form textarea 공통 + 그리드 셀용 */
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .brog-detail__comment-save-btn {
+    padding: 4px 2px;
+  }
 }
 
 .brog-detail__admin .compact-links {

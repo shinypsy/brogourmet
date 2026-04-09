@@ -1,78 +1,100 @@
-import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import {
   deleteKnownRestaurantPost,
   fetchKnownRestaurantPost,
-  updateKnownRestaurantPost,
-  uploadCommunityImage,
   type KnownRestaurantPost,
 } from '../api/community'
-import { fetchDistricts, type District } from '../api/districts'
-import {
-  clampMenuTextLineCount,
-  MAX_MENU_LINES,
-  parseMenuLinesText,
-} from '../lib/menuLines'
-import { coordsFieldsBothEmpty, readGpsFromImageFile } from '../lib/imageExifGps'
-import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
-import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
+import { createRestaurantFromMyGPost } from '../api/restaurants'
+import { BrogListIcon } from '../components/detailScreenIcons'
+import { FoodPhotoWithMenuOverlay } from '../components/FoodPhotoWithMenuOverlay'
+import { BROG_ONLY } from '../config/features'
+import { MAX_MENU_LINES, parseMenuLine } from '../lib/menuLines'
+import { galleryUrlsFromMygPost } from '../lib/mygPostGallery'
+import { STAGE1_DEFAULT_DISTRICT } from '../lib/deployStage1'
 import { assumeAdminUi, canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
 import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
-
-const MAX_MY_G_IMAGES = 5
 
 function isBrogShapedPost(p: KnownRestaurantPost): boolean {
   return p.district_id != null && p.district_id >= 1
 }
 
+function mygListHref(post: KnownRestaurantPost | null): string {
+  const d = post?.district?.trim()
+  return d ? `/known-restaurants/list?district=${encodeURIComponent(d)}` : '/known-restaurants/list'
+}
+
+function mygMapHref(post: KnownRestaurantPost | null): string {
+  const d = post?.district?.trim() || STAGE1_DEFAULT_DISTRICT
+  return `/known-restaurants/map?district=${encodeURIComponent(d)}`
+}
+
+type MygReadOnlyMenuRow = { isMain: boolean; name: string; price: number }
+
+function menuRowsForMygReadOnly(post: KnownRestaurantPost, brogMode: boolean): MygReadOnlyMenuRow[] {
+  if (brogMode && post.menu_lines?.trim()) {
+    const lines = post.menu_lines
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, MAX_MENU_LINES)
+    const rows: MygReadOnlyMenuRow[] = []
+    lines.forEach((line, i) => {
+      const p = parseMenuLine(line)
+      if (p) rows.push({ isMain: i === 0, name: p.name, price: p.price_krw })
+    })
+    if (rows.length) return rows
+  }
+  return [{ isMain: true, name: post.main_menu_name, price: post.main_menu_price }]
+}
+
+function MygDetailNavTopbar({ post }: { post: KnownRestaurantPost | null }) {
+  return (
+    <header className="brog-detail__topbar">
+      <Link
+        className="brog-detail__back"
+        to={mygListHref(post)}
+        title="MyG 목록"
+        aria-label="MyG 목록으로 이동"
+      >
+        <span className="brog-detail__back-icon" aria-hidden>
+          <BrogListIcon />
+        </span>
+        <span className="brog-detail__back-label">MyG 목록</span>
+      </Link>
+      <div className="brog-detail__topbar-links">
+        <Link to={mygMapHref(post)}>지도</Link>
+        {!BROG_ONLY ? <Link to="/brog/list">BroG 리스트</Link> : null}
+        <Link to="/known-restaurants/write">작성</Link>
+      </div>
+    </header>
+  )
+}
+
 export function KnownRestaurantPostDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const menuPhotoInputRef = useRef<HTMLInputElement>(null)
-  const brogImageInputRef = useRef<HTMLInputElement>(null)
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
 
   const [user, setUser] = useState<User | null>(null)
-  const [districts, setDistricts] = useState<District[]>([])
   const [post, setPost] = useState<KnownRestaurantPost | null>(null)
   const [brogMode, setBrogMode] = useState(false)
 
-  const [name, setName] = useState('')
-  const [city, setCity] = useState('서울특별시')
-  const [districtId, setDistrictId] = useState(0)
-  const [category, setCategory] = useState<BrogCategory | ''>('')
-  const [summary, setSummary] = useState('')
-  const [menuLinesText, setMenuLinesText] = useState('')
-  const [latitude, setLatitude] = useState<number | null>(null)
-  const [longitude, setLongitude] = useState<number | null>(null)
-  const latLngRef = useRef({ lat: null as number | null, lng: null as number | null })
-  latLngRef.current = { lat: latitude, lng: longitude }
-  const [imageUrls, setImageUrls] = useState<string[]>([])
-
-  const [legTitle, setLegTitle] = useState('')
-  const [legBody, setLegBody] = useState('')
-  const [legRestaurant, setLegRestaurant] = useState('')
-  const [legDistrict, setLegDistrict] = useState('')
-  const [legMainName, setLegMainName] = useState('')
-  const [legMainPrice, setLegMainPrice] = useState(0)
-  const [legImageUrl, setLegImageUrl] = useState<string | null>(null)
-
   const [loadError, setLoadError] = useState('')
-  const [saveError, setSaveError] = useState('')
+  const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [brogImageBusy, setBrogImageBusy] = useState(false)
-  const [exifGpsHint, setExifGpsHint] = useState('')
-  const [ocrBusy, setOcrBusy] = useState(false)
+  const [brogRegisterBusy, setBrogRegisterBusy] = useState(false)
+  const [heroImgFailed, setHeroImgFailed] = useState(false)
+  const [heroGalleryIndex, setHeroGalleryIndex] = useState(0)
 
   const numericId = id ? Number(id) : NaN
 
   useEffect(() => {
-    void fetchDistricts()
-      .then(setDistricts)
-      .catch(() => setDistricts([]))
-  }, [])
+    setHeroImgFailed(false)
+    setHeroGalleryIndex(0)
+  }, [post?.id])
 
   useEffect(() => {
     if (!token) return
@@ -84,42 +106,14 @@ export function KnownRestaurantPostDetailPage() {
       setLoadError('잘못된 글 ID입니다.')
       return
     }
+    if (!token) return
     let cancelled = false
     setLoadError('')
-    fetchKnownRestaurantPost(numericId)
+    fetchKnownRestaurantPost(token, numericId)
       .then((p) => {
         if (cancelled) return
         setPost(p)
-        const brog = isBrogShapedPost(p)
-        setBrogMode(brog)
-        if (brog) {
-          setName(p.restaurant_name)
-          setCity(p.city?.trim() || '서울특별시')
-          setDistrictId(p.district_id ?? 0)
-          setCategory((p.category as BrogCategory) || '')
-          setSummary((p.summary ?? p.body).trim())
-          setMenuLinesText(
-            (p.menu_lines?.trim() ||
-              `${p.main_menu_name} : ${p.main_menu_price}`) as string,
-          )
-          setLatitude(p.latitude ?? null)
-          setLongitude(p.longitude ?? null)
-          const imgs =
-            p.image_urls && p.image_urls.length > 0
-              ? p.image_urls
-              : p.image_url
-                ? [p.image_url]
-                : []
-          setImageUrls(imgs.slice(0, MAX_MY_G_IMAGES))
-        } else {
-          setLegTitle(p.title)
-          setLegBody(p.body)
-          setLegRestaurant(p.restaurant_name)
-          setLegDistrict(p.district)
-          setLegMainName(p.main_menu_name)
-          setLegMainPrice(p.main_menu_price)
-          setLegImageUrl(p.image_url)
-        }
+        setBrogMode(isBrogShapedPost(p))
       })
       .catch((e) => {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : '글을 불러오지 못했습니다.')
@@ -127,412 +121,287 @@ export function KnownRestaurantPostDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [numericId])
+  }, [numericId, token])
 
   const canEdit = Boolean(post && canEditCommunityPost(user, post.author_id, post.district))
   const canDelete = Boolean(post && canDeleteCommunityPost(user))
+  const isMyPost = Boolean(user && post && user.id === post.author_id)
 
-  const gallery =
-    post && (post.image_urls?.length ? post.image_urls : post.image_url ? [post.image_url] : [])
+  const gallery = useMemo(() => (post ? galleryUrlsFromMygPost(post) : []), [post])
+  const menuRows = useMemo(
+    () => (post ? menuRowsForMygReadOnly(post, brogMode) : []),
+    [post, brogMode],
+  )
 
-  async function handleBrogImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file || !file.type.startsWith('image/')) return
-    if (!token) {
-      setSaveError(assumeAdminUi() ? '테스트 UI: 업로드는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+  const handleBrogRegister = useCallback(async () => {
+    if (!post || !token) {
+      setActionError(assumeAdminUi() ? '테스트 UI: BroG 등록은 로그인 후 가능합니다.' : '로그인이 필요합니다.')
       return
     }
-    if (imageUrls.length >= MAX_MY_G_IMAGES) return
-    setBrogImageBusy(true)
-    setSaveError('')
-    setExifGpsHint('')
-    const gpsPromise = readGpsFromImageFile(file)
+    if (!window.confirm('이 MyG 글 내용으로 공개 BroG 맛집을 새로 등록할까요?')) return
+    setBrogRegisterBusy(true)
+    setActionError('')
     try {
-      const url = await uploadCommunityImage(token, file)
-      setImageUrls((prev) => [...prev, url].slice(0, MAX_MY_G_IMAGES))
-      const gps = await gpsPromise
-      if (brogMode && gps) {
-        const { lat, lng } = latLngRef.current
-        if (coordsFieldsBothEmpty(lat, lng)) {
-          setLatitude(gps.latitude)
-          setLongitude(gps.longitude)
-          setExifGpsHint('사진 EXIF에 GPS가 있어 위도·경도를 채웠습니다. 필요하면 수정하세요.')
-        }
-      }
+      const r = await createRestaurantFromMyGPost(token, post.id)
+      navigate(`/restaurants/${r.id}`)
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : '업로드 실패')
+      setActionError(e instanceof Error ? e.message : 'BroG 등록에 실패했습니다.')
     } finally {
-      setBrogImageBusy(false)
+      setBrogRegisterBusy(false)
     }
-  }
+  }, [post, token, navigate])
 
-  async function handleSave(event: FormEvent) {
-    event.preventDefault()
+  const handleDelete = useCallback(async () => {
     if (!post) return
     if (!token) {
-      setSaveError(assumeAdminUi() ? '테스트 UI: 저장은 로그인 후 가능합니다.' : '로그인이 필요합니다.')
-      return
-    }
-    setSaveError('')
-    setBusy(true)
-    try {
-      if (brogMode) {
-        if (!districtId) {
-          setSaveError('구를 선택하세요.')
-          return
-        }
-        if (!isBrogCategory(category)) {
-          setSaveError('카테고리를 선택하세요.')
-          return
-        }
-        const parsed = parseMenuLinesText(menuLinesText)
-        if (parsed.errors.length > 0) {
-          setSaveError(parsed.errors.join(' '))
-          return
-        }
-        if (!parsed.main.name) {
-          setSaveError('메뉴를 한 줄 이상 올바르게 입력하세요.')
-          return
-        }
-        const trimmedImages = imageUrls.map((u) => u.trim()).filter(Boolean).slice(0, MAX_MY_G_IMAGES)
-        const updated = await updateKnownRestaurantPost(token, post.id, {
-          restaurant_name: name.trim(),
-          district_id: districtId,
-          city: city.trim() || '서울특별시',
-          category,
-          summary: summary.trim(),
-          menu_lines: clampMenuTextLineCount(menuLinesText).trim(),
-          latitude: latitude == null || Number.isNaN(Number(latitude)) ? null : Number(latitude),
-          longitude: longitude == null || Number.isNaN(Number(longitude)) ? null : Number(longitude),
-          image_urls: trimmedImages,
-        })
-        setPost(updated)
-      } else {
-        const updated = await updateKnownRestaurantPost(token, post.id, {
-          title: legTitle.trim(),
-          body: legBody.trim(),
-          restaurant_name: legRestaurant.trim(),
-          district: legDistrict.trim(),
-          main_menu_name: legMainName.trim(),
-          main_menu_price: Number(legMainPrice),
-          image_url: legImageUrl,
-        })
-        setPost(updated)
-      }
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : '저장 실패')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleDelete() {
-    if (!post) return
-    if (!token) {
-      setSaveError(assumeAdminUi() ? '테스트 UI: 삭제는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      setActionError(assumeAdminUi() ? '테스트 UI: 삭제는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
       return
     }
     if (!window.confirm('이 글을 삭제할까요?')) return
     setBusy(true)
-    setSaveError('')
+    setActionError('')
     try {
       await deleteKnownRestaurantPost(token, post.id)
       navigate('/known-restaurants/list')
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : '삭제 실패')
+      setActionError(e instanceof Error ? e.message : '삭제 실패')
     } finally {
       setBusy(false)
     }
-  }
+  }, [post, token, navigate])
 
   if (loadError) {
     return (
-      <div className="board-layout">
-        <section className="card">
-          <p className="error">{loadError}</p>
-          <Link className="compact-link" to="/known-restaurants/list">
-            목록
-          </Link>
-        </section>
+      <div className="brog-detail brog-detail--error card">
+        <h1>글을 불러올 수 없습니다</h1>
+        <p className="description">{loadError}</p>
+        <Link className="compact-link brog-detail__error-list-link" to="/known-restaurants/list">
+          <span className="brog-detail__error-list-link-icon" aria-hidden>
+            <BrogListIcon size={18} />
+          </span>
+          MyG 목록
+        </Link>
+      </div>
+    )
+  }
+
+  if (!token && Number.isFinite(numericId)) {
+    return (
+      <div className="brog-detail brog-detail--error card">
+        <h1>로그인이 필요합니다</h1>
+        <p className="description">
+          MyG 글은 로그인한 작성자 본인(및 운영 권한이 있는 경우)만 볼 수 있습니다.
+        </p>
+        <Link className="compact-link brog-detail__error-list-link" to="/known-restaurants/list">
+          <span className="brog-detail__error-list-link-icon" aria-hidden>
+            <BrogListIcon size={18} />
+          </span>
+          MyG 목록
+        </Link>
       </div>
     )
   }
 
   if (!post) {
     return (
-      <div className="board-layout">
+      <div className="brog-detail brog-detail--loading">
         <p>불러오는 중…</p>
       </div>
     )
   }
 
-  return (
-    <div className="board-layout">
-      <section className="card board-form-card">
-        <p className="eyebrow">Community</p>
-        <h1>MyG 글</h1>
-        <p className="helper">
-          <Link to="/known-restaurants/list">목록</Link>
-          {' · '}
-          <Link to="/known-restaurants/write">새 글</Link>
-        </p>
-        <p className="description">
-          {post.author_nickname} · {new Date(post.created_at).toLocaleString()}
-          {post.category ? ` · ${post.category}` : null}
-        </p>
+  const heroIdx = gallery.length > 0 ? Math.min(heroGalleryIndex, gallery.length - 1) : 0
+  const heroRawUrl = gallery[heroIdx] ?? ''
+  const heroSrc = heroRawUrl ? resolveMediaUrl(heroRawUrl) : ''
+  const showHeroImg = Boolean(heroSrc) && !heroImgFailed
+  const heroMenuName = menuRows[0]?.name ?? post.main_menu_name
+  const heroMenuPrice = menuRows[0]?.price ?? post.main_menu_price
 
-        {canEdit ? (
-          <form className="form" onSubmit={handleSave}>
+  return (
+    <div className="brog-detail">
+      <MygDetailNavTopbar post={post} />
+      <div className="brog-detail__hero">
+        {showHeroImg ? (
+          <img
+            key={heroRawUrl || heroIdx}
+            src={heroSrc}
+            alt=""
+            className="brog-detail__hero-img"
+            referrerPolicy={imgReferrerPolicyForResolvedSrc(heroSrc)}
+            onError={() => setHeroImgFailed(true)}
+          />
+        ) : (
+          <div className="brog-detail__hero-placeholder">
+            {heroSrc ? '이미지를 불러올 수 없습니다' : '사진 없음'}
+          </div>
+        )}
+        <div className="brog-detail__hero-overlay">
+          <p className="brog-detail__eyebrow">MyG</p>
+          <h1 className="brog-detail__name">{brogMode ? post.restaurant_name : post.title}</h1>
+          <p className="brog-detail__main-menu">
+            {brogMode
+              ? `${heroMenuName} · ${Math.max(0, heroMenuPrice).toLocaleString()}원 이하`
+              : `${post.main_menu_name}${
+                  post.main_menu_price > 0 ? ` · ${post.main_menu_price.toLocaleString()}원` : ''
+                }`}
+          </p>
+          <p className="brog-detail__sub">
             {brogMode ? (
               <>
-                <label>
-                  이름 (매장명)
-                  <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
-                </label>
-                <label>
-                  시·도
-                  <input value={city} onChange={(e) => setCity(e.target.value)} maxLength={100} required />
-                </label>
-                <label>
-                  구
-                  <select
-                    value={districtId || ''}
-                    onChange={(e) => setDistrictId(Number(e.target.value))}
-                    required
-                  >
-                    <option value="">선택</option>
-                    {districts.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  카테고리
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as BrogCategory | '')}
-                    required
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {BROG_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  소개
-                  <textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} required />
-                </label>
-                <label>
-                  사진 (최대 {MAX_MY_G_IMAGES}장)
-                  <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
-                    GPS가 포함된 JPEG 등은 위도·경도가 비어 있을 때 「파일에서 추가」로 넣으면 EXIF에서 자동으로 채웁니다.
-                  </p>
-                  <input
-                    ref={brogImageInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    style={{ display: 'none' }}
-                    onChange={handleBrogImageChange}
-                  />
-                  <p style={{ marginBottom: 8 }}>
-                    <button
-                      type="button"
-                      className="compact-link"
-                      disabled={brogImageBusy || imageUrls.length >= MAX_MY_G_IMAGES}
-                      onClick={() => brogImageInputRef.current?.click()}
-                    >
-                      {brogImageBusy ? '업로드 중…' : '파일에서 추가'}
-                    </button>
-                  </p>
-                  <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {imageUrls.map((url, i) => {
-                      const preview = resolveMediaUrl(url.trim())
-                      return (
-                      <li key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                        {preview ? (
-                          <img
-                            src={preview}
-                            alt=""
-                            style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-                            referrerPolicy={imgReferrerPolicyForResolvedSrc(preview)}
-                          />
-                        ) : null}
-                        <input
-                          style={{ flex: 1 }}
-                          value={url}
-                          onChange={(e) =>
-                            setImageUrls((prev) => prev.map((u, j) => (j === i ? e.target.value : u)))
-                          }
-                        />
-                        <button type="button" className="compact-link" onClick={() => setImageUrls((p) => p.filter((_, j) => j !== i))}>
-                          제거
-                        </button>
-                      </li>
-                      )
-                    })}
-                  </ul>
-                  {imageUrls.length < MAX_MY_G_IMAGES ? (
-                    <button
-                      type="button"
-                      className="compact-link"
-                      onClick={() => setImageUrls((p) => [...p, ''].slice(0, MAX_MY_G_IMAGES))}
-                    >
-                      URL 줄 추가
-                    </button>
-                  ) : null}
-                </label>
-                <label>
-                  위도
-                  <input
-                    type="number"
-                    step="any"
-                    value={latitude ?? ''}
-                    onChange={(e) => setLatitude(e.target.value === '' ? null : Number(e.target.value))}
-                  />
-                </label>
-                <label>
-                  경도
-                  <input
-                    type="number"
-                    step="any"
-                    value={longitude ?? ''}
-                    onChange={(e) => setLongitude(e.target.value === '' ? null : Number(e.target.value))}
-                  />
-                </label>
-                {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
-                <label>
-                  메뉴 목록 (최대 {MAX_MENU_LINES}줄)
-                  <textarea
-                    rows={8}
-                    value={menuLinesText}
-                    onChange={(e) => setMenuLinesText(clampMenuTextLineCount(e.target.value))}
-                    required
-                  />
-                  <input
-                    ref={menuPhotoInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={async (ev) => {
-                      const file = ev.target.files?.[0]
-                      ev.target.value = ''
-                      if (!file?.type.startsWith('image/')) return
-                      setOcrBusy(true)
-                      try {
-                        setMenuLinesText(await recognizeMenuImageToMenuLines(file))
-                      } catch (e) {
-                        setSaveError(e instanceof Error ? e.message : 'OCR 실패')
-                      } finally {
-                        setOcrBusy(false)
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="compact-link"
-                    disabled={ocrBusy}
-                    onClick={() => menuPhotoInputRef.current?.click()}
-                  >
-                    {ocrBusy ? '읽는 중…' : '메뉴판 사진에서 불러오기'}
-                  </button>
-                </label>
+                {post.district} · {post.category ?? '카테고리 없음'}
               </>
             ) : (
               <>
-                <label>
-                  제목
-                  <input value={legTitle} onChange={(e) => setLegTitle(e.target.value)} maxLength={200} required />
-                </label>
-                <label>
-                  내용
-                  <textarea value={legBody} onChange={(e) => setLegBody(e.target.value)} rows={4} required />
-                </label>
-                <label>
-                  식당 이름
-                  <input value={legRestaurant} onChange={(e) => setLegRestaurant(e.target.value)} required />
-                </label>
-                <label>
-                  구
-                  <input value={legDistrict} onChange={(e) => setLegDistrict(e.target.value)} required />
-                </label>
-                <label>
-                  대표 메뉴명
-                  <input value={legMainName} onChange={(e) => setLegMainName(e.target.value)} required />
-                </label>
-                <label>
-                  가격 (원)
-                  <input
-                    type="number"
-                    min={0}
-                    value={legMainPrice}
-                    onChange={(e) => setLegMainPrice(Number(e.target.value))}
-                    required
-                  />
-                </label>
-                <label>
-                  이미지 URL (비우면 제거)
-                  <input
-                    value={legImageUrl ?? ''}
-                    onChange={(e) => setLegImageUrl(e.target.value.trim() || null)}
-                  />
-                </label>
+                {post.restaurant_name} · {post.district}
               </>
             )}
-            <p style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              <button type="submit" disabled={busy}>
-                {busy ? '저장 중…' : '저장'}
-              </button>
-              {canDelete ? (
-                <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
-                  삭제(관리자)
-                </button>
-              ) : null}
-            </p>
-          </form>
-        ) : (
-          <>
-            <h2>{post.title}</h2>
-            <p className="post-body">
-              {post.restaurant_name} ({post.district}) · {post.main_menu_name}{' '}
-              {post.main_menu_price > 0 ? `${post.main_menu_price.toLocaleString()}원` : ''}
-            </p>
-            {post.summary ? <p className="post-body">{post.summary}</p> : <p className="post-body">{post.body}</p>}
-            {gallery && gallery.length > 0 ? (
-              <div>
-                {gallery.map((url, i) => {
-                  const src = resolveMediaUrl(url)
-                  return (
+          </p>
+        </div>
+      </div>
+
+      {gallery.length > 1 ? (
+        <div className="brog-detail__gallery" role="tablist" aria-label="MyG 사진 선택">
+          {gallery.map((u, idx) => {
+            const thumb = resolveMediaUrl(u)
+            const selected = idx === heroIdx
+            return (
+              <button
+                key={`${idx}-${u}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-label={`사진 ${idx + 1}로 보기`}
+                className={
+                  'brog-detail__gallery-tap' + (selected ? ' brog-detail__gallery-tap--active' : '')
+                }
+                onClick={() => {
+                  setHeroGalleryIndex(idx)
+                  setHeroImgFailed(false)
+                }}
+              >
+                <FoodPhotoWithMenuOverlay
+                  menuName={heroMenuName}
+                  priceKrw={heroMenuPrice}
+                  className="brog-detail__gallery-item"
+                  compact
+                >
                   <img
-                    key={i}
-                    className="post-image"
-                    src={src}
+                    src={thumb}
                     alt=""
-                    loading="lazy"
-                    referrerPolicy={imgReferrerPolicyForResolvedSrc(src)}
+                    className="brog-detail__gallery-thumb"
+                    loading={idx > 0 ? 'lazy' : 'eager'}
+                    referrerPolicy={imgReferrerPolicyForResolvedSrc(thumb)}
                   />
-                  )
-                })}
-              </div>
+                </FoodPhotoWithMenuOverlay>
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
+      <div className="brog-detail__body">
+        {actionError ? (
+          <p className="error brog-detail__action-error" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+
+        <section className="brog-detail__section brog-detail__registrar" aria-label="작성자">
+          <h2>작성 정보</h2>
+          <p className="brog-detail__registrar-line">
+            <span className="muted">작성자</span>{' '}
+            <strong className="brog-detail__registrar-nick">{post.author_nickname}</strong>
+            <span className="muted"> · 작성일 </span>
+            <time dateTime={post.created_at}>
+              {Number.isNaN(Date.parse(post.created_at))
+                ? post.created_at
+                : new Date(post.created_at).toLocaleString('ko-KR', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+            </time>
+            {post.category && !brogMode ? <span className="muted"> · {post.category}</span> : null}
+          </p>
+        </section>
+
+        {brogMode && post.title.trim() !== post.restaurant_name.trim() ? (
+          <section className="brog-detail__section">
+            <h2>글 제목</h2>
+            <p className="brog-detail__summary">{post.title}</p>
+          </section>
+        ) : null}
+
+        <section className="brog-detail__section">
+          <h2>소개</h2>
+          {brogMode ? (
+            <p className="brog-detail__summary">{post.summary?.trim() || post.body}</p>
+          ) : (
+            <p className="brog-detail__summary">{post.body}</p>
+          )}
+        </section>
+
+        <section className="brog-detail__section">
+          <h2>메뉴 · 가격</h2>
+          <table className="menu-table">
+            <thead>
+              <tr>
+                <th>구분</th>
+                <th>메뉴명</th>
+                <th>가격</th>
+              </tr>
+            </thead>
+            <tbody>
+              {menuRows.map((row, idx) => (
+                <tr key={`${idx}-${row.name}-${row.price}`}>
+                  <td>{row.isMain ? '대표' : '부메뉴'}</td>
+                  <td>{row.name}</td>
+                  <td>{row.price.toLocaleString()}원</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        {isMyPost && token ? (
+          <section className="brog-detail__section brog-detail__admin">
+            <h2>BroG 공개</h2>
+            <p className="helper">
+              <button
+                type="button"
+                className="brog-screen__cta"
+                disabled={brogRegisterBusy}
+                onClick={() => void handleBrogRegister()}
+              >
+                {brogRegisterBusy ? 'BroG 등록 중…' : 'BroG 등록'}
+              </button>
+              {' — '}이 글을 공개 BroG 맛집으로 새로 올립니다. (BroG 규칙: 대표메뉴 1만원 이하·표준 카테고리·메뉴 줄 형식)
+            </p>
+          </section>
+        ) : null}
+
+        <section className="brog-detail__section brog-detail__admin">
+          <h2>관리</h2>
+          <div className="compact-links">
+            {canEdit ? (
+              <Link className="compact-link" to={`/known-restaurants/${post.id}/edit`}>
+                수정
+              </Link>
             ) : null}
-            {token && canDelete && !canEdit ? (
-              <p className="helper">
-                <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
-                  삭제(관리자)
-                </button>
-              </p>
+            {token && canDelete ? (
+              <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
+                삭제(관리자)
+              </button>
             ) : null}
-          </>
-        )}
-        {saveError ? <p className="error">{saveError}</p> : null}
-      </section>
+          </div>
+          {!canEdit && !(token && canDelete) ? (
+            <p className="helper">
+              수정은 작성자 본인 또는 해당 구 운영 권한이 있는 경우에만 할 수 있습니다. 삭제는 관리자만 할 수 있습니다.
+            </p>
+          ) : !canEdit && token && canDelete ? (
+            <p className="helper">이 글의 수정 권한은 없고, 관리자로 삭제만 할 수 있습니다.</p>
+          ) : null}
+        </section>
+      </div>
     </div>
   )
 }

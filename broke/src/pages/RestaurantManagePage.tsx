@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { fetchDistricts, type District } from '../api/districts'
-import { uploadCommunityImage } from '../api/community'
+import { copyBrogToMyGPost, uploadCommunityImage } from '../api/community'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
 import {
   createRestaurant,
@@ -27,6 +27,11 @@ import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeo
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
+import { BROG_ONLY } from '../config/features'
+import {
+  brogListRefreshNavigateState,
+  getBrogListNavigatePath,
+} from '../lib/brogListNavigation'
 import {
   assumeAdminUi,
   canAccessBrogManageForRestaurant,
@@ -74,6 +79,11 @@ export function RestaurantManagePage() {
   const [loadedIsDeleted, setLoadedIsDeleted] = useState(false)
   const [mapLocateBusy, setMapLocateBusy] = useState(false)
   const [coordPickHint, setCoordPickHint] = useState('')
+  const [manageAclRow, setManageAclRow] = useState<{
+    district_id: number
+    submitted_by_user_id?: number | null
+  } | null>(null)
+  const [mygCopyBusy, setMygCopyBusy] = useState(false)
 
   const onMapPickUserLocation = useCallback(
     async (lat: number, lng: number) => {
@@ -85,7 +95,7 @@ export function RestaurantManagePage() {
         ...f,
         latitude: latR,
         longitude: lngR,
-        ...(did ? { district_id: did } : {}),
+        ...(r.reason === 'ok' && did ? { district_id: did } : {}),
       }))
       const hintParts: string[] = []
       if (r.addressLine) hintParts.push(r.addressLine)
@@ -155,17 +165,21 @@ export function RestaurantManagePage() {
 
   useEffect(() => {
     if (!districts.length || id) return
-    if (user?.role !== ROLE_SUPER_ADMIN && user?.managed_district_id) {
-      setForm((f) => ({ ...f, district_id: user.managed_district_id! }))
-      return
-    }
-    const m = districts.find((d) => d.name === '마포구')
-    if (m) setForm((f) => ({ ...f, district_id: f.district_id || m.id }))
+    setForm((f) => {
+      if (f.district_id) return f
+      if (user?.role !== ROLE_SUPER_ADMIN && user?.managed_district_id) {
+        return { ...f, district_id: user.managed_district_id! }
+      }
+      const m = districts.find((d) => d.name === '마포구')
+      if (m) return { ...f, district_id: m.id }
+      return f
+    })
   }, [districts, user, id])
 
   useEffect(() => {
     const numericId = Number(id)
     if (!id || !Number.isFinite(numericId)) {
+      setManageAclRow(null)
       setIsLoading(false)
       return
     }
@@ -177,6 +191,10 @@ export function RestaurantManagePage() {
     load
       .then((restaurant) => {
         if (cancelled) return
+        setManageAclRow({
+          district_id: restaurant.district_id,
+          submitted_by_user_id: restaurant.submitted_by_user_id ?? null,
+        })
         setLoadedIsDeleted(Boolean(restaurant.is_deleted))
         setMenuLinesText(menuItemsToMenuLinesText(restaurant.menu_items))
         const imgs =
@@ -304,7 +322,7 @@ export function RestaurantManagePage() {
     setError('')
     try {
       await purgeRestaurantPermanent(token, Number(id))
-      navigate('/brog/list')
+      navigate(getBrogListNavigatePath(), { replace: true, state: brogListRefreshNavigateState() })
     } catch (e) {
       setError(e instanceof Error ? e.message : '영구 삭제에 실패했습니다.')
     }
@@ -323,6 +341,23 @@ export function RestaurantManagePage() {
       setLoadedIsDeleted(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : '복구에 실패했습니다.')
+    }
+  }
+
+  async function handleCopyBrogToMyG() {
+    if (!id || !token) {
+      setError(assumeAdminUi() ? '테스트 UI: MyG 복사는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
+      return
+    }
+    setMygCopyBusy(true)
+    setError('')
+    try {
+      const post = await copyBrogToMyGPost(token, Number(id))
+      navigate(`/known-restaurants/${post.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'MyG로 내려받지 못했습니다.')
+    } finally {
+      setMygCopyBusy(false)
     }
   }
 
@@ -390,22 +425,72 @@ export function RestaurantManagePage() {
     }
   }
 
+  const canCopyToMyG = Boolean(id) && !BROG_ONLY && Boolean(token) && manageAclRow != null && !loadedIsDeleted
+
   return (
-    <section className="card">
-      <h1>{id ? 'BroG 수정' : 'BroG 작성'}</h1>
-      <p className="helper">
-        <Link to="/me">Info</Link>
-        {' · '}
-        <Link to="/brog/list">BroG 리스트</Link>
-        {' · '}
-        <Link to="/map">지도</Link>
-      </p>
+    <div className="brog-screen brog-screen--list">
+      <header className="brog-screen__header">
+        <div>
+          <p className="eyebrow">{id ? 'BroG · 수정' : 'BroG · 작성'}</p>
+          <h1 className="brog-screen__title">{id ? 'BroG 수정' : 'BroG 작성'}</h1>
+          <p className="brog-screen__meta">
+            {id
+              ? '저장 후 공개 상세·관리에서 숨김·댓글·영구 삭제를 다룹니다.'
+              : '지도·카드 맛집으로 등록합니다. 대표 메뉴 1만 원 이하.'}
+          </p>
+        </div>
+        <div className="brog-screen__header-actions">
+          <Link className="ghost-button" to="/me">
+            Info
+          </Link>
+          <Link className="ghost-button" to="/brog/list">
+            BroG 리스트
+          </Link>
+          <Link className="ghost-button" to="/map">
+            지도
+          </Link>
+          {!BROG_ONLY ? (
+            <Link className="brog-screen__cta" to="/known-restaurants/write">
+              MyG 작성
+            </Link>
+          ) : null}
+        </div>
+      </header>
+
+      <section className="card" aria-label={id ? 'BroG 수정 폼' : 'BroG 등록 폼'}>
+      {!id ? (
+        <div className="brog-screen__toolbar map-card" style={{ marginBottom: 12 }}>
+          <div className="brog-list-toolbar__notes">
+            <p className="helper brog-list-toolbar__note">
+              공개 BroG 맛집으로 등록합니다. 대표 메뉴는 <strong>1만 원 이하</strong>, 표준 카테고리·메뉴 줄 형식을 지켜
+              주세요.
+            </p>
+            <p className="helper brog-list-toolbar__note brog-list-toolbar__note--muted">
+              개인 메모만 필요하면 MyG 작성을 이용하세요. 입력 필드 구성은 MyG와 같게 맞춰 두었습니다.
+            </p>
+          </div>
+        </div>
+      ) : null}
       {id ? (
         <p className="helper" style={{ marginTop: 8 }}>
           <Link className="compact-link" to={`/restaurants/${id}`}>
             공개 상세 보기
           </Link>
           {' — '}목록·지도에서 숨기기, 댓글 정리, DB 영구 삭제(슈퍼)는 상세 화면 「관리」에서 할 수 있습니다.
+        </p>
+      ) : null}
+      {canCopyToMyG ? (
+        <p className="helper" style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            className="compact-link"
+            disabled={mygCopyBusy}
+            onClick={() => void handleCopyBrogToMyG()}
+          >
+            {mygCopyBusy ? '내려받는 중…' : 'MyG로  내려받기'}
+          </button>
+          {' — '}이 BroG 내용을 그대로 복사해 내 MyG 개인 글을 새로 만듭니다. 로그인한 사용자면 누구나 사용할 수
+          있습니다.
         </p>
       ) : null}
 
@@ -655,9 +740,10 @@ export function RestaurantManagePage() {
               </button>
             </p>
             <p className="helper" style={{ marginTop: 4 }}>
-              인식 결과는 아래 메뉴 목록 텍스트에 <strong>덮어씁니다</strong>(기존 입력은 사라집니다). 브라우저에서
-              Tesseract로 처리하며 첫 실행 시 한글 모델 로딩에 시간이 걸릴 수 있습니다. 클라우드 OCR 등은 서비스
-              운영 단계에서 재논의 예정입니다. <code>메뉴명 : 가격</code> 형식인지 꼭 확인하세요.
+              인식 결과는 아래 메뉴 목록 텍스트에 <strong>덮어씁니다</strong>(기존 입력은 사라집니다). 로그인 상태에서{' '}
+              <code>VITE_USE_CLOVA_OCR=1</code> 이고 서버에 CLOVA 키가 설정되어 있으면 JPEG/PNG는 네이버 CLOVA를 먼저
+              쓰고, 실패·WebP 등은 브라우저 Tesseract(kor+eng)로 이어집니다. Tesseract는 첫 실행 시 모델 로딩이 걸릴 수
+              있습니다. <code>메뉴명 : 가격</code> 형식인지 꼭 확인하세요.
             </p>
           </label>
           <button type="submit" disabled={isSubmitting}>
@@ -667,6 +753,7 @@ export function RestaurantManagePage() {
       ) : null}
 
       {error ? <p className="error">{error}</p> : null}
-    </section>
+      </section>
+    </div>
   )
 }

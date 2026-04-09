@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { ACCESS_TOKEN_KEY } from '../api/auth'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
 import { fetchKnownRestaurantPosts } from '../api/community'
 import type { KnownRestaurantPost } from '../api/community'
@@ -41,8 +42,9 @@ export function SadariPage() {
     setLoadingPlaces(true)
     setLoadError('')
     try {
+      const mygToken = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
       const [myg, brog] = await Promise.all([
-        fetchKnownRestaurantPosts(),
+        fetchKnownRestaurantPosts(mygToken),
         fetchRestaurants({
           max_price: 10_000,
           limit: 120,

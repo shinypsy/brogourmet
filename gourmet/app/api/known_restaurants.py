@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.deploy_stage1 import district_name_in_stage1, stage1_district_names
 from app.deps import (
+    can_moderate_community_post_district,
     ensure_community_post_author_or_moderation,
     ensure_community_post_super_admin_delete,
     get_current_user,
@@ -13,11 +14,20 @@ from app.deps import (
 from app.models.district import District
 from app.core.roles import FRANCHISE
 from app.models.known_restaurant_post import KnownRestaurantPost
+from app.models.restaurant import Restaurant
 from app.models.user import User
 from app.schemas.community import KnownRestaurantPostCreate, KnownRestaurantPostRead
+from app.services.brog_to_myg import build_known_restaurant_create_from_brog
 from app.services.myg_menu_parse import parse_menu_lines_first_main
 
 router = APIRouter(prefix="/known-restaurants", tags=["known-restaurants"])
+
+
+def _can_read_known_restaurant_post(user: User, post: KnownRestaurantPost, db: Session) -> bool:
+    """열람: 작성자 본인 또는 슈퍼·해당 구 지역담당자(MyG 개인공간이어도 운영 수정용)."""
+    if user.id == post.author_id:
+        return True
+    return can_moderate_community_post_district(user, post.district, db)
 
 
 def _trim_image_urls(raw: list[str], max_n: int = 5) -> list[str]:
@@ -142,10 +152,15 @@ def _to_read(p: KnownRestaurantPost) -> KnownRestaurantPostRead:
 
 
 @router.get("/posts", response_model=list[KnownRestaurantPostRead])
-def list_posts(db: Session = Depends(get_db)):
+def list_posts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """로그인 사용자 **본인 글**만 (MyG 개인공간)."""
     posts = (
         db.query(KnownRestaurantPost)
         .options(joinedload(KnownRestaurantPost.author))
+        .filter(KnownRestaurantPost.author_id == current_user.id)
         .order_by(KnownRestaurantPost.created_at.desc())
         .all()
     )
@@ -155,8 +170,63 @@ def list_posts(db: Session = Depends(get_db)):
     return [_to_read(p) for p in posts]
 
 
+@router.post(
+    "/posts/from-brog/{restaurant_id}",
+    response_model=KnownRestaurantPostRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_post_from_brog(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    공개 BroG 매장·메뉴·사진 URL·요약을 그대로 반영한 MyG 글을 현재 사용자 명의로 생성.
+    로그인한 사용자면 누구나 (1단계 허용 구의 BroG만).
+    """
+    r = (
+        db.query(Restaurant)
+        .options(
+            selectinload(Restaurant.menu_items),
+            joinedload(Restaurant.district),
+        )
+        .filter(
+            Restaurant.id == restaurant_id,
+            Restaurant.is_deleted.is_(False),
+            Restaurant.status == "published",
+        )
+        .first()
+    )
+    if not r:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
+    dname = (r.district.name if r.district else "").strip()
+    if not district_name_in_stage1(dname):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="1단계에서 허용되지 않은 구의 BroG는 MyG로 가져올 수 없습니다.",
+        )
+    payload = build_known_restaurant_create_from_brog(r)
+    post = KnownRestaurantPost(author_id=current_user.id)
+    _apply_payload_to_post(db, post, payload)
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    post = (
+        db.query(KnownRestaurantPost)
+        .options(joinedload(KnownRestaurantPost.author))
+        .filter(KnownRestaurantPost.id == post.id)
+        .first()
+    )
+    assert post is not None
+    return _to_read(post)
+
+
 @router.get("/posts/{post_id}", response_model=KnownRestaurantPostRead)
-def get_post(post_id: int, db: Session = Depends(get_db)):
+def get_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     post = (
         db.query(KnownRestaurantPost)
         .options(joinedload(KnownRestaurantPost.author))
@@ -166,6 +236,8 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     if not district_name_in_stage1(post.district):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if not _can_read_known_restaurant_post(current_user, post, db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     return _to_read(post)
 

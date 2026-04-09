@@ -32,6 +32,8 @@ class Restaurant(Base):
     image_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     # 동일 장소·동일 브랜드로 나뉜 매장 중 첫 등록(이름 …_*)만 포인트 적립 대상
     points_eligible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # BroG 목록 상단 1~4위 고정(구별). NULL = 미고정, 좋아요 순 본문 정렬
+    bro_list_pin: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="published", nullable=False, index=True)

@@ -72,6 +72,15 @@ def ensure_restaurant_image_urls_and_points() -> None:
     logger.info("Restaurant image_urls / points_eligible columns ensured.")
 
 
+def ensure_restaurant_bro_list_pin() -> None:
+    """BroG 공개 목록 1~4위 관리자 고정 슬롯."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS bro_list_pin INTEGER"),
+        )
+    logger.info("Restaurant bro_list_pin column ensured.")
+
+
 def ensure_known_restaurant_brog_shape() -> None:
     """MyG: BroG 작성 폼과 동일 필드(변환 대비)."""
     dialect = engine.dialect.name

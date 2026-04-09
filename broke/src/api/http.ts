@@ -34,9 +34,12 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
   const url = `${API_BASE_URL}${path}`
   let response: Response
   try {
+    const cache =
+      init?.cache ?? (method === 'GET' || method === 'HEAD' ? ('no-store' as RequestCache) : undefined)
     response = await fetch(url, {
       ...init,
       headers,
+      ...(cache ? { cache } : {}),
     })
   } catch (error) {
     if (isLikelyNetworkFailure(error)) {

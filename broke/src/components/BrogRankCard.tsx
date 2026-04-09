@@ -10,10 +10,16 @@ export function BrogRankCard({
   restaurant,
   rank,
   footer,
+  detailTo,
+  pinnedSlot,
 }: {
   restaurant: RestaurantListItem
   rank: number
   footer?: ReactNode
+  /** 없으면 BroG 상세 `/restaurants/:id` */
+  detailTo?: string
+  /** 관리자 목록 고정 1~4위 표시 */
+  pinnedSlot?: number | null
 }) {
   const [imgFailed, setImgFailed] = useState(false)
   const firstImg =
@@ -23,12 +29,20 @@ export function BrogRankCard({
   const heroSrc = resolveMediaUrl(firstImg)
   const showPhoto = Boolean(heroSrc) && !imgFailed
   const isPrimaryListing = restaurant.points_eligible !== false
+  const linkTo = detailTo ?? `/restaurants/${restaurant.id}`
+
+  const pin = pinnedSlot != null && pinnedSlot >= 1 && pinnedSlot <= 4 ? pinnedSlot : null
 
   return (
-    <article className="brog-rank-card">
+    <article className={`brog-rank-card${pin != null ? ' brog-rank-card--list-pinned' : ''}`}>
       <div className="brog-rank-card__inner">
-        <Link to={`/restaurants/${restaurant.id}`} className="brog-rank-card__link">
+        <Link to={linkTo} className="brog-rank-card__link">
           <span className="brog-rank-card__rank">{rank}</span>
+          {pin != null ? (
+            <span className="brog-rank-card__pin-badge" title={`관리자 고정 ${pin}위`}>
+              고정 {pin}
+            </span>
+          ) : null}
           <div
             className={
               showPhoto ? 'brog-rank-card__photo' : 'brog-rank-card__photo brog-rank-card__photo--placeholder'

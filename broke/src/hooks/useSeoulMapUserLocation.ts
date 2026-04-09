@@ -1,14 +1,27 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
 import { DEFAULT_HOME_DISTRICT, resolveSeoulDistrictFromCoords } from '../lib/resolveSeoulDistrictFromCoords'
 import { mapGeoHintMessage } from '../lib/mapGeoHint'
 
+export type SeoulMapUserLocationOptions = {
+  /**
+   * false면 기기 GPS(자동·「위치 다시 받기」·「내 위치」 버튼)는 좌표·힌트만 반영하고 구(setDistrict)는 바꾸지 않음.
+   * 지역(구)은 지도에서 **내 위치 변경**(롱프레스·우클릭 등 `applyLatLng`)이나 수동 좌표 적용 시에만 바뀜.
+   * BroG/MyG 리스트 `?district=` 유지용.
+   */
+  initialGeolocationSetsDistrict?: boolean
+}
+
 /**
  * GPS·수동 좌표 → 구 역지오코딩·지도 마커용 state.
  * `setDistrict`는 호출 측에서 URL 동기화 등과 함께 구현.
  */
-export function useSeoulMapUserLocation(setDistrict: (gu: string) => void) {
+export function useSeoulMapUserLocation(
+  setDistrict: (gu: string) => void,
+  options: SeoulMapUserLocationOptions = {},
+) {
+  const { initialGeolocationSetsDistrict = true } = options
   const [geoHint, setGeoHint] = useState('위치 확인 중…')
   const [geoBusy, setGeoBusy] = useState(false)
   const [geoRetryToken, setGeoRetryToken] = useState(0)
@@ -36,6 +49,23 @@ export function useSeoulMapUserLocation(setDistrict: (gu: string) => void) {
     },
     [applyLatLng],
   )
+
+  /** GPS 수신만 — 마커·힌트·입력란 갱신, setDistrict 없음 */
+  const applyDeviceCoordsWithoutDistrict = useCallback(async (coords: GeolocationCoordinates) => {
+    const lat = coords.latitude
+    const lng = coords.longitude
+    setMapUserCoords({ lat, lng })
+    setLatInput(lat.toFixed(5))
+    setLngInput(lng.toFixed(5))
+    const res = await resolveSeoulDistrictFromCoords(lat, lng)
+    setGeoHint(mapGeoHintMessage(res.reason, res.district))
+  }, [])
+
+  /** `setDistrict`가 URL을 바꾸면 applyUserCoords 참조가 바뀌어 locate effect가 재실행되는 것을 막음 (우클릭 좌표가 GPS로 덮임) */
+  const applyUserCoordsRef = useRef(applyUserCoords)
+  applyUserCoordsRef.current = applyUserCoords
+  const applyDeviceCoordsWithoutDistrictRef = useRef(applyDeviceCoordsWithoutDistrict)
+  applyDeviceCoordsWithoutDistrictRef.current = applyDeviceCoordsWithoutDistrict
 
   const handleApplyManualCoords = useCallback(async () => {
     const lat = parseFloat(latInput.trim().replace(',', '.'))
@@ -68,7 +98,11 @@ export function useSeoulMapUserLocation(setDistrict: (gu: string) => void) {
       try {
         const coords = await requestGeolocation()
         if (cancelled) return
-        await applyUserCoords(coords)
+        if (initialGeolocationSetsDistrict) {
+          await applyUserCoordsRef.current(coords)
+        } else {
+          await applyDeviceCoordsWithoutDistrictRef.current(coords)
+        }
       } catch (e) {
         if (cancelled) return
         setMapUserCoords(null)
@@ -88,7 +122,7 @@ export function useSeoulMapUserLocation(setDistrict: (gu: string) => void) {
     return () => {
       cancelled = true
     }
-  }, [geoRetryToken, applyUserCoords])
+  }, [geoRetryToken, initialGeolocationSetsDistrict])
 
   const myLocationFromDevice = useCallback(async () => {
     if (!navigator.geolocation) return
@@ -96,7 +130,11 @@ export function useSeoulMapUserLocation(setDistrict: (gu: string) => void) {
     setGeoHint('위치 확인 중…')
     try {
       const coords = await requestGeolocation()
-      await applyUserCoords(coords)
+      if (initialGeolocationSetsDistrict) {
+        await applyUserCoords(coords)
+      } else {
+        await applyDeviceCoordsWithoutDistrict(coords)
+      }
     } catch (e) {
       setMapUserCoords(null)
       if (e && typeof e === 'object' && 'code' in e && (e as GeolocationPositionError).code === 1) {
@@ -109,7 +147,7 @@ export function useSeoulMapUserLocation(setDistrict: (gu: string) => void) {
     } finally {
       setGeoBusy(false)
     }
-  }, [applyUserCoords])
+  }, [applyUserCoords, applyDeviceCoordsWithoutDistrict, initialGeolocationSetsDistrict])
 
   return {
     geoHint,

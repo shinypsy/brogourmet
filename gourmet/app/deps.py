@@ -9,6 +9,7 @@ from app.core.security import decode_token
 from app.db import SessionLocal
 from app.models.district import District
 from app.models.restaurant import Restaurant
+from app.models.site_event import SiteEvent
 from app.models.user import User
 
 security = HTTPBearer()
@@ -75,6 +76,39 @@ def get_super_admin_user(current_user: User = Depends(get_current_user)) -> User
             detail="Super admin access required",
         )
     return current_user
+
+
+def get_site_event_editor(current_user: User = Depends(get_current_user)) -> User:
+    """이벤트 등록·목록·비활성화·삭제: 슈퍼 또는 담당 구가 있는 지역 담당자."""
+    if current_user.role == SUPER_ADMIN:
+        return current_user
+    if current_user.role == REGIONAL_MANAGER:
+        if current_user.managed_district_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="담당 구가 지정된 지역 담당자만 이벤트를 관리할 수 있습니다.",
+            )
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="이벤트 관리 권한이 없습니다.",
+    )
+
+
+def ensure_can_mutate_site_event(user: User, event: SiteEvent) -> None:
+    """비활성화·삭제: 슈퍼는 전부, 지역 담당자는 본인이 등록한 이벤트만."""
+    if user.role == SUPER_ADMIN:
+        return
+    if (
+        user.role == REGIONAL_MANAGER
+        and event.author_id is not None
+        and event.author_id == user.id
+    ):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="이 이벤트를 변경할 권한이 없습니다.",
+    )
 
 
 def can_manage_brog_in_district(user: User, district_id: int) -> bool:

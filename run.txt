@@ -1,5 +1,6 @@
 BroGourmet run.txt
 목적: 새 작업·새 대화 시작할 때 AI(브로)에게 인사 후, 로컬에서 먼저 돌릴 것. 잊지 않도록 이 파일을 열어 두거나 「run.txt 읽고 시작」이라고 말하기.
+※ 기준 시각: 대화·dial의「오늘」은 **Gee가 알려 준 한국시각(KST)**을 따름. (예: 2026-04-09 15:40 KST 확정 시 그날짜로 통일.)
 
 ================================================================================
 [0] AI에게 시작할 때 한 줄로
@@ -45,6 +46,7 @@ BroGourmet run.txt
   API_key.txt       — 카카오·API 키 안내 (비밀값은 파일에 적지 말 것)
   gourmet\.env      — DB, SMTP, BROG_UPLOAD_DIR·MYG_UPLOAD_DIR·레거시 평면(COMMUNITY_IMAGE_DIR) 등
   broke\.env        — VITE_API_BASE_URL, VITE_KAKAO_MAP_APP_KEY, VITE_KAKAO_REST_API_KEY
+                      선택: VITE_ASSUME_ADMIN_UI=1 → 로컬에서도 전 화면을 관리자 UI처럼(기본은 끔, 계정별 역할로 메뉴 구분)
 
 ================================================================================
 [4] 업로드 이미지 저장
@@ -60,3 +62,21 @@ BroGourmet run.txt
   gourmet 에서 업로드 API·디스크 저장 확인:
     pip install httpx
     python scripts\test_upload_probe.py
+
+  CLOVA OCR(키는 gourmet/.env 만):
+    pip install httpx python-dotenv
+    python scripts\test_clova_ocr.py path\to\menu.png
+
+================================================================================
+[6] 오늘 할 일 보조 — 계정별 테스트·테스트 앱·OCR
+================================================================================
+  계정별 수동 점검(예시 경로):
+    - user: 가입/로그인, BroG 목록·상세, 댓글·좋아요(허용 시)
+    - franchise: 허용된 화면 위주(역할 정책에 맞게)
+    - regional_manager: 담당 구 BroG 수정·상세 「관리」, 이벤트 작성(/events/write), 무료나눔/MyG 담당 구 글
+    - super_admin: 전 구 관리, 이벤트·영구 삭제 등 관리자 전용 버튼
+  카카오 「테스트 앱」: https://developers.kakao.com → 내 애플리케이션 → 앱 추가
+    - Web 플랫폼 사이트 도메인: http://localhost:5173
+    - JavaScript 키 → broke VITE_KAKAO_MAP_APP_KEY, REST 키 → VITE_KAKAO_REST_API_KEY
+  CLOVA 연동: gourmet .env 에 CLOVA_OCR_* 설정 후 broke 에 VITE_USE_CLOVA_OCR=1, API 재시작
+  브라우저 OCR만 써 볼 때: http://localhost:5173/ocr-lab.html (토큰 + JPEG/PNG)

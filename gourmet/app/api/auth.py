@@ -3,7 +3,7 @@ import os
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.email_verify import (
@@ -56,7 +56,6 @@ def _set_verification_token_on_user(user: User) -> str:
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(
     payload: UserCreate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     existing_user = db.query(User).filter(User.email == payload.email).first()
@@ -97,8 +96,10 @@ def signup(
 
     db.refresh(user)
 
+    # BackgroundTasks 는 응답 직후 실행이라 일부 환경에서 가입 직후 메일이 빠지는 경우가 있어,
+    # require_mail=false 일 때도 동일하게 요청 안에서 발송 시도(실패는 send_verification_email 이 로그 처리).
     if not require_mail:
-        background_tasks.add_task(send_verification_email, user.email, plain, user.nickname)
+        send_verification_email(user.email, plain, user.nickname)
 
     return SignupResponse(
         user=build_user_read(db, user),
@@ -134,7 +135,6 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
 @router.post("/resend-verification", response_model=ResendVerificationResponse)
 def resend_verification(
     payload: ResendVerificationRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """계정 존재 여부를 숨기기 위해 항상 ok. 실제로는 미인증 계정에만 새 토큰을 저장합니다."""
@@ -145,7 +145,7 @@ def resend_verification(
         db.commit()
         db.refresh(user)
         if plain:
-            background_tasks.add_task(send_verification_email, user.email, plain, user.nickname)
+            send_verification_email(user.email, plain, user.nickname)
 
     return ResendVerificationResponse(
         ok=True,

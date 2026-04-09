@@ -94,16 +94,22 @@ export async function deleteFreeSharePost(token: string, id: number): Promise<vo
   })
 }
 
-export async function fetchKnownRestaurantPosts(): Promise<KnownRestaurantPost[]> {
-  return requestJson<KnownRestaurantPost[]>('/known-restaurants/posts')
+/** 로그인 시 본인 MyG 글만. 비로그인이면 빈 배열. */
+export async function fetchKnownRestaurantPosts(token: string | null): Promise<KnownRestaurantPost[]> {
+  if (!token) return []
+  return requestJson<KnownRestaurantPost[]>('/known-restaurants/posts', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }
 
 export async function fetchFreeSharePost(id: number): Promise<FreeSharePost> {
   return requestJson<FreeSharePost>(`/free-share/posts/${id}`)
 }
 
-export async function fetchKnownRestaurantPost(id: number): Promise<KnownRestaurantPost> {
-  return requestJson<KnownRestaurantPost>(`/known-restaurants/posts/${id}`)
+export async function fetchKnownRestaurantPost(token: string, id: number): Promise<KnownRestaurantPost> {
+  return requestJson<KnownRestaurantPost>(`/known-restaurants/posts/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }
 
 export async function createKnownRestaurantPost(
@@ -132,6 +138,14 @@ export async function updateKnownRestaurantPost(
 export async function deleteKnownRestaurantPost(token: string, id: number): Promise<void> {
   return requestJson<void>(`/known-restaurants/posts/${id}`, {
     method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+/** 공개 BroG 매장을 그대로 반영한 MyG 글 생성(로그인한 일반 사용자도 가능). */
+export async function copyBrogToMyGPost(token: string, restaurantId: number): Promise<KnownRestaurantPost> {
+  return requestJson<KnownRestaurantPost>(`/known-restaurants/posts/from-brog/${restaurantId}`, {
+    method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
 }

@@ -38,6 +38,15 @@ class RestaurantListItem(BaseModel):
     is_franchise: bool = False
     # 목록·지도에서 본인 글 숨김 등 UI 판별용 (없으면 레거시 데이터)
     submitted_by_user_id: int | None = None
+    # BroG 리스트 1~4위 관리자 고정 슬롯, 없으면 좋아요 순
+    bro_list_pin: int | None = None
+
+
+class BroListPinState(BaseModel):
+    bro_list_pin: int | None = Field(
+        default=None,
+        description="1~4 고정 슬롯, None이면 미고정",
+    )
 
 
 class RestaurantDetailRead(BaseModel):

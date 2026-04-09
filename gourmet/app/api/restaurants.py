@@ -4,11 +4,13 @@ import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deploy_stage1 import district_name_in_stage1, stage1_district_names
 from app.core.roles import FRANCHISE, REGIONAL_MANAGER, SUPER_ADMIN
 from app.deps import (
+    ensure_brog_district_access,
     ensure_can_access_brog_manage,
     ensure_can_create_brog_in_chosen_district,
     get_current_user,
@@ -16,10 +18,14 @@ from app.deps import (
     get_super_admin_user,
 )
 from app.models.district import District
+from app.models.known_restaurant_post import KnownRestaurantPost
 from app.models.restaurant import Restaurant, RestaurantMenuItem
+from app.models.restaurant_social import RestaurantLike
 from app.models.user import User
 from app.geo_utils import haversine_m
+from app.services.myg_to_brog import restaurant_write_from_known_post
 from app.schemas.restaurant import (
+    BroListPinState,
     MenuItemRead,
     RestaurantDetailRead,
     RestaurantListItem,
@@ -169,6 +175,41 @@ def _district_name(db: Session, district_id: int) -> str:
     return d.name if d else ""
 
 
+def _normalized_bro_list_pin(restaurant: Restaurant) -> int | None:
+    p = getattr(restaurant, "bro_list_pin", None)
+    if p is None:
+        return None
+    if isinstance(p, int) and 1 <= p <= 4:
+        return p
+    return None
+
+
+def _like_counts_map(db: Session, restaurant_ids: list[int]) -> dict[int, int]:
+    if not restaurant_ids:
+        return {}
+    rows = (
+        db.query(RestaurantLike.restaurant_id, func.count(RestaurantLike.id))
+        .filter(RestaurantLike.restaurant_id.in_(restaurant_ids))
+        .group_by(RestaurantLike.restaurant_id)
+        .all()
+    )
+    return {int(rid): int(c) for rid, c in rows}
+
+
+def _sort_public_brog_list(restaurants: list[Restaurant], like_counts: dict[int, int]) -> None:
+    """고정 핀 1~4위(구 내) → 그 외 좋아요 많은 순 → 가게명."""
+
+    def sort_key(r: Restaurant) -> tuple:
+        pin = _normalized_bro_list_pin(r)
+        lc = like_counts.get(r.id, 0)
+        name = (r.name or "").strip()
+        if pin is not None:
+            return (0, pin, -lc, name)
+        return (1, 0, -lc, name)
+
+    restaurants.sort(key=sort_key)
+
+
 def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
     main = _main_item_for(restaurant)
     if main is None:
@@ -198,6 +239,7 @@ def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
         "points_eligible": bool(getattr(restaurant, "points_eligible", True)),
         "is_franchise": sb_role == FRANCHISE,
         "submitted_by_user_id": sb_uid,
+        "bro_list_pin": _normalized_bro_list_pin(restaurant),
     }
 
 
@@ -356,7 +398,10 @@ def list_restaurants(
         q = q.filter(Restaurant.latitude.between(near_lat - lat_delta, near_lat + lat_delta))
         q = q.filter(Restaurant.longitude.between(near_lng - lng_delta, near_lng + lng_delta))
 
-    restaurants = q.order_by(Restaurant.name.asc()).all()
+    restaurants = q.all()
+    ids = [r.id for r in restaurants]
+    like_counts = _like_counts_map(db, ids)
+    _sort_public_brog_list(restaurants, like_counts)
 
     if use_near:
         assert near_lat is not None and near_lng is not None and radius_m is not None
@@ -366,17 +411,61 @@ def list_restaurants(
                 continue
             if haversine_m(near_lat, near_lng, float(r.latitude), float(r.longitude)) <= radius_m:
                 in_circle.append(r)
-        in_circle.sort(
-            key=lambda x: haversine_m(
-                near_lat, near_lng, float(x.latitude or 0), float(x.longitude or 0)
-            )
-        )
+        _sort_public_brog_list(in_circle, like_counts)
         cap_n = limit if limit is not None else 200
         restaurants = in_circle[:cap_n]
     elif limit is not None:
         restaurants = restaurants[:limit]
 
     return [RestaurantListItem.model_validate(_list_item_from(db, r)) for r in restaurants]
+
+
+@router.post(
+    "/{restaurant_id}/cycle-bro-list-pin",
+    response_model=BroListPinState,
+    summary="BroG 목록 1~4위 고정 핀 순환 (미고정→1→2→3→4→해제)",
+)
+def cycle_bro_list_pin(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    r = (
+        db.query(Restaurant)
+        .filter(
+            Restaurant.id == restaurant_id,
+            Restaurant.is_deleted.is_(False),
+            Restaurant.status == "published",
+        )
+        .first()
+    )
+    if r is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
+    ensure_brog_district_access(current_user, r.district_id)
+
+    cur = _normalized_bro_list_pin(r)
+    if cur is None:
+        new_pin = 1
+    elif cur < 4:
+        new_pin = cur + 1
+    else:
+        new_pin = None
+
+    if new_pin is not None:
+        (
+            db.query(Restaurant)
+            .filter(
+                Restaurant.district_id == r.district_id,
+                Restaurant.id != r.id,
+                Restaurant.bro_list_pin == new_pin,
+            )
+            .update({Restaurant.bro_list_pin: None}, synchronize_session=False)
+        )
+    r.bro_list_pin = new_pin
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return BroListPinState(bro_list_pin=_normalized_bro_list_pin(r))
 
 
 @router.get("/manage/list", response_model=list[RestaurantManageRow])
@@ -469,12 +558,7 @@ def get_restaurant(restaurant_id: int, db: Session = Depends(get_db)):
     return _detail_item_from(db, restaurant)
 
 
-@router.post("", response_model=RestaurantDetailRead, status_code=status.HTTP_201_CREATED)
-def create_restaurant(
-    payload: RestaurantWrite,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def _persist_new_restaurant(db: Session, current_user: User, payload: RestaurantWrite) -> Restaurant:
     d = db.query(District).filter(District.id == payload.district_id).first()
     if not d or not d.active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid district_id")
@@ -517,7 +601,7 @@ def create_restaurant(
     apply_duplicate_restaurant_names_for_new(db, restaurant, payload.name)
     db.commit()
     db.refresh(restaurant)
-    restaurant = (
+    loaded = (
         db.query(Restaurant)
         .options(
             selectinload(Restaurant.menu_items),
@@ -527,7 +611,45 @@ def create_restaurant(
         .filter(Restaurant.id == restaurant.id)
         .first()
     )
-    assert restaurant is not None
+    assert loaded is not None
+    return loaded
+
+
+@router.post("", response_model=RestaurantDetailRead, status_code=status.HTTP_201_CREATED)
+def create_restaurant(
+    payload: RestaurantWrite,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    restaurant = _persist_new_restaurant(db, current_user, payload)
+    return _detail_item_from(db, restaurant)
+
+
+@router.post(
+    "/from-myg/{post_id}",
+    response_model=RestaurantDetailRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_restaurant_from_myg_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """본인 MyG 글 → 공개 BroG 매장 생성(내용 매핑은 `restaurant_write_from_known_post`)."""
+    post = db.query(KnownRestaurantPost).filter(KnownRestaurantPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if post.author_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="본인 MyG 글만 BroG로 등록할 수 있습니다.",
+        )
+    try:
+        payload = restaurant_write_from_known_post(db, post)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    restaurant = _persist_new_restaurant(db, current_user, payload)
     return _detail_item_from(db, restaurant)
 
 

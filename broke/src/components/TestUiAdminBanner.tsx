@@ -5,8 +5,8 @@ export function TestUiAdminBanner() {
   if (!assumeAdminUi()) return null
 
   const modeLabel = import.meta.env.DEV
-    ? '로컬 dev 기본'
-    : 'VITE_ASSUME_ADMIN_UI(스테이징 빌드)'
+    ? 'broke/.env → VITE_ASSUME_ADMIN_UI=1 (로컬)'
+    : 'VITE_ASSUME_ADMIN_UI=1 (스테이징·프로덕션 빌드)'
 
   return (
     <div className="test-ui-admin-banner" role="status">
