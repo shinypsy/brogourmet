@@ -7,15 +7,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.email_verify import (
+    generate_password_change_code,
     generate_plain_token,
     hash_verification_token,
+    password_change_code_expires_at,
     verification_expires_at,
 )
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.deps import get_db
+from app.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.auth import (
+    ConfirmPasswordChangeRequest,
     LoginRequest,
+    RequestPasswordChangeCodeResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
     SignupResponse,
@@ -26,8 +30,10 @@ from app.schemas.user import UserCreate, UserRead
 from app.services.user_read import build_user_read
 from app.services.verification_smtp import (
     VerificationEmailNotConfigured,
+    deliver_password_change_code_email,
     deliver_verification_email,
     send_verification_email,
+    smtp_sending_enabled,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -40,6 +46,10 @@ def _require_verification_email_on_signup() -> bool:
 
 def _dev_return_verification_plain() -> bool:
     return os.getenv("DEV_RETURN_EMAIL_VERIFICATION_TOKEN", "").lower() in ("1", "true", "yes")
+
+
+def _dev_return_password_change_code() -> bool:
+    return os.getenv("DEV_RETURN_PASSWORD_CHANGE_CODE", "").lower() in ("1", "true", "yes")
 
 
 def _login_requires_verified_email() -> bool:
@@ -151,6 +161,97 @@ def resend_verification(
         ok=True,
         email_verification_token=plain if plain and _dev_return_verification_plain() else None,
     )
+
+
+@router.post("/request-password-change-code", response_model=RequestPasswordChangeCodeResponse)
+def request_password_change_code(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """로그인한 사용자에게 이메일로 6자리 인증코드 발송(Myinfo 비밀번호 변경 1단계)."""
+    if not current_user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="비활성 계정입니다.")
+    plain = generate_password_change_code()
+    current_user.password_change_code_hash = hash_verification_token(plain)
+    current_user.password_change_expires_at = password_change_code_expires_at()
+    db.add(current_user)
+    db.flush()
+    dev_ret = _dev_return_password_change_code()
+    if smtp_sending_enabled():
+        try:
+            deliver_password_change_code_email(current_user.email, plain, current_user.nickname)
+        except VerificationEmailNotConfigured:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="SMTP_USER/SMTP_PASSWORD 를 확인하세요.",
+            )
+        except Exception:
+            db.rollback()
+            logger.exception("비밀번호 변경 인증 메일 발송 실패: user_id=%s", current_user.id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.",
+            )
+    else:
+        if not dev_ret:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "이메일 발송이 꺼져 있습니다. gourmet .env 에 SMTP_ENABLED=true 를 켜거나, "
+                    "로컬 개발 시 DEV_RETURN_PASSWORD_CHANGE_CODE=true 로 응답에 인증코드를 받으세요."
+                ),
+            )
+    db.commit()
+    return RequestPasswordChangeCodeResponse(
+        ok=True,
+        dev_password_change_code=plain if dev_ret else None,
+    )
+
+
+@router.post("/confirm-password-change", response_model=UserRead)
+def confirm_password_change(
+    payload: ConfirmPasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """이메일 인증코드 검증 후 새 비밀번호로 갱신."""
+    if not current_user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="비활성 계정입니다.")
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.password_change_code_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="먼저 「인증코드 받기」를 눌러 이메일로 코드를 받으세요.",
+        )
+    now = datetime.now(timezone.utc)
+    if user.password_change_expires_at is not None and user.password_change_expires_at < now:
+        user.password_change_code_hash = None
+        user.password_change_expires_at = None
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="인증코드가 만료되었습니다. 다시 요청하세요.",
+        )
+    if hash_verification_token(payload.code) != user.password_change_code_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="인증코드가 올바르지 않습니다.",
+        )
+    if verify_password(payload.new_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="새 비밀번호는 기존과 달라야 합니다.",
+        )
+    user.password_hash = get_password_hash(payload.new_password)
+    user.password_change_code_hash = None
+    user.password_change_expires_at = None
+    db.commit()
+    db.refresh(user)
+    return build_user_read(db, user)
 
 
 @router.post("/login", response_model=TokenResponse)

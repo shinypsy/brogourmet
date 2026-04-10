@@ -3,7 +3,7 @@
 import logging
 import os
 
-from sqlalchemy import func, text
+from sqlalchemy import func, inspect, text
 
 from app.db import SessionLocal, engine
 from app.models.user import User
@@ -81,6 +81,52 @@ def ensure_restaurant_bro_list_pin() -> None:
     logger.info("Restaurant bro_list_pin column ensured.")
 
 
+def ensure_restaurant_franchise_pin() -> None:
+    """BroG 가맹 깃발 — 관리자 지정(NULL=등록자 역할 따름)."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS franchise_pin BOOLEAN"),
+        )
+    logger.info("Restaurant franchise_pin column ensured.")
+
+
+def ensure_bro_list_pin_not_globally_unique() -> None:
+    """bro_list_pin 컬럼만 걸린 UNIQUE(전 테이블에서 비NULL 1개만 허용) 제거.
+
+    평소 부팅에서는 호출하지 않음. `main.py`에서 `BROG_REPAIR_BRO_LIST_PIN_UNIQUE=1` 일 때만 실행.
+    """
+    prep = engine.dialect.identifier_preparer
+    try:
+        insp = inspect(engine)
+        if not insp.has_table("restaurants"):
+            return
+        with engine.begin() as conn:
+            for uc in insp.get_unique_constraints("restaurants"):
+                cols = uc.get("column_names") or []
+                if cols != ["bro_list_pin"]:
+                    continue
+                cname = uc.get("name")
+                if not cname:
+                    continue
+                q = prep.quote(cname)
+                conn.execute(text(f"ALTER TABLE restaurants DROP CONSTRAINT IF EXISTS {q}"))
+                logger.info("Dropped erroneous UNIQUE constraint on restaurants(bro_list_pin): %s", cname)
+            for idx in insp.get_indexes("restaurants"):
+                if not idx.get("unique"):
+                    continue
+                cols = idx.get("column_names") or []
+                if cols != ["bro_list_pin"]:
+                    continue
+                iname = idx.get("name")
+                if not iname:
+                    continue
+                q = prep.quote(iname)
+                conn.execute(text(f"DROP INDEX IF EXISTS {q}"))
+                logger.info("Dropped erroneous UNIQUE index on restaurants(bro_list_pin): %s", iname)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ensure_bro_list_pin_not_globally_unique skipped: %s", exc)
+
+
 def ensure_known_restaurant_brog_shape() -> None:
     """MyG: BroG 작성 폼과 동일 필드(변환 대비)."""
     dialect = engine.dialect.name
@@ -108,3 +154,17 @@ def ensure_known_restaurant_brog_shape() -> None:
         except Exception:  # noqa: BLE001
             pass
     logger.info("known_restaurant_posts BroG-shape columns ensured.")
+
+
+def ensure_user_password_change_columns() -> None:
+    """Myinfo 비밀번호 변경용 이메일 인증코드."""
+    dialect = engine.dialect.name
+    exp_type = "TIMESTAMPTZ" if dialect == "postgresql" else "TEXT"
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_change_code_hash VARCHAR(128)",
+        f"ALTER TABLE users ADD COLUMN IF NOT EXISTS password_change_expires_at {exp_type}",
+    ]
+    with engine.begin() as conn:
+        for sql in statements:
+            conn.execute(text(sql))
+    logger.info("users password_change_* columns ensured.")

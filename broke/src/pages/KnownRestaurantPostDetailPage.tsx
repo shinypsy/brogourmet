@@ -8,27 +8,14 @@ import {
   type KnownRestaurantPost,
 } from '../api/community'
 import { createRestaurantFromMyGPost } from '../api/restaurants'
-import { BrogListIcon } from '../components/detailScreenIcons'
 import { FoodPhotoWithMenuOverlay } from '../components/FoodPhotoWithMenuOverlay'
-import { BROG_ONLY } from '../config/features'
 import { MAX_MENU_LINES, parseMenuLine } from '../lib/menuLines'
 import { galleryUrlsFromMygPost } from '../lib/mygPostGallery'
-import { STAGE1_DEFAULT_DISTRICT } from '../lib/deployStage1'
-import { assumeAdminUi, canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
+import { assumeAdminUi, canDeleteKnownRestaurantPost, canEditCommunityPost } from '../lib/roles'
 import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
 
 function isBrogShapedPost(p: KnownRestaurantPost): boolean {
   return p.district_id != null && p.district_id >= 1
-}
-
-function mygListHref(post: KnownRestaurantPost | null): string {
-  const d = post?.district?.trim()
-  return d ? `/known-restaurants/list?district=${encodeURIComponent(d)}` : '/known-restaurants/list'
-}
-
-function mygMapHref(post: KnownRestaurantPost | null): string {
-  const d = post?.district?.trim() || STAGE1_DEFAULT_DISTRICT
-  return `/known-restaurants/map?district=${encodeURIComponent(d)}`
 }
 
 type MygReadOnlyMenuRow = { isMain: boolean; name: string; price: number }
@@ -48,29 +35,6 @@ function menuRowsForMygReadOnly(post: KnownRestaurantPost, brogMode: boolean): M
     if (rows.length) return rows
   }
   return [{ isMain: true, name: post.main_menu_name, price: post.main_menu_price }]
-}
-
-function MygDetailNavTopbar({ post }: { post: KnownRestaurantPost | null }) {
-  return (
-    <header className="brog-detail__topbar">
-      <Link
-        className="brog-detail__back"
-        to={mygListHref(post)}
-        title="MyG 목록"
-        aria-label="MyG 목록으로 이동"
-      >
-        <span className="brog-detail__back-icon" aria-hidden>
-          <BrogListIcon />
-        </span>
-        <span className="brog-detail__back-label">MyG 목록</span>
-      </Link>
-      <div className="brog-detail__topbar-links">
-        <Link to={mygMapHref(post)}>지도</Link>
-        {!BROG_ONLY ? <Link to="/brog/list">BroG 리스트</Link> : null}
-        <Link to="/known-restaurants/write">작성</Link>
-      </div>
-    </header>
-  )
 }
 
 export function KnownRestaurantPostDetailPage() {
@@ -124,7 +88,9 @@ export function KnownRestaurantPostDetailPage() {
   }, [numericId, token])
 
   const canEdit = Boolean(post && canEditCommunityPost(user, post.author_id, post.district))
-  const canDelete = Boolean(post && canDeleteCommunityPost(user))
+  const canDelete = Boolean(
+    post && canDeleteKnownRestaurantPost(user, post.author_id, post.district),
+  )
   const isMyPost = Boolean(user && post && user.id === post.author_id)
 
   const gallery = useMemo(() => (post ? galleryUrlsFromMygPost(post) : []), [post])
@@ -176,9 +142,6 @@ export function KnownRestaurantPostDetailPage() {
         <h1>글을 불러올 수 없습니다</h1>
         <p className="description">{loadError}</p>
         <Link className="compact-link brog-detail__error-list-link" to="/known-restaurants/list">
-          <span className="brog-detail__error-list-link-icon" aria-hidden>
-            <BrogListIcon size={18} />
-          </span>
           MyG 목록
         </Link>
       </div>
@@ -193,9 +156,6 @@ export function KnownRestaurantPostDetailPage() {
           MyG 글은 로그인한 작성자 본인(및 운영 권한이 있는 경우)만 볼 수 있습니다.
         </p>
         <Link className="compact-link brog-detail__error-list-link" to="/known-restaurants/list">
-          <span className="brog-detail__error-list-link-icon" aria-hidden>
-            <BrogListIcon size={18} />
-          </span>
           MyG 목록
         </Link>
       </div>
@@ -218,8 +178,7 @@ export function KnownRestaurantPostDetailPage() {
   const heroMenuPrice = menuRows[0]?.price ?? post.main_menu_price
 
   return (
-    <div className="brog-detail">
-      <MygDetailNavTopbar post={post} />
+    <div className="brog-detail brog-detail--myg-post">
       <div className="brog-detail__hero">
         {showHeroImg ? (
           <img
@@ -389,16 +348,16 @@ export function KnownRestaurantPostDetailPage() {
             ) : null}
             {token && canDelete ? (
               <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
-                삭제(관리자)
+                삭제
               </button>
             ) : null}
           </div>
           {!canEdit && !(token && canDelete) ? (
             <p className="helper">
-              수정은 작성자 본인 또는 해당 구 운영 권한이 있는 경우에만 할 수 있습니다. 삭제는 관리자만 할 수 있습니다.
+              수정·삭제는 작성자 본인 또는 해당 구 운영 권한(최종 관리자·지역 담당)이 있는 경우에만 할 수 있습니다.
             </p>
           ) : !canEdit && token && canDelete ? (
-            <p className="helper">이 글의 수정 권한은 없고, 관리자로 삭제만 할 수 있습니다.</p>
+            <p className="helper">이 글의 수정 권한은 없고, 운영 권한이 있으면 삭제만 할 수 있습니다.</p>
           ) : null}
         </section>
       </div>

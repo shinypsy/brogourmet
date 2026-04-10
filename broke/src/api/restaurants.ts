@@ -20,8 +20,12 @@ export type RestaurantListItem = {
   /** true면 지도에서 가맹점용 깃발(청록). 백엔드 필드 추가 시 자동 반영 */
   is_franchise?: boolean
   submitted_by_user_id?: number | null
+  /** GET /restaurants 목록에 포함 — 지도·리스트 검색(닉네임)용 */
+  submitted_by_nickname?: string | null
   /** 관리자 BroG 리스트 1~4위 고정, 없으면 좋아요 순 */
   bro_list_pin?: number | null
+  /** 가맹점 연동 활성 이벤트 — 메인 리스트·홈 추천 카드 사진 스티커 */
+  has_active_site_event?: boolean
 }
 
 export type MenuItem = {
@@ -57,6 +61,10 @@ export type RestaurantDetail = {
   submitted_by_role?: string | null
   /** true면 지도 가맹 깃발 */
   is_franchise?: boolean
+  /** 가맹점 연동 활성 이벤트 — 메인 리스트 등 카드 사진 스티커(API 일관) */
+  has_active_site_event?: boolean
+  /** 이 BroG에만 연결된 활성 이벤트 본문(최신순). 헤더 티커 전역 이벤트와 별개 */
+  active_site_event_bodies?: string[]
 }
 
 export type RestaurantListParams = {
@@ -68,6 +76,11 @@ export type RestaurantListParams = {
   near_lat?: number
   near_lng?: number
   radius_m?: number
+  /**
+   * true면 반경 검색 시 district 조건 생략(클라: URL 구와 좌표 불일치 시만).
+   * 구 드롭다운을 바꾼 뒤에는 false로 보내 선택 구·반경 AND.
+   */
+  near_ignore_district?: boolean
 }
 
 export type ExtraCardMenuPayload = { name: string; price_krw: number }
@@ -123,6 +136,9 @@ export async function fetchRestaurants(params: RestaurantListParams = {}): Promi
   }
   if (params.radius_m != null) {
     search.set('radius_m', String(params.radius_m))
+  }
+  if (params.near_ignore_district === true) {
+    search.set('near_ignore_district', 'true')
   }
   const query = search.toString()
   return requestJson<RestaurantListItem[]>(`/restaurants${query ? `?${query}` : ''}`)
@@ -192,12 +208,24 @@ export async function deleteRestaurant(token: string, id: number): Promise<void>
   })
 }
 
-/** BroG 목록 1~4위 고정 핀: 미고정→1→2→3→4→해제. 슈퍼·해당 구 지역담당만. */
+/** BroG 목록 고정: 미고정이면 같은 구에서 비어 있는 가장 작은 슬롯(1~4), 이후 1→2→3→4→해제 순환. 슈퍼·해당 구 지역담당만. */
 export async function cycleBroListPin(
   token: string,
   restaurantId: number,
 ): Promise<{ bro_list_pin: number | null }> {
   return requestJson<{ bro_list_pin: number | null }>(`/restaurants/${restaurantId}/cycle-bro-list-pin`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  })
+}
+
+/** 이 카드의 목록 고정만 즉시 해제(슬롯 비움). 순환 없이 1위 유지 채로 다른 곳에 1위를 주려면 먼저 이걸 누름. */
+export async function clearBroListPin(
+  token: string,
+  restaurantId: number,
+): Promise<{ bro_list_pin: number | null }> {
+  return requestJson<{ bro_list_pin: number | null }>(`/restaurants/${restaurantId}/clear-bro-list-pin`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({}),

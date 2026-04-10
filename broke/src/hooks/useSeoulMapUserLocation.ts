@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
-import { DEFAULT_HOME_DISTRICT, resolveSeoulDistrictFromCoords } from '../lib/resolveSeoulDistrictFromCoords'
+import {
+  DEFAULT_HOME_DISTRICT,
+  resolveSeoulDistrictFromCoords,
+  type ResolveDistrictResult,
+} from '../lib/resolveSeoulDistrictFromCoords'
 import { mapGeoHintMessage } from '../lib/mapGeoHint'
 
 export type SeoulMapUserLocationOptions = {
@@ -11,6 +15,15 @@ export type SeoulMapUserLocationOptions = {
    * BroG/MyG 리스트 `?district=` 유지용.
    */
   initialGeolocationSetsDistrict?: boolean
+  /**
+   * false면 페이지 진입 시 자동 `getCurrentPosition`을 호출하지 않음.
+   * true(기본): **마운트 시 1회만** 자동 GPS. 이후 갱신은 「위치 다시 받기」「내 위치」(`myLocationFromDevice`)만.
+   */
+  enableInitialGeolocation?: boolean
+  /** 지도·좌표 적용 후 역지오 결과 — BroG 지도 `near_ignore_district` 등 */
+  onApplyLatLngResolved?: (r: ResolveDistrictResult) => void
+  /** BroG 지도: GPS만 반영·구는 URL 유지 직후 — 반경 API에서 구 필터 완화 */
+  onDeviceCoordsWithoutDistrictSync?: () => void
 }
 
 /**
@@ -21,24 +34,41 @@ export function useSeoulMapUserLocation(
   setDistrict: (gu: string) => void,
   options: SeoulMapUserLocationOptions = {},
 ) {
-  const { initialGeolocationSetsDistrict = true } = options
-  const [geoHint, setGeoHint] = useState('위치 확인 중…')
+  const { initialGeolocationSetsDistrict = true, enableInitialGeolocation = true } = options
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+  const [geoHint, setGeoHint] = useState(() =>
+    enableInitialGeolocation ? '위치 확인 중…' : '「내 위치」 또는 「위치 다시 받기」로 기기 GPS를 받을 수 있습니다.',
+  )
   const [geoBusy, setGeoBusy] = useState(false)
-  const [geoRetryToken, setGeoRetryToken] = useState(0)
   const [mapUserCoords, setMapUserCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [latInput, setLatInput] = useState('')
   const [lngInput, setLngInput] = useState('')
   const [coordApplyError, setCoordApplyError] = useState('')
 
+  /**
+   * 자동 GPS(locate effect)와 사용자 지정(지도 롱프레스·좌표 적용)이 겹칠 때,
+   * 늦게 도착한 GPS가 사용자가 고른 좌표를 덮지 않도록 세대를 맞춤.
+   * effect 시작·「내 위치」 시작 시 ++, applyLatLng 진입 시 ++.
+   */
+  const geoLocateGenerationRef = useRef(0)
+
   const applyLatLng = useCallback(
     async (lat: number, lng: number) => {
-      const { district: gu, reason } = await resolveSeoulDistrictFromCoords(lat, lng)
-      setDistrict(gu)
-      setGeoHint(mapGeoHintMessage(reason, gu))
+      geoLocateGenerationRef.current += 1
+      // 역지오코딩(await) 전에 좌표를 먼저 반영 — 지도 우클릭·롱프레스 직후 목록·near API가 바로 갱신되게 함
       setMapUserCoords({ lat, lng })
       setLatInput(lat.toFixed(5))
       setLngInput(lng.toFixed(5))
       setCoordApplyError('')
+      const resolved = await resolveSeoulDistrictFromCoords(lat, lng)
+      const { district: gu, reason } = resolved
+      setGeoHint(mapGeoHintMessage(reason, gu))
+      // no_key·네트워크 실패 등에서 API가 마포 기본값을 주어도 드롭다운 구를 덮어쓰지 않음(용산 선택 유지)
+      if (reason === 'ok') {
+        setDistrict(gu)
+      }
+      optionsRef.current.onApplyLatLngResolved?.(resolved)
     },
     [setDistrict],
   )
@@ -59,6 +89,7 @@ export function useSeoulMapUserLocation(
     setLngInput(lng.toFixed(5))
     const res = await resolveSeoulDistrictFromCoords(lat, lng)
     setGeoHint(mapGeoHintMessage(res.reason, res.district))
+    optionsRef.current.onDeviceCoordsWithoutDistrictSync?.()
   }, [])
 
   /** `setDistrict`가 URL을 바꾸면 applyUserCoords 참조가 바뀌어 locate effect가 재실행되는 것을 막음 (우클릭 좌표가 GPS로 덮임) */
@@ -83,7 +114,13 @@ export function useSeoulMapUserLocation(
   }, [applyLatLng, latInput, lngInput])
 
   useEffect(() => {
+    if (!enableInitialGeolocation) {
+      return
+    }
+
     let cancelled = false
+    geoLocateGenerationRef.current += 1
+    const gen = geoLocateGenerationRef.current
 
     async function locate() {
       if (!navigator.geolocation) {
@@ -98,6 +135,7 @@ export function useSeoulMapUserLocation(
       try {
         const coords = await requestGeolocation()
         if (cancelled) return
+        if (gen !== geoLocateGenerationRef.current) return
         if (initialGeolocationSetsDistrict) {
           await applyUserCoordsRef.current(coords)
         } else {
@@ -105,6 +143,7 @@ export function useSeoulMapUserLocation(
         }
       } catch (e) {
         if (cancelled) return
+        if (gen !== geoLocateGenerationRef.current) return
         setMapUserCoords(null)
         if (e && typeof e === 'object' && 'code' in e && (e as GeolocationPositionError).code === 1) {
           setGeoHint(mapGeoHintMessage('denied', DEFAULT_HOME_DISTRICT))
@@ -122,20 +161,24 @@ export function useSeoulMapUserLocation(
     return () => {
       cancelled = true
     }
-  }, [geoRetryToken, initialGeolocationSetsDistrict])
+  }, [initialGeolocationSetsDistrict, enableInitialGeolocation])
 
   const myLocationFromDevice = useCallback(async () => {
     if (!navigator.geolocation) return
+    geoLocateGenerationRef.current += 1
+    const gen = geoLocateGenerationRef.current
     setGeoBusy(true)
     setGeoHint('위치 확인 중…')
     try {
       const coords = await requestGeolocation()
+      if (gen !== geoLocateGenerationRef.current) return
       if (initialGeolocationSetsDistrict) {
         await applyUserCoords(coords)
       } else {
         await applyDeviceCoordsWithoutDistrict(coords)
       }
     } catch (e) {
+      if (gen !== geoLocateGenerationRef.current) return
       setMapUserCoords(null)
       if (e && typeof e === 'object' && 'code' in e && (e as GeolocationPositionError).code === 1) {
         setGeoHint(mapGeoHintMessage('denied', DEFAULT_HOME_DISTRICT))
@@ -152,8 +195,6 @@ export function useSeoulMapUserLocation(
   return {
     geoHint,
     geoBusy,
-    geoRetryToken,
-    setGeoRetryToken,
     mapUserCoords,
     latInput,
     setLatInput,

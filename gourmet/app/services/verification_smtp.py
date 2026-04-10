@@ -129,3 +129,60 @@ def send_verification_email(to_address: str, plain_token: str, nickname: str | N
         logger.exception("인증 메일 발송 실패: to=%s", to_address)
         if os.getenv("SMTP_FAIL_RAISES", "").lower() in ("1", "true", "yes"):
             raise
+
+
+def _build_password_change_code_mime(
+    to_address: str,
+    code: str,
+    nickname: str | None,
+    cfg: _SmtpConfig,
+) -> MIMEMultipart:
+    greeting = f"안녕하세요, {nickname} 님." if nickname else "안녕하세요."
+    subject = "[BroGourmet] 비밀번호 변경 인증코드"
+    text_body = f"""{greeting}
+
+Myinfo에서 비밀번호를 바꾸기 위한 인증코드입니다.
+
+인증코드: {code}
+
+타인에게 알려주지 마세요. 이 코드는 짧은 시간 후 만료됩니다.
+본인이 요청하지 않았다면 이 메일을 무시하세요.
+"""
+    html_body = f"""<p>{greeting}</p>
+<p>Myinfo에서 비밀번호를 바꾸기 위한 인증코드입니다.</p>
+<p style="font-size:1.4em;font-weight:bold;letter-spacing:0.2em;">{code}</p>
+<p>타인에게 알려주지 마세요. 짧은 시간 후 만료됩니다.</p>
+"""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = cfg.mail_from
+    msg["To"] = to_address
+    msg.attach(MIMEText(text_body, "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    return msg
+
+
+def deliver_password_change_code_email(to_address: str, code: str, nickname: str | None = None) -> None:
+    if not smtp_sending_enabled():
+        raise VerificationEmailNotConfigured("SMTP_ENABLED 가 켜져 있지 않습니다.")
+    cfg = _load_smtp_config()
+    if not cfg.user or not cfg.password:
+        raise VerificationEmailNotConfigured(
+            "SMTP_USER 또는 SMTP_PASSWORD 가 비어 있습니다. Gmail 은 앱 비밀번호를 사용하세요."
+        )
+    msg = _build_password_change_code_mime(to_address, code, nickname, cfg)
+    _smtp_send_message(msg, cfg)
+
+
+def send_password_change_code_email(to_address: str, code: str, nickname: str | None = None) -> None:
+    try:
+        deliver_password_change_code_email(to_address, code, nickname)
+    except VerificationEmailNotConfigured:
+        logger.info(
+            "비밀번호 변경 인증 메일 미발송(to=%s): SMTP 설정 또는 DEV_RETURN_PASSWORD_CHANGE_CODE=true 를 사용하세요.",
+            to_address,
+        )
+    except Exception:
+        logger.exception("비밀번호 변경 인증 메일 발송 실패: to=%s", to_address)
+        if os.getenv("SMTP_FAIL_RAISES", "").lower() in ("1", "true", "yes"):
+            raise

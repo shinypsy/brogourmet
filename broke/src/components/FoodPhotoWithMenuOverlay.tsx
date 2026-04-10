@@ -20,8 +20,11 @@ export function FoodPhotoWithMenuOverlay({
   className = '',
   compact = false,
 }: Props) {
-  const name = menuName.trim() || '대표 메뉴'
-  const priceLabel = `${Math.max(0, priceKrw).toLocaleString()}원 이하`
+  const name = String(menuName ?? '')
+    .trim()
+    .replace(/\s+/g, ' ') || '대표 메뉴'
+  const safePrice = typeof priceKrw === 'number' && Number.isFinite(priceKrw) ? priceKrw : 0
+  const priceLabel = `${Math.max(0, safePrice).toLocaleString()}원 이하`
 
   return (
     <div

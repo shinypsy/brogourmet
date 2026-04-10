@@ -6,7 +6,7 @@ import { AUTH_CHANGE_EVENT } from './authEvents'
 import { EventTicker } from './components/EventTicker'
 import { TestUiAdminBanner } from './components/TestUiAdminBanner'
 import { BROG_ONLY } from './config/features'
-import { canWriteSiteEvents } from './lib/roles'
+import { canWriteSiteEvents, isSuperAdmin } from './lib/roles'
 import { HomePage } from './pages/HomePage'
 
 const BrogListPage = lazy(() =>
@@ -56,6 +56,7 @@ const VerifyEmailPage = lazy(() =>
 )
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const MyPage = lazy(() => import('./pages/MyPage').then((m) => ({ default: m.MyPage })))
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 
 /** 호버·포커스 시 다음 화면 청크 미리 받기 */
 const prefetch = {
@@ -68,6 +69,7 @@ const prefetch = {
   payment: () => void import('./pages/PaymentPage'),
   eventWrite: () => void import('./pages/EventWritePage'),
   login: () => void import('./pages/LoginPage'),
+  admin: () => void import('./pages/AdminPage'),
 } as const
 
 function RouteFallback() {
@@ -125,7 +127,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div>
+        <div className="topbar__brand">
           <p className="eyebrow">Broke Gourmet</p>
           <h1>고단한 미식가</h1>
         </div>
@@ -173,6 +175,16 @@ function App() {
               onFocus={prefetch.eventWrite}
             >
               이벤트
+            </Link>
+          ) : null}
+          {navUser && isSuperAdmin(navUser.role) ? (
+            <Link
+              className="main-nav-item"
+              to="/admin"
+              onMouseEnter={prefetch.admin}
+              onFocus={prefetch.admin}
+            >
+              관리자
             </Link>
           ) : null}
           {hasToken ? (
@@ -224,6 +236,7 @@ function App() {
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin" element={<AdminPage />} />
             <Route path="/me" element={<MyPage />} />
             <Route path="/game" element={<SadariPage />} />
             <Route path="/sadari" element={<Navigate to="/game" replace />} />

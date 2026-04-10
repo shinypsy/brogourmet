@@ -1,10 +1,12 @@
 import json
+import logging
 import math
 import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deploy_stage1 import district_name_in_stage1, stage1_district_names
@@ -21,9 +23,11 @@ from app.models.district import District
 from app.models.known_restaurant_post import KnownRestaurantPost
 from app.models.restaurant import Restaurant, RestaurantMenuItem
 from app.models.restaurant_social import RestaurantLike
+from app.models.site_event import SiteEvent
 from app.models.user import User
 from app.geo_utils import haversine_m
 from app.services.myg_to_brog import restaurant_write_from_known_post
+from app.services.restaurant_franchise_display import effective_restaurant_is_franchise
 from app.schemas.restaurant import (
     BroListPinState,
     MenuItemRead,
@@ -35,15 +39,22 @@ from app.schemas.restaurant import (
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
+_log = logging.getLogger(__name__)
+
 MAX_MAIN_MENU_KRW = 10_000
 MAX_RESTAURANT_IMAGES = 5
 # 위도·경도 각각 이 차이 이하면 같은 매장 좌표로 본다 (~수십 m)
 SAME_PLACE_LATLON_EPS = 0.00028
+# 동일 장소·동일 베이스 이름 그룹에서 등록순 첫 매장 표시(구 규칙: 이름 끝 `_*` — 레거시 DB 호환은 `restaurant_name_base`에서 처리)
+DUPLICATE_GROUP_PRIMARY_NAME_SUFFIX = "(원조!!!)"
 
 
 def restaurant_name_base(name: str) -> str:
-    """표시용 접미사(_*, _1, _2)를 제거한 브랜드 키."""
+    """표시용 접미사((원조!!!), _*, _1, _2)를 제거한 브랜드 키."""
     t = (name or "").strip()
+    suf = DUPLICATE_GROUP_PRIMARY_NAME_SUFFIX
+    if len(t) > len(suf) and t.endswith(suf):
+        return t[: -len(suf)]
     if len(t) >= 2 and t.endswith("_*"):
         return t[:-2]
     m = re.match(r"^(.+)_(\d+)$", t)
@@ -86,8 +97,122 @@ def find_same_place_name_peers(
     return peers
 
 
+def _collapse_ws(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip())
+
+
+def _geo_bucket(lat: float | None, lon: float | None) -> str:
+    if lat is None or lon is None:
+        return "no_geo"
+    qlat = round(lat / SAME_PLACE_LATLON_EPS)
+    qlon = round(lon / SAME_PLACE_LATLON_EPS)
+    return f"{qlat}|{qlon}"
+
+
+def _menu_signature_from_payload(payload: RestaurantWrite) -> str:
+    parts = [f"M:{payload.main_menu_name.strip().lower()}:{payload.main_menu_price}"]
+    for extra in sorted(
+        payload.extra_card_menus[:3],
+        key=lambda x: (x.name.strip().lower(), x.price_krw),
+    ):
+        parts.append(f"E:{extra.name.strip().lower()}:{extra.price_krw}")
+    for m in sorted(
+        payload.more_menu_items[:6],
+        key=lambda x: (x.name.strip().lower(), x.price_krw),
+    ):
+        parts.append(f"O:{m.name.strip().lower()}:{m.price_krw}")
+    return "|".join(parts)
+
+
+def _menu_signature_from_restaurant(r: Restaurant) -> str:
+    items = list(r.menu_items or [])
+    main = next((m for m in items if m.is_main_menu), None)
+    if main is None:
+        return ""
+    parts = [f"M:{main.name.strip().lower()}:{main.price_krw}"]
+    extras = sorted(
+        [m for m in items if not m.is_main_menu and m.card_slot is not None],
+        key=lambda m: (m.name.strip().lower(), m.price_krw),
+    )
+    for m in extras:
+        parts.append(f"E:{m.name.strip().lower()}:{m.price_krw}")
+    others = sorted(
+        [m for m in items if not m.is_main_menu and m.card_slot is None],
+        key=lambda m: (m.name.strip().lower(), m.price_krw),
+    )
+    for m in others:
+        parts.append(f"O:{m.name.strip().lower()}:{m.price_krw}")
+    return "|".join(parts)
+
+
+def _brog_content_fingerprint_from_payload(payload: RestaurantWrite) -> tuple:
+    imgs = tuple(sorted(coerce_restaurant_image_urls(payload)))
+    return (
+        payload.district_id,
+        restaurant_name_base(payload.name.strip()).lower(),
+        _collapse_ws(payload.city).lower(),
+        payload.category,
+        _collapse_ws(payload.summary).lower(),
+        _geo_bucket(payload.latitude, payload.longitude),
+        imgs,
+        _menu_signature_from_payload(payload),
+    )
+
+
+def _brog_content_fingerprint_from_restaurant(r: Restaurant) -> tuple:
+    imgs = tuple(sorted(_restaurant_image_urls_list(r)))
+    return (
+        r.district_id,
+        restaurant_name_base(r.name).lower(),
+        _collapse_ws(r.city).lower(),
+        (r.category or "").strip().lower(),
+        _collapse_ws(r.summary or "").lower(),
+        _geo_bucket(r.latitude, r.longitude),
+        imgs,
+        _menu_signature_from_restaurant(r),
+    )
+
+
+def _ensure_not_identical_brog_submission(db: Session, user_id: int, payload: RestaurantWrite) -> None:
+    """
+    동일 구·동일 베이스 이름·소개·메뉴·사진 URL·좌표(격자)까지 같은 신규 등록은 거절.
+    - 본인이 이전에 올린 글과 같으면: 수정 안내
+    - 다른 사람 글과 내용이 완전히 같으면: 복붙·표절 차단
+    """
+    want = _brog_content_fingerprint_from_payload(payload)
+    candidates = (
+        db.query(Restaurant)
+        .options(selectinload(Restaurant.menu_items))
+        .filter(
+            Restaurant.district_id == payload.district_id,
+            Restaurant.is_deleted.is_(False),
+        )
+        .all()
+    )
+    for r in candidates:
+        if restaurant_name_base(r.name).lower() != restaurant_name_base(payload.name.strip()).lower():
+            continue
+        if _brog_content_fingerprint_from_restaurant(r) != want:
+            continue
+        if r.submitted_by_user_id == user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "이미 같은 내용으로 등록한 BroG가 있습니다. "
+                    "기존 매장을 「수정」하거나, 소개·메뉴·사진 등을 바꾼 뒤 다시 등록해 주세요."
+                ),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "동일한 내용의 BroG가 이미 등록되어 있습니다. "
+                "다른 글을 그대로 복사해 올릴 수 없습니다."
+            ),
+        )
+
+
 def apply_duplicate_restaurant_names_for_new(db: Session, restaurant: Restaurant, submitted_name: str) -> None:
-    """동일 구·근접 좌표·동일 베이스 이름이 2건 이상이면 등록순으로 …_*, …_1, …_2. 첫 건만 포인트 적립."""
+    """동일 구·근접 좌표·동일 베이스 이름이 2건 이상이면 등록순으로 …(원조!!!), …_1, …_2. 첫 건만 포인트 적립."""
     base = restaurant_name_base(submitted_name.strip())
     lat, lon = restaurant.latitude, restaurant.longitude
     if lat is None or lon is None:
@@ -99,7 +224,7 @@ def apply_duplicate_restaurant_names_for_new(db: Session, restaurant: Restaurant
         return
     group_sorted = sorted(group, key=lambda r: (r.created_at, r.id))
     for i, r in enumerate(group_sorted):
-        suffix = "_*" if i == 0 else f"_{i}"
+        suffix = DUPLICATE_GROUP_PRIMARY_NAME_SUFFIX if i == 0 else f"_{i}"
         max_base_len = 200 - len(suffix)
         b = base if len(base) <= max_base_len else base[:max_base_len]
         r.name = f"{b}{suffix}"
@@ -179,8 +304,48 @@ def _normalized_bro_list_pin(restaurant: Restaurant) -> int | None:
     p = getattr(restaurant, "bro_list_pin", None)
     if p is None:
         return None
-    if isinstance(p, int) and 1 <= p <= 4:
-        return p
+    try:
+        n = int(p)
+    except (TypeError, ValueError):
+        return None
+    if 1 <= n <= 4:
+        return n
+    return None
+
+
+def _occupied_bro_list_pin_slots(
+    db: Session, district_id: int, *, exclude_restaurant_id: int
+) -> set[int]:
+    """같은 구에서 이미 쓰인 고정 슬롯(1~4). exclude 행은 제외(미고정 배정 시 본인 제외)."""
+    rows = (
+        db.query(Restaurant.bro_list_pin)
+        .filter(
+            Restaurant.district_id == district_id,
+            Restaurant.id != exclude_restaurant_id,
+            Restaurant.is_deleted.is_(False),
+            Restaurant.status == "published",
+            Restaurant.bro_list_pin.isnot(None),
+        )
+        .all()
+    )
+    used: set[int] = set()
+    for (p,) in rows:
+        try:
+            n = int(p)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= n <= 4:
+            used.add(n)
+    return used
+
+
+def _next_free_bro_list_pin_slot(
+    db: Session, district_id: int, *, exclude_restaurant_id: int
+) -> int | None:
+    used = _occupied_bro_list_pin_slots(db, district_id, exclude_restaurant_id=exclude_restaurant_id)
+    for slot in (1, 2, 3, 4):
+        if slot not in used:
+            return slot
     return None
 
 
@@ -194,6 +359,26 @@ def _like_counts_map(db: Session, restaurant_ids: list[int]) -> dict[int, int]:
         .all()
     )
     return {int(rid): int(c) for rid, c in rows}
+
+
+def _active_site_event_restaurant_ids(db: Session, restaurant_ids: list[int]) -> set[int]:
+    """활성 가맹점 연동 이벤트가 있는 BroG id 집합. 스키마 미적용 시 빈 집합."""
+    if not restaurant_ids:
+        return set()
+    try:
+        rows = (
+            db.query(SiteEvent.restaurant_id)
+            .filter(
+                SiteEvent.restaurant_id.in_(restaurant_ids),
+                SiteEvent.is_active.is_(True),
+            )
+            .distinct()
+            .all()
+        )
+        return {row[0] for row in rows if row[0] is not None}
+    except (OperationalError, ProgrammingError) as exc:
+        _log.warning("active site event restaurant id set skipped: %s", exc)
+        return set()
 
 
 def _sort_public_brog_list(restaurants: list[Restaurant], like_counts: dict[int, int]) -> None:
@@ -210,7 +395,67 @@ def _sort_public_brog_list(restaurants: list[Restaurant], like_counts: dict[int,
     restaurants.sort(key=sort_key)
 
 
-def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
+def _fetch_district_bro_list_pins(
+    db: Session,
+    *,
+    price_cap: int,
+    district: str | None,
+    district_id: int | None,
+    stage1: frozenset[str] | None,
+) -> list[Restaurant]:
+    """선택 구·가격 조건에 맞는 목록 고정(pin 1~4) BroG. 반경 필터 없음."""
+    if district_id is None and not (district and district.strip()):
+        return []
+    q = (
+        db.query(Restaurant)
+        .join(RestaurantMenuItem)
+        .join(District, Restaurant.district_id == District.id)
+        .filter(RestaurantMenuItem.is_main_menu.is_(True))
+        .filter(RestaurantMenuItem.price_krw <= MAX_MAIN_MENU_KRW)
+        .filter(RestaurantMenuItem.price_krw <= price_cap)
+    )
+    q = _public_restaurant_filter(q)
+    q = q.distinct().options(
+        selectinload(Restaurant.menu_items),
+        selectinload(Restaurant.district),
+        selectinload(Restaurant.submitter),
+    )
+    if stage1 is not None:
+        q = q.filter(District.name.in_(list(stage1)))
+    if district_id is not None:
+        q = q.filter(Restaurant.district_id == district_id)
+    else:
+        q = q.filter(District.name == district.strip())
+    q = q.filter(Restaurant.bro_list_pin.in_((1, 2, 3, 4)))
+    return list(q.all())
+
+
+def _prepend_district_pins_to_near_list(
+    near_ordered: list[Restaurant],
+    pinned: list[Restaurant],
+    max_rows: int,
+) -> list[Restaurant]:
+    """고정 1~4위를 앞에 두고, 이어서 반경 내 목록(중복 제외)."""
+    if not pinned:
+        return near_ordered[:max_rows]
+    pin_sorted = sorted(
+        pinned,
+        key=lambda r: (_normalized_bro_list_pin(r) or 99, (r.name or "").strip()),
+    )
+    seen: set[int] = set()
+    merged: list[Restaurant] = []
+    for r in pin_sorted:
+        if r.id not in seen:
+            seen.add(r.id)
+            merged.append(r)
+    for r in near_ordered:
+        if r.id not in seen:
+            seen.add(r.id)
+            merged.append(r)
+    return merged[:max_rows]
+
+
+def _list_item_from(db: Session, restaurant: Restaurant, *, has_active_site_event: bool = False) -> dict:
     main = _main_item_for(restaurant)
     if main is None:
         raise HTTPException(
@@ -221,7 +466,7 @@ def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
             db, restaurant.district_id
         )
     img_urls = _restaurant_image_urls_list(restaurant)
-    sb_uid, _, sb_role = _submitter_public_fields(db, restaurant)
+    sb_uid, sb_nick, sb_role = _submitter_public_fields(db, restaurant)
     return {
         "id": restaurant.id,
         "name": restaurant.name,
@@ -237,9 +482,14 @@ def _list_item_from(db: Session, restaurant: Restaurant) -> dict:
         "main_menu_name": main.name,
         "main_menu_price": main.price_krw,
         "points_eligible": bool(getattr(restaurant, "points_eligible", True)),
-        "is_franchise": sb_role == FRANCHISE,
+        "is_franchise": effective_restaurant_is_franchise(
+            getattr(restaurant, "franchise_pin", None),
+            sb_role,
+        ),
         "submitted_by_user_id": sb_uid,
+        "submitted_by_nickname": sb_nick,
         "bro_list_pin": _normalized_bro_list_pin(restaurant),
+        "has_active_site_event": has_active_site_event,
     }
 
 
@@ -275,6 +525,28 @@ def _detail_item_from(db: Session, restaurant: Restaurant) -> RestaurantDetailRe
         ),
     )
     img_urls = _restaurant_image_urls_list(restaurant)
+    ev_bodies: list[str] = []
+    try:
+        rows = (
+            db.query(SiteEvent.body)
+            .filter(
+                SiteEvent.restaurant_id == restaurant.id,
+                SiteEvent.is_active.is_(True),
+            )
+            .order_by(SiteEvent.created_at.desc())
+            .all()
+        )
+        for row in rows:
+            raw = row[0]
+            if raw is None:
+                continue
+            s = raw.strip() if isinstance(raw, str) else str(raw).strip()
+            if s:
+                ev_bodies.append(s)
+    except (OperationalError, ProgrammingError) as exc:
+        # DB에 `site_events.restaurant_id` 미적용 등 — 상세는 열리고 이벤트 본문만 생략
+        _log.warning("active site event bodies skipped for restaurant %s: %s", restaurant.id, exc)
+    has_active_site_event = len(ev_bodies) > 0
     return RestaurantDetailRead(
         id=restaurant.id,
         name=restaurant.name,
@@ -295,7 +567,12 @@ def _detail_item_from(db: Session, restaurant: Restaurant) -> RestaurantDetailRe
         submitted_by_user_id=sb_uid,
         submitted_by_nickname=sb_nick,
         submitted_by_role=sb_role,
-        is_franchise=sb_role == FRANCHISE,
+        is_franchise=effective_restaurant_is_franchise(
+            getattr(restaurant, "franchise_pin", None),
+            sb_role,
+        ),
+        has_active_site_event=has_active_site_event,
+        active_site_event_bodies=ev_bodies,
     )
 
 
@@ -362,6 +639,10 @@ def list_restaurants(
     near_lat: float | None = Query(default=None),
     near_lng: float | None = Query(default=None),
     radius_m: int | None = Query(default=None, ge=1, le=15_000),
+    near_ignore_district: bool = Query(
+        default=False,
+        description="True면 반경 검색 시 district 필터를 생략(URL 구·좌표 불일치 완화). 구 드롭다운 변경 후에는 false로 보냄.",
+    ),
     db: Session = Depends(get_db),
 ):
     cap = min(max_price, MAX_MAIN_MENU_KRW)
@@ -374,22 +655,33 @@ def list_restaurants(
         .filter(RestaurantMenuItem.price_krw <= cap)
     )
     q = _public_restaurant_filter(q)
-    q = q.distinct().options(selectinload(Restaurant.menu_items), selectinload(Restaurant.district))
+    q = q.distinct().options(
+        selectinload(Restaurant.menu_items),
+        selectinload(Restaurant.district),
+        selectinload(Restaurant.submitter),
+    )
 
     stage1 = stage1_district_names()
     if stage1 is not None:
         q = q.filter(District.name.in_(list(stage1)))
-
-    if district_id is not None:
-        q = q.filter(Restaurant.district_id == district_id)
-    elif district:
-        q = q.filter(District.name == district.strip())
 
     use_near = (
         near_lat is not None
         and near_lng is not None
         and radius_m is not None
     )
+    # 반경+near_ignore_district 일 때만 구 필터 생략(GPS·지도 찍기로 좌표만 있고 URL 구가 어긋날 때).
+    # 그 외(near + 구)는 AND — BroG 지도에서 구 선택 시 해당 구·반경만.
+    if not use_near:
+        if district_id is not None:
+            q = q.filter(Restaurant.district_id == district_id)
+        elif district:
+            q = q.filter(District.name == district.strip())
+    elif not near_ignore_district:
+        if district_id is not None:
+            q = q.filter(Restaurant.district_id == district_id)
+        elif district:
+            q = q.filter(District.name == district.strip())
     if use_near:
         lat_delta = radius_m / 111_000.0
         cos_lat = max(abs(math.cos(math.radians(near_lat))), 0.25)
@@ -414,16 +706,45 @@ def list_restaurants(
         _sort_public_brog_list(in_circle, like_counts)
         cap_n = limit if limit is not None else 200
         restaurants = in_circle[:cap_n]
+        # 반경 밖에 있어도 **기준점이 속한 구**(가장 가까운 맛집의 구) 고정 1~4위를 앞에 둠.
+        # 요청 district는 반경 쿼리에 쓰이지 않으므로, pin도 좌표 기준 구를 쓴다(마포 URL+용산 찍기 등).
+        if limit is None:
+            pin_district: str | None = district.strip() if (district and district.strip()) else None
+            pin_district_id: int | None = district_id
+            if in_circle:
+                best = min(
+                    in_circle,
+                    key=lambda r: haversine_m(
+                        near_lat, near_lng, float(r.latitude), float(r.longitude)
+                    ),
+                )
+                pin_district_id = best.district_id
+                pin_district = None
+            if pin_district_id is not None or (pin_district and pin_district.strip()):
+                pinned_rows = _fetch_district_bro_list_pins(
+                    db,
+                    price_cap=cap,
+                    district=pin_district,
+                    district_id=pin_district_id,
+                    stage1=stage1,
+                )
+                restaurants = _prepend_district_pins_to_near_list(restaurants, pinned_rows, cap_n)
     elif limit is not None:
         restaurants = restaurants[:limit]
 
-    return [RestaurantListItem.model_validate(_list_item_from(db, r)) for r in restaurants]
+    ev_ids = _active_site_event_restaurant_ids(db, [r.id for r in restaurants])
+    return [
+        RestaurantListItem.model_validate(
+            _list_item_from(db, r, has_active_site_event=r.id in ev_ids),
+        )
+        for r in restaurants
+    ]
 
 
 @router.post(
     "/{restaurant_id}/cycle-bro-list-pin",
     response_model=BroListPinState,
-    summary="BroG 목록 1~4위 고정 핀 순환 (미고정→1→2→3→4→해제)",
+    summary="BroG 목록 고정: 미고정 시 구 내 빈 슬롯(1~4) 배정, 이후 1→2→3→4→해제 순환",
 )
 def cycle_bro_list_pin(
     restaurant_id: int,
@@ -445,7 +766,12 @@ def cycle_bro_list_pin(
 
     cur = _normalized_bro_list_pin(r)
     if cur is None:
-        new_pin = 1
+        new_pin = _next_free_bro_list_pin_slot(db, r.district_id, exclude_restaurant_id=r.id)
+        if new_pin is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이 구의 고정 슬롯 4개가 모두 사용 중입니다. 고정 해제 후 다시 시도하세요.",
+            )
     elif cur < 4:
         new_pin = cur + 1
     else:
@@ -463,9 +789,59 @@ def cycle_bro_list_pin(
         )
     r.bro_list_pin = new_pin
     db.add(r)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "bro_list_pin에 잘못된 전역 UNIQUE 제약이 있어 같은 구에서 여러 고정을 둘 수 없습니다. "
+                "백엔드를 재시작하면 자동으로 제거를 시도합니다. 수동이면 sql/repair_bro_list_pin_global_unique.sql 을 참고하세요."
+            ),
+        ) from exc
     db.refresh(r)
     return BroListPinState(bro_list_pin=_normalized_bro_list_pin(r))
+
+
+@router.post(
+    "/{restaurant_id}/clear-bro-list-pin",
+    response_model=BroListPinState,
+    summary="BroG 목록 고정 핀 즉시 해제 (이 카드만, 슬롯 비움)",
+)
+def clear_bro_list_pin(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """순환(1→2→…) 없이 바로 해제 — 다른 맛집에 같은 슬롯을 주기 전에 현재 카드만 비울 때."""
+    r = (
+        db.query(Restaurant)
+        .filter(
+            Restaurant.id == restaurant_id,
+            Restaurant.is_deleted.is_(False),
+            Restaurant.status == "published",
+        )
+        .first()
+    )
+    if r is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
+    ensure_brog_district_access(current_user, r.district_id)
+    r.bro_list_pin = None
+    db.add(r)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "bro_list_pin에 잘못된 전역 UNIQUE 제약이 있을 수 있습니다. "
+                "환경변수 BROG_REPAIR_BRO_LIST_PIN_UNIQUE=1 로 한 번 기동하거나 sql/repair_bro_list_pin_global_unique.sql 을 참고하세요."
+            ),
+        ) from exc
+    db.refresh(r)
+    return BroListPinState(bro_list_pin=None)
 
 
 @router.get("/manage/list", response_model=list[RestaurantManageRow])
@@ -569,6 +945,7 @@ def _persist_new_restaurant(db: Session, current_user: User, payload: Restaurant
         )
 
     ensure_can_create_brog_in_chosen_district(current_user, payload.district_id)
+    _ensure_not_identical_brog_submission(db, current_user.id, payload)
 
     # 지역 담당자 작성은 항상 즉시 공개. 슈퍼만 초안(draft) 선택 가능.
     if current_user.role == SUPER_ADMIN:

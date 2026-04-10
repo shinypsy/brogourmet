@@ -78,6 +78,31 @@ export async function fetchMe(token: string): Promise<User> {
   })
 }
 
+export type RequestPasswordChangeCodeResponse = {
+  ok: boolean
+  dev_password_change_code?: string | null
+}
+
+/** Myinfo 비밀번호 변경 1단계 — 등록 이메일로 6자리 코드 발송(SMTP 또는 개발 응답). */
+export async function requestPasswordChangeCode(token: string): Promise<RequestPasswordChangeCodeResponse> {
+  return requestJson<RequestPasswordChangeCodeResponse>('/auth/request-password-change-code', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+/** 이메일 인증코드 + 새 비밀번호로 변경 */
+export async function confirmPasswordChange(
+  token: string,
+  body: { code: string; new_password: string },
+): Promise<User> {
+  return requestJson<User>('/auth/confirm-password-change', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+}
+
 export async function deleteAccount(password: string): Promise<void> {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY)
   if (!token) {

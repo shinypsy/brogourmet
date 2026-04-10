@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom'
 
 import type { RestaurantListItem } from '../api/restaurants'
 import { FoodPhotoWithMenuOverlay } from './FoodPhotoWithMenuOverlay'
-import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
+import {
+  firstRestaurantListImageUrl,
+  imgReferrerPolicyForResolvedSrc,
+  resolveMediaUrl,
+} from '../lib/mediaUrl'
 
 /** BroG: 다이닝코드 랭킹형 — 주메뉴(대표) 사진 · 가게명 · 대표가격만 */
 export function BrogRankCard({
@@ -22,25 +26,23 @@ export function BrogRankCard({
   pinnedSlot?: number | null
 }) {
   const [imgFailed, setImgFailed] = useState(false)
-  const firstImg =
-    restaurant.image_urls && restaurant.image_urls.length > 0
-      ? restaurant.image_urls[0]
-      : restaurant.image_url
-  const heroSrc = resolveMediaUrl(firstImg)
+  const heroSrc = resolveMediaUrl(firstRestaurantListImageUrl(restaurant))
   const showPhoto = Boolean(heroSrc) && !imgFailed
   const isPrimaryListing = restaurant.points_eligible !== false
   const linkTo = detailTo ?? `/restaurants/${restaurant.id}`
 
   const pin = pinnedSlot != null && pinnedSlot >= 1 && pinnedSlot <= 4 ? pinnedSlot : null
+  /** 고정 카드는 목록 순번 대신 슬롯(1~4)을 보여 순서·배지가 어긋나지 않게 함 */
+  const displayRank = pin ?? rank
 
   return (
     <article className={`brog-rank-card${pin != null ? ' brog-rank-card--list-pinned' : ''}`}>
       <div className="brog-rank-card__inner">
         <Link to={linkTo} className="brog-rank-card__link">
-          <span className="brog-rank-card__rank">{rank}</span>
+          <span className="brog-rank-card__rank">{displayRank}</span>
           {pin != null ? (
             <span className="brog-rank-card__pin-badge" title={`관리자 고정 ${pin}위`}>
-              고정 {pin}
+              고정
             </span>
           ) : null}
           <div
@@ -65,6 +67,11 @@ export function BrogRankCard({
                 <span className="food-photo-overlay-wrap__filler" aria-hidden />
               )}
             </FoodPhotoWithMenuOverlay>
+            {restaurant.has_active_site_event ? (
+              <span className="brog-list-event-badge" aria-label="이벤트 진행 중">
+                이벤트
+              </span>
+            ) : null}
           </div>
           <div className="brog-rank-card__body">
             <h4

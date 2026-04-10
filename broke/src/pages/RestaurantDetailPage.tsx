@@ -19,7 +19,6 @@ import {
   purgeRestaurantPermanent,
   type RestaurantDetail,
 } from '../api/restaurants'
-import { BrogListIcon } from '../components/detailScreenIcons'
 import { FoodPhotoWithMenuOverlay } from '../components/FoodPhotoWithMenuOverlay'
 import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
 import { copyBrogToMyGPost } from '../api/community'
@@ -38,33 +37,6 @@ import {
   canEditRestaurantComment,
   isSuperAdmin,
 } from '../lib/roles'
-
-function EventWriteIcon({ size = 22 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path
-        d="M12 2.5l1.6 4.9h5.2l-4.2 3 1.6 5L12 15.4 7.8 15.4l1.6-5-4.2-3h5.2L12 2.5z"
-        stroke="currentColor"
-        strokeWidth="1.35"
-        strokeLinejoin="round"
-        fill="rgba(212, 175, 55, 0.12)"
-      />
-      <path
-        d="M12 8.2v4.1M9.95 10.25h4.1"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
 
 export function RestaurantDetailPage() {
   const { id } = useParams()
@@ -149,7 +121,7 @@ export function RestaurantDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [id, reloadSocial])
+  }, [id, reloadSocial, token])
 
   useEffect(() => {
     setHeroImgFailed(false)
@@ -335,9 +307,6 @@ export function RestaurantDetailPage() {
         <h1>맛집을 찾을 수 없습니다</h1>
         <p className="description">{loadError || '목록에서 다시 선택해 주세요.'}</p>
         <Link className="compact-link brog-detail__error-list-link" to={getBrogListNavigatePath()}>
-          <span className="brog-detail__error-list-link-icon" aria-hidden>
-            <BrogListIcon size={18} />
-          </span>
           BroG 리스트
         </Link>
       </div>
@@ -352,9 +321,6 @@ export function RestaurantDetailPage() {
           현재 앱은 마포·용산·서대문·영등포·종로·중구 6개 구만 선택할 수 있습니다. 2단계에서 서울 전 구로 확장되면 다시 확인할 수 있습니다.
         </p>
         <Link className="compact-link brog-detail__error-list-link" to={getBrogListNavigatePath()}>
-          <span className="brog-detail__error-list-link-icon" aria-hidden>
-            <BrogListIcon size={18} />
-          </span>
           BroG 리스트
         </Link>
       </div>
@@ -376,28 +342,14 @@ export function RestaurantDetailPage() {
   const heroRawUrl = galleryUrls[heroIdx] ?? ''
   const heroSrc = heroRawUrl ? resolveMediaUrl(heroRawUrl) : ''
   const showHeroImg = Boolean(heroSrc) && !heroImgFailed
+  const siteEventBodies = (restaurant.active_site_event_bodies ?? [])
+    .map((x) => (typeof x === 'string' ? x : x == null ? '' : String(x)))
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
   const registrarRoleLabel = brogSubmitterRoleLabel(restaurant.submitted_by_role)
 
   return (
     <div className="brog-detail">
-      <header className="brog-detail__topbar">
-        <Link
-          className="brog-detail__back"
-          to={getBrogListNavigatePath()}
-          title="BroG 리스트"
-          aria-label="BroG 리스트로 이동"
-        >
-          <span className="brog-detail__back-icon" aria-hidden>
-            <BrogListIcon />
-          </span>
-          <span className="brog-detail__back-label">BroG 리스트</span>
-        </Link>
-        <div className="brog-detail__topbar-links">
-          <Link to="/map">지도</Link>
-          {!BROG_ONLY ? <Link to="/known-restaurants/list">MyG</Link> : null}
-        </div>
-      </header>
-
       <div className="brog-detail__hero">
         {showHeroImg ? (
           <img
@@ -409,7 +361,9 @@ export function RestaurantDetailPage() {
             onError={() => setHeroImgFailed(true)}
           />
         ) : (
-          <div className="brog-detail__hero-placeholder">{heroSrc ? '이미지를 불러올 수 없습니다' : '사진 없음'}</div>
+          <div className="brog-detail__hero-placeholder">
+            {heroSrc ? '이미지를 불러올 수 없습니다' : '사진 없음'}
+          </div>
         )}
         <div className="brog-detail__hero-overlay">
           <p className="brog-detail__eyebrow">BroG</p>
@@ -469,6 +423,19 @@ export function RestaurantDetailPage() {
             )
           })}
         </div>
+      ) : null}
+
+      {siteEventBodies.length > 0 ? (
+        <section className="brog-detail__section brog-detail__section--site-events" aria-label="이벤트">
+          <h2>이벤트</h2>
+          <ul className="brog-detail__site-event-bodies">
+            {siteEventBodies.map((text, i) => (
+              <li key={`${i}-${text.slice(0, 32)}`} className="brog-detail__site-event-item">
+                <p className="brog-detail__site-event-text">{text}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <div className="brog-detail__body">
@@ -550,7 +517,7 @@ export function RestaurantDetailPage() {
               onClick={() => void toggleLike()}
               disabled={likeBusy}
             >
-              ♥ 좋아요 {engagement?.like_count ?? 0}
+              좋아요 {engagement?.like_count ?? 0}
             </button>
             <span className="brog-detail__comment-count">댓글 {engagement?.comment_count ?? 0}</span>
           </div>
@@ -743,9 +710,8 @@ export function RestaurantDetailPage() {
                 있습니다.
               </p>
             )}
-            <Link className="compact-link compact-link--with-icon" to="/events/write" title="이벤트 작성">
-              <EventWriteIcon size={20} />
-              <span>이벤트</span>
+            <Link className="compact-link" to="/events/write" title="이벤트 작성">
+              이벤트
             </Link>
           </div>
         </section>

@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,7 @@ from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.storage import BROG_UPLOAD_DIR, LEGACY_UPLOAD_DIR, MYG_UPLOAD_DIR
+from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.districts import router as districts_router
 from app.api.events import router as events_router
@@ -19,15 +21,19 @@ from app.api.ocr import router as ocr_router
 from app.api.payments import router as payments_router
 from app.api.restaurant_engagement import router as restaurant_engagement_router
 from app.api.restaurants import router as restaurants_router
+from app.api.site_notices import router as site_notices_router
 from app.api.uploads import router as uploads_router
 from app.api.users import router as users_router
 from app.db import Base, SessionLocal, engine
 from app.db_migrate import (
+    ensure_bro_list_pin_not_globally_unique,
     ensure_known_restaurant_brog_shape,
     ensure_post_image_columns,
     ensure_restaurant_bro_list_pin,
+    ensure_restaurant_franchise_pin,
     ensure_restaurant_image_urls_and_points,
     ensure_super_admin_email,
+    ensure_user_password_change_columns,
     ensure_user_role_migration,
 )
 from app.models import (  # noqa: F401 — register metadata for create_all
@@ -37,6 +43,7 @@ from app.models import (  # noqa: F401 — register metadata for create_all
     PaymentIntent,
     Restaurant,
     SiteEvent,
+    SiteNotice,
     RestaurantComment,
     RestaurantLike,
     RestaurantMenuItem,
@@ -89,9 +96,13 @@ class UnhandledExceptionCorsMiddleware(BaseHTTPMiddleware):
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_user_role_migration()
+    ensure_user_password_change_columns()
     ensure_post_image_columns()
     ensure_restaurant_image_urls_and_points()
     ensure_restaurant_bro_list_pin()
+    ensure_restaurant_franchise_pin()
+    if os.environ.get("BROG_REPAIR_BRO_LIST_PIN_UNIQUE", "").strip().lower() in ("1", "true", "yes"):
+        ensure_bro_list_pin_not_globally_unique()
     ensure_known_restaurant_brog_shape()
     ensure_super_admin_email()
     db = SessionLocal()
@@ -119,6 +130,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(districts_router)
 app.include_router(events_router)
@@ -130,6 +142,7 @@ app.include_router(known_restaurants_router)
 app.include_router(payments_router)
 app.include_router(uploads_router)
 app.include_router(ocr_router)
+app.include_router(site_notices_router)
 # 정적 경로: 구체적인 prefix 먼저 등록 (/uploads/brog, /uploads/myg → 마지막에 평면 레거시 /uploads)
 BROG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MYG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

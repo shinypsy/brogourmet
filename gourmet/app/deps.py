@@ -147,12 +147,11 @@ def ensure_can_access_brog_manage(user: User, restaurant: Restaurant) -> None:
 
 
 def ensure_can_create_brog_in_chosen_district(user: User, district_id: int) -> None:
-    """신규 등록: 지역 담당자는 담당 구만. 그 외 역할은 1단계 구 검증은 라우트에서 별도 처리."""
-    if user.role == REGIONAL_MANAGER and user.managed_district_id != district_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="담당 구에만 BroG를 등록할 수 있습니다.",
-        )
+    """신규 BroG 등록: 지역 담당자도 **담당 구와 무관**하게 작성·등록 가능(MyG→BroG 등).
+    담당 구는 BroG **관리·타인 글 조정** 등에 쓰이며, 본인 글쓰기 구역을 막지 않음.
+    구·1단계 허용 범위는 `_persist_new_restaurant` 등에서 검증한다.
+    """
+    _ = (user, district_id)
 
 
 def can_moderate_community_post_district(

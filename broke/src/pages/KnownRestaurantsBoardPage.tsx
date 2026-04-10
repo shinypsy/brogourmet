@@ -1,48 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
-import type { RestaurantListItem } from '../api/restaurants'
 import { deleteKnownRestaurantPost, fetchKnownRestaurantPosts, type KnownRestaurantPost } from '../api/community'
-import { BrogRankCard } from '../components/BrogRankCard'
+import { BrogRankGridCarousel } from '../components/BrogRankGridCarousel'
+import { MapPageBrogImageGridList } from '../components/MapPageBrogImageGridList'
 import {
   clampStage1District,
   isStage1LimitedDistricts,
   mygDistrictOptionsForUi,
   STAGE1_DEFAULT_DISTRICT,
 } from '../lib/deployStage1'
-import { canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
+import { mygPostToRestaurantListItem } from '../lib/mygPostToRestaurantListItem'
+import { canDeleteKnownRestaurantPost } from '../lib/roles'
 
 const MYG_DISTRICT_ALL = 'all' as const
 
-function mygPostToRestaurantListItem(post: KnownRestaurantPost): RestaurantListItem {
-  const city = (post.city ?? '서울특별시').trim() || '서울특별시'
-  return {
-    id: post.id,
-    name: post.restaurant_name,
-    city,
-    district_id: post.district_id ?? 0,
-    district: post.district,
-    category: post.category ?? '',
-    summary: post.summary ?? '',
-    image_url: post.image_url,
-    image_urls: post.image_urls ?? undefined,
-    latitude: post.latitude ?? null,
-    longitude: post.longitude ?? null,
-    main_menu_name: post.main_menu_name,
-    main_menu_price: post.main_menu_price,
-    points_eligible: true,
-    is_franchise: post.is_franchise,
-  }
-}
-
 export function KnownRestaurantsBoardPage() {
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [posts, setPosts] = useState<KnownRestaurantPost[]>([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [carouselPage, setCarouselPage] = useState({ pageIndex: 0, pageCount: 1 })
+  const onCarouselPagination = useCallback(
+    (info: { pageIndex: number; pageCount: number }) => {
+      setCarouselPage((prev) =>
+        prev.pageIndex === info.pageIndex && prev.pageCount === info.pageCount ? prev : info,
+      )
+    },
+    [],
+  )
 
   const hasToken =
     typeof window !== 'undefined' && Boolean(localStorage.getItem(ACCESS_TOKEN_KEY))
@@ -110,6 +98,8 @@ export function KnownRestaurantsBoardPage() {
     return posts.filter((p) => (p.district ?? '').trim() === districtFilter)
   }, [posts, districtFilter])
 
+  const listRows = useMemo(() => filteredPosts.map(mygPostToRestaurantListItem), [filteredPosts])
+
   const pageTitle =
     districtFilter === MYG_DISTRICT_ALL ? '전체 구 · 내 글' : `${districtFilter} · 내 글`
   const districtLabel = districtFilter === MYG_DISTRICT_ALL ? '전체 구' : districtFilter
@@ -152,7 +142,7 @@ export function KnownRestaurantsBoardPage() {
             </select>
           </label>
           <label className="price-filter brog-list-toolbar__filter">
-            <span className="brog-list-toolbar__label">서울시 구</span>
+            <span className="brog-list-toolbar__label">서울시</span>
             <select
               value={districtFilter}
               onChange={(e) => {
@@ -171,12 +161,13 @@ export function KnownRestaurantsBoardPage() {
           <div className="brog-list-toolbar__notes">
             <p className="helper brog-list-toolbar__note">
               MyG는 개인공간입니다. 이 목록에는 <strong>로그인한 본인이 작성한 글만</strong> 보입니다. 글 작성은 로그인 후
-              가능합니다. 수정은 작성자 본인·해당 구 지역 담당·최종 관리자만 할 수 있고, 삭제는 최종 관리자만 할 수
-              있습니다.
+              가능합니다. 수정·삭제는 작성자 본인 또는 해당 구 운영 권한이 있을 때만 가능하며, 본인 글은 목록에서 바로 삭제할
+              수 있습니다.
             </p>
             <p className="helper brog-list-toolbar__note brog-list-toolbar__note--muted">
-              카드를 누르면 상세로 이동합니다. 상세에서 본인 글은 BroG로 옮기거나(본인만), 권한이 있으면 수정·삭제할 수
-              있습니다.
+              목록은 BroG 리스트와 같이 <strong>8건씩</strong>입니다. <strong>« »</strong> 또는 그리드 바깥(화살표 옆) 영역을{' '}
+              <strong>좌우로 드래그</strong>(휴대폰은 밀기)해 넘길 수 있습니다. 썸네일·제목을 누르면 상세로 이동합니다. 상세에서
+              BroG 등록(본인만)·수정(권한 있는 경우)을 할 수 있습니다.
               {isStage1LimitedDistricts()
                 ? ' 1단계: 구 선택은 BroG와 동일하게 6개 구로 한정됩니다.'
                 : ''}
@@ -184,73 +175,79 @@ export function KnownRestaurantsBoardPage() {
           </div>
         </div>
 
-        {!isLoading && !error ? (
-          <p className="brog-list-body__count" role="status">
-            <strong>{filteredPosts.length}</strong>건
-            {districtFilter === MYG_DISTRICT_ALL ? '' : ` · ${districtFilter}`}
-          </p>
-        ) : null}
+        <section
+          className="home-section map-page-brog-list-section"
+          aria-labelledby="myg-board-image-list-heading"
+        >
+          <h3 id="myg-board-image-list-heading" className="map-page-brog-list-section__title">
+            목록 · 이미지
+          </h3>
 
-        {error ? <p className="error brog-list-body__error">{error}</p> : null}
-        {isLoading ? <p className="brog-rank-loading">목록을 불러오는 중…</p> : null}
-        {!isLoading && filteredPosts.length > 0 ? (
-          <ul className="brog-rank-grid">
-            {filteredPosts.map((post, index) => {
-              const row = mygPostToRestaurantListItem(post)
-              const showFooter =
-                canEditCommunityPost(user, post.author_id, post.district) || canDeleteCommunityPost(user)
-              return (
-                <li key={post.id}>
-                  <BrogRankCard
-                    restaurant={row}
-                    rank={index + 1}
-                    detailTo={`/known-restaurants/${post.id}`}
-                    footer={
-                      showFooter ? (
-                        <>
-                          {canEditCommunityPost(user, post.author_id, post.district) ? (
-                            <button
-                              type="button"
-                              className="brog-rank-card__delete-btn"
-                              onClick={() => navigate(`/known-restaurants/${post.id}`)}
-                            >
-                              상세·수정
-                            </button>
-                          ) : null}
-                          {canDeleteCommunityPost(user) ? (
-                            <button
-                              type="button"
-                              className="brog-rank-card__delete-btn"
-                              onClick={() => void handleDelete(post.id)}
-                            >
-                              삭제(관리자)
-                            </button>
-                          ) : null}
-                        </>
-                      ) : null
-                    }
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        ) : null}
-        {!isLoading && filteredPosts.length === 0 && !error ? (
-          <article className="brog-rank-card brog-rank-card--empty">
-            <p className="brog-rank-card__name brog-rank-card__name--primary">표시할 내 글이 없습니다</p>
-            {!hasToken ? (
-              <p className="helper brog-list-body__empty-hint" style={{ marginBottom: 8 }}>
-                로그인하면 작성한 MyG 글 목록이 표시됩니다.
-              </p>
-            ) : null}
-            <p className="brog-rank-section__sub brog-list-body__empty-hint">{emptyHint}</p>
-            <p className="helper" style={{ marginTop: 12 }}>
-              <Link className="compact-link" to="/known-restaurants/write">
-                MyG 작성하기
-              </Link>
+          {!isLoading && !error ? (
+            <p className="brog-list-body__count" role="status">
+              <strong>{filteredPosts.length}</strong>건
+              {districtFilter === MYG_DISTRICT_ALL ? '' : ` · ${districtFilter}`}
+              {carouselPage.pageCount > 1 ? (
+                <>
+                  {' '}
+                  · 페이지 {carouselPage.pageIndex + 1} / {carouselPage.pageCount}
+                </>
+              ) : null}
             </p>
-          </article>
-        ) : null}
+          ) : null}
+
+          {error ? <p className="error brog-list-body__error">{error}</p> : null}
+          {isLoading ? <p className="brog-rank-loading">목록을 불러오는 중…</p> : null}
+          {!isLoading && filteredPosts.length > 0 ? (
+            <BrogRankGridCarousel
+              items={listRows}
+              resetKey={districtFilter}
+              getItemKey={(r) => r.id}
+              carouselStepAriaUnit="건"
+              renderPage={(page, startRank) => (
+                <MapPageBrogImageGridList
+                  items={page}
+                  getDetailHref={(r) => `/known-restaurants/${r.id}`}
+                  getRankDisplay={(_, i) => startRank + i}
+                  renderActions={(r) =>
+                    user &&
+                    r.submitted_by_user_id != null &&
+                    canDeleteKnownRestaurantPost(user, r.submitted_by_user_id, r.district) ? (
+                      <button
+                        type="button"
+                        className="map-page-brog-lines__action-btn map-page-brog-lines__action-btn--danger"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          void handleDelete(r.id)
+                        }}
+                      >
+                        삭제
+                      </button>
+                    ) : null
+                  }
+                />
+              )}
+              ariaLabel="MyG 이미지 목록, 8건씩"
+              onPaginationInfo={onCarouselPagination}
+            />
+          ) : null}
+          {!isLoading && filteredPosts.length === 0 && !error ? (
+            <article className="brog-rank-card brog-rank-card--empty">
+              <p className="brog-rank-card__name">표시할 내 글이 없습니다</p>
+              {!hasToken ? (
+                <p className="helper brog-list-body__empty-hint" style={{ marginBottom: 8 }}>
+                  로그인하면 작성한 MyG 글 목록이 표시됩니다.
+                </p>
+              ) : null}
+              <p className="brog-rank-section__sub brog-list-body__empty-hint">{emptyHint}</p>
+              <p className="helper" style={{ marginTop: 12 }}>
+                <Link className="compact-link" to="/known-restaurants/write">
+                  MyG 작성하기
+                </Link>
+              </p>
+            </article>
+          ) : null}
+        </section>
       </section>
     </div>
   )

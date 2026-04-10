@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.user import UserRead
 
@@ -29,3 +29,24 @@ class ResendVerificationRequest(BaseModel):
 class ResendVerificationResponse(BaseModel):
     ok: bool = True
     email_verification_token: str | None = None
+
+
+class RequestPasswordChangeCodeResponse(BaseModel):
+    ok: bool = True
+    dev_password_change_code: str | None = Field(
+        default=None,
+        description="로컬 개발용. DEV_RETURN_PASSWORD_CHANGE_CODE=1 일 때만 채워짐.",
+    )
+
+
+class ConfirmPasswordChangeRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=32)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_six_digit_code(cls, v: str) -> str:
+        s = v.strip().replace(" ", "").replace("-", "")
+        if len(s) != 6 or not s.isdigit():
+            raise ValueError("인증코드는 6자리 숫자여야 합니다.")
+        return s

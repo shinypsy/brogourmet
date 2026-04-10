@@ -32,6 +32,11 @@ class User(Base):
     email_verification_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Myinfo 비밀번호 변경 — 이메일로 받은 6자리 코드 검증 후 일회 사용
+    password_change_code_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    password_change_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False

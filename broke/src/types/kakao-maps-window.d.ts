@@ -15,6 +15,7 @@ declare global {
           setCenter: (latlng: unknown) => void
           setBounds: (bounds: unknown) => void
           setLevel?: (level: number) => void
+          getLevel?: () => number
           relayout?: () => void
           getCenter?: () => { getLat: () => number; getLng: () => number }
         }

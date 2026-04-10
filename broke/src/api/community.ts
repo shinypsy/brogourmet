@@ -96,9 +96,9 @@ export async function deleteFreeSharePost(token: string, id: number): Promise<vo
 
 /** 로그인 시 본인 MyG 글만. 비로그인이면 빈 배열. */
 export async function fetchKnownRestaurantPosts(token: string | null): Promise<KnownRestaurantPost[]> {
-  if (!token) return []
+  if (!token?.trim()) return []
   return requestJson<KnownRestaurantPost[]>('/known-restaurants/posts', {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token.trim()}` },
   })
 }
 

@@ -33,6 +33,8 @@ type KakaoMapInstance = {
   setCenter: (latlng: unknown) => void
   setBounds: (bounds: unknown) => void
   setLevel?: (level: number) => void
+  /** 카카오맵: 숫자가 클수록 더 넓게(줌 아웃), 1에 가깝게 확대 */
+  getLevel?: () => number
   relayout?: () => void
   getCenter?: () => KakaoLatLngLike
   getProjection?: () => {
@@ -142,6 +144,7 @@ export function BrogKakaoMap({
   const ignoreExploreUntilRef = useRef(0)
   const prevUserAnchorKeyRef = useRef<string | null>(null)
   const prevPinsCountRef = useRef(-1)
+  const prevPinsKeyRef = useRef('')
   const hasDoneInitialFitRef = useRef(false)
 
   useEffect(() => {
@@ -247,13 +250,27 @@ export function BrogKakaoMap({
     const userAnchorKey = userCoords ? `${userCoords.lat.toFixed(6)},${userCoords.lng.toFixed(6)}` : ''
     const userAnchorMoved = prevUserAnchorKeyRef.current !== userAnchorKey
     const pinsFirstBatch = pins.length > 0 && prevPinsCountRef.current <= 0
+    const pinsSig = pins.length > 0 ? pins.map((p) => p.id).join('|') : ''
+    const pinsSameAsPrior = pinsSig === prevPinsKeyRef.current
     const shouldRefit = autoRefitWhenPinsChange
       ? true
       : userAnchorMoved || !hasDoneInitialFitRef.current || pinsFirstBatch
 
+    /** 우클릭·롱프레스·GPS로 내 위치만 바뀐 경우 setBounds 하면 모든 깃발에 맞추느라 과하게 줌아웃됨 → 중심만 옮기고 줌 유지 */
+    const preserveZoomOnlyUserMoved =
+      Boolean(userCoords) &&
+      userAnchorMoved &&
+      hasDoneInitialFitRef.current &&
+      pinsSameAsPrior &&
+      !pinsFirstBatch
+
     if (shouldRefit) {
       ignoreExploreUntilRef.current = Date.now() + PROGRAMMATIC_MAP_MOVE_GUARD_MS
-      if (extendPoints.length >= 2 && typeof maps.LatLngBounds === 'function') {
+      if (preserveZoomOnlyUserMoved) {
+        const prevLevel = map.getLevel?.() ?? 5
+        map.setCenter(new maps.LatLng(userCoords!.lat, userCoords!.lng))
+        map.setLevel?.(prevLevel)
+      } else if (extendPoints.length >= 2 && typeof maps.LatLngBounds === 'function') {
         const bounds = new maps.LatLngBounds()
         extendPoints.forEach((pt) => bounds.extend(pt))
         map.setBounds(bounds)
@@ -269,6 +286,7 @@ export function BrogKakaoMap({
 
     prevUserAnchorKeyRef.current = userAnchorKey
     prevPinsCountRef.current = pins.length
+    prevPinsKeyRef.current = pinsSig
 
     window.requestAnimationFrame(() => mapRef.current?.relayout?.())
   }, [mapSdkReady, userCoords, pins, navigate, autoRefitWhenPinsChange])

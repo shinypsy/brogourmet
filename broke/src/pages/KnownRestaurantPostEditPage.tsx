@@ -9,11 +9,10 @@ import {
   uploadCommunityImage,
   type KnownRestaurantPost,
 } from '../api/community'
-import { KAKAO_MAP_APP_KEY } from '../api/config'
+import { KAKAO_MAP_APP_KEY, KAKAO_REST_API_KEY } from '../api/config'
 import { createRestaurantFromMyGPost } from '../api/restaurants'
 import { fetchDistricts, type District } from '../api/districts'
 import { BrogKakaoMap } from '../components/BrogKakaoMap'
-import { BrogListIcon } from '../components/detailScreenIcons'
 import { BROG_ONLY } from '../config/features'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
 import { coordsFieldsBothEmpty, readGpsFromImageFile } from '../lib/imageExifGps'
@@ -27,7 +26,8 @@ import {
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
-import { assumeAdminUi, canDeleteCommunityPost, canEditCommunityPost } from '../lib/roles'
+import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
+import { assumeAdminUi, canDeleteKnownRestaurantPost, canEditCommunityPost } from '../lib/roles'
 import { STAGE1_DEFAULT_DISTRICT } from '../lib/deployStage1'
 
 const MAX_IMAGES = 5
@@ -85,6 +85,9 @@ export function KnownRestaurantPostEditPage() {
   const [brogRegisterBusy, setBrogRegisterBusy] = useState(false)
   const [mapLocateBusy, setMapLocateBusy] = useState(false)
   const [coordPickHint, setCoordPickHint] = useState('')
+  const [managePlaceQuery, setManagePlaceQuery] = useState('')
+  const [managePlaceBusy, setManagePlaceBusy] = useState(false)
+  const [managePlaceHint, setManagePlaceHint] = useState('')
 
   const numericId = id ? Number(id) : NaN
 
@@ -144,7 +147,9 @@ export function KnownRestaurantPostEditPage() {
   }, [numericId, token])
 
   const canEdit = Boolean(post && user && canEditCommunityPost(user, post.author_id, post.district))
-  const canDelete = Boolean(post && canDeleteCommunityPost(user))
+  const canDelete = Boolean(
+    post && canDeleteKnownRestaurantPost(user, post.author_id, post.district),
+  )
   const isMyPost = Boolean(user && post && user.id === post.author_id)
 
   useEffect(() => {
@@ -187,6 +192,33 @@ export function KnownRestaurantPostEditPage() {
       setMapLocateBusy(false)
     }
   }, [onMapPickUserLocation])
+
+  const handleManagePlaceSearch = useCallback(async () => {
+    const q = managePlaceQuery.trim()
+    if (!q) {
+      setManagePlaceHint('검색할 지명을 입력해 주세요.')
+      return
+    }
+    if (!KAKAO_REST_API_KEY.trim()) {
+      setManagePlaceHint('지명 검색에는 broke/.env 의 VITE_KAKAO_REST_API_KEY 가 필요합니다.')
+      return
+    }
+    setManagePlaceBusy(true)
+    setManagePlaceHint('')
+    try {
+      const p = await fetchKakaoKeywordFirstPlace(q)
+      if (!p) {
+        setManagePlaceHint('일치하는 장소를 찾지 못했습니다.')
+        return
+      }
+      await onMapPickUserLocation(p.lat, p.lng)
+      setManagePlaceHint(`「${p.placeName}」 위치로 맞췄습니다.`)
+    } catch (e) {
+      setManagePlaceHint(e instanceof Error ? e.message : '장소 검색에 실패했습니다.')
+    } finally {
+      setManagePlaceBusy(false)
+    }
+  }, [managePlaceQuery, onMapPickUserLocation])
 
   async function handleMygImagesChange(event: ChangeEvent<HTMLInputElement>) {
     const chosen = Array.from(event.target.files ?? [])
@@ -366,9 +398,6 @@ export function KnownRestaurantPostEditPage() {
         <h1>글을 불러올 수 없습니다</h1>
         <p className="description">{loadError}</p>
         <Link className="compact-link brog-detail__error-list-link" to="/known-restaurants/list">
-          <span className="brog-detail__error-list-link-icon" aria-hidden>
-            <BrogListIcon size={18} />
-          </span>
           MyG 목록
         </Link>
       </div>
@@ -412,9 +441,6 @@ export function KnownRestaurantPostEditPage() {
           title="상세 보기"
           aria-label="MyG 상세로 이동"
         >
-          <span className="brog-detail__back-icon" aria-hidden>
-            <BrogListIcon />
-          </span>
           <span className="brog-detail__back-label">상세 보기</span>
         </Link>
         <div className="brog-detail__topbar-links">
@@ -584,11 +610,61 @@ export function KnownRestaurantPostEditPage() {
                   ) : null}
                 </label>
                 <div className="restaurant-manage-location-map">
-                  <p className="helper" style={{ marginBottom: 8 }}>
-                    <strong>위치 지도</strong> · BroG 등록과 동일합니다. 지도를 <strong>길게 누르거나 우클릭</strong>하면 그
-                    지점의 위도·경도가 아래에 들어가고, 카카오 REST 키가 있으면 <strong>주소·구</strong>도 맞춰 집니다. 우측
-                    하단 「내 위치」는 GPS입니다.
-                  </p>
+                  <div className="restaurant-manage-map-place-row" aria-label="지명 검색으로 지도 위치 맞추기">
+                    <span className="restaurant-manage-map-place-row__icon" aria-hidden>
+                      <svg
+                        width="22"
+                        height="22"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m21 21-4-4" />
+                      </svg>
+                    </span>
+                    <span className="restaurant-manage-map-place-row__label">지명검색 위치로</span>
+                    <input
+                      type="search"
+                      enterKeyHint="search"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="restaurant-manage-map-place-row__input"
+                      placeholder="예: 홍대입구역, 망원동"
+                      value={managePlaceQuery}
+                      disabled={managePlaceBusy}
+                      onChange={(e) => {
+                        setManagePlaceQuery(e.target.value)
+                        if (managePlaceHint) setManagePlaceHint('')
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void handleManagePlaceSearch()
+                        }
+                      }}
+                      aria-label="지명 또는 장소 검색"
+                    />
+                    <button
+                      type="button"
+                      className="restaurant-manage-map-place-row__btn"
+                      disabled={managePlaceBusy || !managePlaceQuery.trim() || !KAKAO_REST_API_KEY.trim()}
+                      onClick={() => void handleManagePlaceSearch()}
+                    >
+                      {managePlaceBusy ? '찾는 중…' : '이 위치로'}
+                    </button>
+                  </div>
+                  {managePlaceHint ? (
+                    <p
+                      className={`helper restaurant-manage-map-place-row__hint${managePlaceHint.includes('실패') || managePlaceHint.includes('못') || managePlaceHint.includes('필요') ? ' restaurant-manage-map-place-row__hint--warn' : ''}`}
+                      role="status"
+                    >
+                      {managePlaceHint}
+                    </p>
+                  ) : null}
                   {KAKAO_MAP_APP_KEY ? (
                     <BrogKakaoMap
                       userCoords={
@@ -613,24 +689,26 @@ export function KnownRestaurantPostEditPage() {
                     </p>
                   ) : null}
                 </div>
-                <label>
-                  위도
-                  <input
-                    type="number"
-                    step="any"
-                    value={latitude ?? ''}
-                    onChange={(e) => setLatitude(e.target.value === '' ? null : Number(e.target.value))}
-                  />
-                </label>
-                <label>
-                  경도
-                  <input
-                    type="number"
-                    step="any"
-                    value={longitude ?? ''}
-                    onChange={(e) => setLongitude(e.target.value === '' ? null : Number(e.target.value))}
-                  />
-                </label>
+                <div className="form-coords-row">
+                  <label>
+                    위도
+                    <input
+                      type="number"
+                      step="any"
+                      value={latitude ?? ''}
+                      onChange={(e) => setLatitude(e.target.value === '' ? null : Number(e.target.value))}
+                    />
+                  </label>
+                  <label>
+                    경도
+                    <input
+                      type="number"
+                      step="any"
+                      value={longitude ?? ''}
+                      onChange={(e) => setLongitude(e.target.value === '' ? null : Number(e.target.value))}
+                    />
+                  </label>
+                </div>
                 {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
                 <label>
                   메뉴 목록 (최대 {MAX_MENU_LINES}줄)
@@ -716,7 +794,7 @@ export function KnownRestaurantPostEditPage() {
               </button>
               {canDelete ? (
                 <button type="button" className="compact-link danger-text" disabled={busy} onClick={handleDelete}>
-                  삭제(관리자)
+                  삭제
                 </button>
               ) : null}
             </p>

@@ -86,11 +86,16 @@ input {
 }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  column-gap: clamp(12px, 3vw, 24px);
+  row-gap: 12px;
   margin-bottom: 16px;
+}
+
+.topbar__brand {
+  min-width: 0;
 }
 
 .event-ticker {
@@ -100,7 +105,7 @@ input {
   border-radius: 10px;
   border: 1px solid rgba(212, 175, 55, 0.45);
   background: linear-gradient(
-    105deg,
+    90deg,
     rgba(28, 24, 48, 0.97) 0%,
     rgba(22, 28, 52, 0.96) 35%,
     rgba(36, 30, 58, 0.97) 55%,
@@ -283,12 +288,16 @@ input {
 }
 
 .topbar nav.main-nav {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  /* 줄 바꿈 시에도 각 행이 같은 왼쪽 기준선에서 시작(우측으로 밀리는 느낌 방지) */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: flex-start;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
-  max-width: min(640px, 100%);
+  justify-self: end;
+  width: max-content;
+  max-width: min(720px, 100%);
+  box-sizing: border-box;
 }
 
 .main-nav-item {
@@ -483,11 +492,96 @@ input {
   margin-top: 8px;
 }
 
+/* BroG/MyG 작성·수정: 위도·경도 한 줄 */
+.form-coords-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+  width: 100%;
+}
+
+.form-coords-row > label {
+  flex: 1 1 160px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
 /* BroG 작성: 위도·경도 위 지도(홈과 동일 shell·canvas 클래스 사용) */
 .restaurant-manage-location-map {
   margin: 18px 0 8px;
   padding-top: 14px;
   border-top: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.restaurant-manage-map-place-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.restaurant-manage-map-place-row__icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--gold-soft, #d4af37);
+}
+
+.restaurant-manage-map-place-row__label {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted, #8892a8);
+  letter-spacing: -0.02em;
+}
+
+.restaurant-manage-map-place-row__input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--gold-dim, rgba(212, 175, 55, 0.35));
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text-heading, #e8ecf4);
+  font-size: 0.88rem;
+}
+
+.restaurant-manage-map-place-row__input:focus-visible {
+  outline: 2px solid rgba(212, 175, 55, 0.45);
+  outline-offset: 1px;
+}
+
+.restaurant-manage-map-place-row__btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(212, 175, 55, 0.14);
+  color: var(--cream, #f5f0e6);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  font: inherit;
+}
+
+.restaurant-manage-map-place-row__btn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.22);
+}
+
+.restaurant-manage-map-place-row__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.restaurant-manage-map-place-row__hint {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.restaurant-manage-map-place-row__hint--warn {
+  color: #c9a87a;
 }
 
 .restaurant-manage-location-map__hint {
@@ -765,6 +859,7 @@ input {
 }
 
 .home-hub__photo-card {
+  position: relative;
   display: block;
   aspect-ratio: 1;
   border-radius: 16px;
@@ -775,6 +870,24 @@ input {
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+.home-hub__photo-slot {
+  position: relative;
+  display: block;
+  height: 100%;
+  container-type: size;
+  container-name: home-hub-photo;
+}
+
+.home-hub__photo-slot > .brog-list-event-badge {
+  top: auto;
+  left: 3%;
+  bottom: 26%;
+  width: 48%;
+  height: 44%;
+  font-size: clamp(0.85rem, min(17cqw, 17cqh), 3.2rem);
+  border-radius: clamp(8px, 3.5cqw, 24px);
 }
 
 .home-hub__photo-card:hover {
@@ -1284,12 +1397,6 @@ a.compact-link {
   text-decoration: none;
 }
 
-.compact-link--with-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 button.compact-link {
   cursor: pointer;
   font: inherit;
@@ -1309,6 +1416,12 @@ button.compact-link.danger-text {
   gap: 20px;
 }
 
+/* 필터로 카드 수가 줄어들 때 스크롤 앵커·scrollIntoView가 뷰를 튀게 하는 현상 완화 */
+.map-layout--brog .brog-rank-section,
+.map-layout--brog .map-page-map-search {
+  overflow-anchor: none;
+}
+
 .map-hero--compact {
   padding: 22px 26px;
 }
@@ -1325,6 +1438,63 @@ button.compact-link.danger-text {
   justify-content: space-between;
   gap: 16px;
   padding: 18px 22px;
+}
+
+.map-page-toolbar__filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.map-page-toolbar__coord-row {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.map-page-toolbar__geo-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-end;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 10px;
+  margin-left: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(16, 18, 28, 0.85);
+  color: #fbbf24;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.map-page-toolbar__geo-icon-btn:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, 0.55);
+  background: rgba(30, 28, 20, 0.9);
+  color: #fde68a;
+}
+
+.map-page-toolbar__geo-icon-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.map-page-toolbar__geo-icon-btn-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-page-toolbar__geo-spinner {
+  animation: map-toolbar-geo-spin 0.85s linear infinite;
+}
+
+@keyframes map-toolbar-geo-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .map-page-toolbar__filter {
@@ -1358,8 +1528,649 @@ button.compact-link.danger-text {
   color: var(--text-muted);
 }
 
+.map-page-map-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 18px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(12, 16, 28, 0.55);
+}
+
+.map-page-map-search--dual .map-page-map-search__field--place,
+.map-page-map-search--dual .map-page-map-search__field--bro {
+  flex: 1 1 min(100%, 280px);
+}
+
+.map-page-map-search__field {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+}
+
+.map-page-map-search__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.map-page-map-search__row .map-page-map-search__input {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.map-page-map-search__action {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(212, 175, 55, 0.14);
+  color: var(--cream);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.map-page-map-search__action:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.22);
+}
+
+.map-page-map-search__action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.map-page-map-search__helper {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.map-page-map-search__helper--warn {
+  color: #c9a87a;
+}
+
+.map-page-map-search__helper code {
+  font-size: 0.78em;
+}
+
+.map-page-map-search__label-text {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold-soft);
+}
+
+.map-page-map-search__label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.map-page-map-search__bro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.map-page-map-search__bro-badge--ok {
+  color: #9ed9b0;
+}
+
+.map-page-map-search__bro-badge--warn {
+  color: #e0b080;
+}
+
+.map-page-map-search__status-icon {
+  flex-shrink: 0;
+}
+
+.map-page-map-search__helper--ok {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #9ed9b0;
+}
+
+.map-page-map-search__hint-ok-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #9ed9b0;
+}
+
+.map-page-map-search__input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(20, 25, 40, 0.92);
+  color: var(--text-heading);
+  font-size: 0.95rem;
+}
+
+.map-page-map-search__input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.map-page-map-search__input:focus-visible {
+  outline: 2px solid rgba(212, 175, 55, 0.55);
+  outline-offset: 2px;
+}
+
+.map-page-map-search__clear {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: transparent;
+  color: var(--cream);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-page-map-search__clear:hover {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.map-page-map-search__clear--inline {
+  align-self: stretch;
+  margin: 0;
+}
+
 .map-page-map-section {
   padding: 22px 24px 24px;
+}
+
+/* BroG/MyG 지도: 상단 툴바·검색 블록 높이 압축(약 절반 느낌) */
+.map-layout--brog.brog-screen--map {
+  gap: 12px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar {
+  padding: 10px 14px;
+  gap: 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar__filters-row {
+  gap: 10px 14px;
+  margin-bottom: 4px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar__filter {
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .price-filter {
+  margin-bottom: 0;
+  gap: 4px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .price-filter select {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page__coord-edit.home-hub__coord-edit {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .home-hub__coord-row {
+  gap: 6px 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .home-hub__coord-field {
+  gap: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .home-hub__coord-input {
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+  width: min(100%, 9.5rem);
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .home-hub__coord-apply {
+  padding: 5px 12px;
+  font-size: 0.76rem;
+  border-radius: 999px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar .home-hub__coord-error {
+  margin-top: 6px;
+  font-size: 0.78rem;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar__geo-icon-btn {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 6px;
+  margin-left: 2px;
+  border-radius: 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-toolbar__geo-icon-btn-inner svg {
+  width: 18px;
+  height: 18px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-section {
+  padding: 12px 14px 16px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-section__title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-section__hint {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  gap: 10px 12px;
+  border-radius: 10px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__field {
+  gap: 4px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__label-text {
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__label-row {
+  gap: 6px 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__row {
+  gap: 6px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__input {
+  padding: 6px 10px;
+  font-size: 0.84rem;
+  border-radius: 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__input::placeholder {
+  font-size: 0.8rem;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__action {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__clear {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__bro-badge {
+  font-size: 0.74rem;
+  gap: 4px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__helper {
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__helper code {
+  font-size: 0.7em;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-search__hint-ok-icon {
+  margin-top: 1px;
+}
+
+.map-page-brog-list-section {
+  padding: 0 0 20px;
+}
+
+.map-page-brog-list-section__title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-heading, #e8ecf4);
+}
+
+.map-page-brog-list-section__carousel-hint {
+  margin: -4px 0 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-muted, rgba(232, 236, 244, 0.72));
+}
+
+.map-page-brog-list-section__loading,
+.map-page-brog-list-section__empty {
+  margin: 0 0 8px;
+}
+
+.map-page-brog-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(8, 10, 18, 0.45);
+}
+
+.map-page-brog-lines__item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.map-page-brog-lines__item:last-child {
+  border-bottom: none;
+}
+
+.map-page-brog-lines__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 8px 12px;
+}
+
+.map-page-brog-lines__rank {
+  flex: 0 0 auto;
+  min-width: 1.5rem;
+  color: var(--text-muted, #8892a8);
+  font-variant-numeric: tabular-nums;
+}
+
+.map-page-brog-lines__name {
+  flex: 0 1 auto;
+  font-weight: 600;
+  color: #f0d78c;
+  text-decoration: none;
+}
+
+.map-page-brog-lines__name:hover {
+  text-decoration: underline;
+}
+
+.map-page-brog-lines__name--secondary {
+  font-weight: 500;
+  color: #b8c0d0;
+}
+
+.map-page-brog-lines__text {
+  flex: 1 1 12rem;
+  color: var(--text-muted, #9aa3b5);
+  word-break: break-word;
+}
+
+.map-page-brog-lines__tag {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.map-page-brog-lines__tag--event {
+  color: #fbbf24;
+}
+
+.map-page-brog-lines__tag--franchise {
+  color: #5eead4;
+}
+
+.map-page-brog-lines__actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.map-page-brog-lines__action-btn {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(20, 24, 36, 0.9);
+  color: #e8d5a0;
+  cursor: pointer;
+}
+
+.map-page-brog-lines__action-btn:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, 0.5);
+}
+
+.map-page-brog-lines__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.map-page-brog-lines__action-btn--danger {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+/* 홈 BroG 지도: 이미지 목록 */
+.map-page-brog-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 14px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+/* 메인 홈 전용: 4열 × 2행(8건), 정사각 썸네일 */
+.map-page-brog-image-grid--main-4x2 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* BroG 리스트·홈·MyG 공통: 좁은 화면은 2열×4행(가독성) */
+@media (max-width: 720px) {
+  .map-page-brog-image-grid--main-4x2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .map-page-brog-image-grid--main-4x2 {
+    gap: 8px;
+  }
+}
+
+/* MyG 리스트·BroG 화면: 그리드가 부모 폭을 꽉 쓰도록(열 깨짐 방지) */
+.brog-screen--list .map-page-brog-image-grid,
+.map-layout--brog.brog-screen--map .map-page-brog-image-grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__thumb {
+  aspect-ratio: 1 / 1;
+}
+
+.map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__name {
+  font-size: 0.78rem;
+  padding: 0 6px;
+}
+
+.map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__meta {
+  font-size: 0.65rem;
+  padding: 0 6px 8px;
+}
+
+.map-page-brog-image-grid__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  /* 그리드·캐러셀: 이미지 intrinsic 폭으로 열이 늘어나며 1번 칸만 거대해지는 현상 방지 */
+  min-width: 0;
+  max-width: 100%;
+}
+
+.map-page-brog-image-grid__link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 14px;
+  border: 1px solid var(--gold-dim);
+  background: var(--navy-elevated);
+  overflow: hidden;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.map-page-brog-image-grid__link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.map-page-brog-image-grid__rank {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(18, 22, 36, 0.92);
+  border: 1px solid var(--gold-dim);
+  font-size: 0.8125rem;
+  line-height: 1;
+  font-weight: 800;
+  color: #f0dfa8;
+  box-sizing: border-box;
+}
+
+.map-page-brog-image-grid__thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.map-page-brog-image-grid__thumb .food-photo-overlay-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+/* 작은 셀: compact 오버레이도 한 줄 더 얇게 */
+.map-page-brog-image-grid__thumb .food-photo-overlay-wrap--compact .food-photo-overlay-wrap__caption {
+  padding: 10px 4px 4px;
+  font-size: 0.58rem;
+  gap: 2px 4px;
+}
+
+.map-page-brog-image-grid__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.map-page-brog-image-grid__thumb-filler {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  background: rgba(30, 35, 50, 0.9);
+}
+
+.map-page-brog-image-grid__event {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+}
+
+.map-page-brog-image-grid__name {
+  padding: 0 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #f5f0e6;
+}
+
+.map-page-brog-image-grid__name--secondary {
+  color: #a8b0c4;
+}
+
+.map-page-brog-image-grid__meta {
+  padding: 0 10px 10px;
+  font-size: 0.72rem;
+  color: #8892a8;
+  line-height: 1.35;
+}
+
+.map-page-brog-image-grid__tag {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.map-page-brog-image-grid__tag--franchise {
+  color: #5eead4;
+}
+
+.map-page-brog-image-grid__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-start;
+  padding: 0 2px;
+}
+
+.home-layout--map-home .home-notice {
+  margin-bottom: 16px;
 }
 
 /* BroG/MyG 지도: 홈과 동일 UX(내 위치 버튼), 크기는 아래 --below 유지 */
@@ -1456,6 +2267,28 @@ button.compact-link.danger-text {
   margin-bottom: 0;
 }
 
+.home-notice__slot {
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.home-notice__slot:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.home-notice__slot-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.home-notice__slot-body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .service-overview .description {
   margin: 0 0 14px;
 }
@@ -1525,6 +2358,12 @@ button.compact-link.danger-text {
   color: var(--text-heading);
 }
 
+.event-write-brog-id-hint {
+  margin: 6px 0 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .site-event-list {
   list-style: none;
   margin: 12px 0 0;
@@ -1562,6 +2401,12 @@ button.compact-link.danger-text {
   border-color: rgba(212, 175, 55, 0.45);
   color: var(--gold-soft);
   background: rgba(212, 175, 55, 0.08);
+}
+
+.site-event-list__badge--brog {
+  border-color: rgba(100, 180, 200, 0.45);
+  color: #a8d4e6;
+  background: rgba(80, 140, 170, 0.12);
 }
 
 .site-event-list__time {
@@ -1728,6 +2573,98 @@ ul.brog-rank-grid {
   padding: 0;
 }
 
+/* BroG 리스트: 8곳씩 캐러셀 · PC 포인터 드래그 · 모바일 2×4 */
+.brog-list-carousel {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 20px;
+  min-height: 120px;
+}
+
+.brog-list-carousel__viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+}
+
+.brog-list-carousel__viewport.brog-list-carousel--dragging {
+  touch-action: none;
+  cursor: grabbing;
+}
+
+.brog-list-carousel__track {
+  display: flex;
+  flex-direction: row;
+  will-change: transform;
+}
+
+.brog-list-carousel__page {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+ul.brog-rank-grid.brog-rank-grid--paged {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 0;
+}
+
+/* 캐러셀 안 이미지 그리드: 상단 여백 중복 제거 */
+.brog-list-carousel__page .map-page-brog-image-grid {
+  margin-top: 0;
+}
+
+.brog-list-carousel__arrow {
+  flex-shrink: 0;
+  align-self: center;
+  width: 44px;
+  min-height: 120px;
+  padding: 0 4px;
+  margin: 0;
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  background: var(--navy-elevated);
+  color: #f0dfa8;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.brog-list-carousel__arrow:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.12);
+}
+
+.brog-list-carousel__arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  ul.brog-rank-grid.brog-rank-grid--paged {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .brog-list-carousel__arrow {
+    width: 40px;
+    min-height: 100px;
+    font-size: 1.2rem;
+  }
+}
+
 .brog-rank-card {
   margin: 0;
   border-radius: 16px;
@@ -1768,7 +2705,7 @@ ul.brog-rank-grid {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 2;
+  z-index: 12;
   min-width: 28px;
   height: 28px;
   padding: 0 8px;
@@ -1787,7 +2724,7 @@ ul.brog-rank-grid {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 2;
+  z-index: 11;
   padding: 4px 10px;
   border-radius: 10px;
   background: rgba(90, 60, 20, 0.92);
@@ -1826,12 +2763,89 @@ ul.brog-rank-grid {
   cursor: progress;
 }
 
+.brog-rank-card__pin-table {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 8px 0;
+}
+
+.brog-rank-card__pin-tr {
+  display: table-row;
+}
+
+.brog-rank-card__pin-td {
+  display: table-cell;
+  width: 50%;
+  vertical-align: middle;
+}
+
+.brog-rank-card__pin-td-placeholder {
+  display: block;
+  min-height: 36px;
+}
+
+.brog-rank-card__pin-clear-btn {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 151, 173, 0.45);
+  background: rgba(24, 28, 40, 0.85);
+  color: #c5cdd8;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.brog-rank-card__pin-clear-btn:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #e8cf8a;
+}
+
+.brog-rank-card__pin-clear-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
 .brog-rank-card__photo {
   position: relative;
   aspect-ratio: 4 / 3;
   width: 100%;
   overflow: hidden;
-  background: #1a2233;
+  background: #1a2333;
+  container-type: size;
+  container-name: brog-list-photo;
+}
+
+/* BroG 메인 리스트·홈: 이벤트 스티커 — 좌측·메뉴 오버레이 위쪽, 약 사진의 절반 가로×중간 높이 */
+.brog-list-event-badge {
+  position: absolute;
+  z-index: 5;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  color: #0a0d14;
+  background: linear-gradient(135deg, var(--gold), var(--gold-soft));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+/* 순위(좌상)·고정(우상) 피하고, 하단 메뉴/가격 오버레이 위로 좌측에 배치 */
+.brog-rank-card__photo > .brog-list-event-badge {
+  top: auto;
+  left: 2.5%;
+  bottom: 26%;
+  width: 48%;
+  height: 44%;
+  font-size: clamp(0.85rem, min(17cqw, 14cqh), 3.2rem);
+  border-radius: clamp(8px, 3cqw, 24px);
 }
 
 .brog-rank-card__photo .food-photo-overlay-wrap {
@@ -1870,9 +2884,10 @@ ul.brog-rank-grid {
   overflow: hidden;
 }
 
-/* 같은 자리 중복 매장 중 처음 올린 BroG(포인트 적립 대상)만 굵게 */
+/* 같은 자리 중복 매장 중 처음 올린 BroG(상호 …(원조!!!)·레거시 …_*) — 리스트에서 상호 굵게·이탤릭(크기는 기본과 동일) */
 .brog-rank-card__name--primary {
   font-weight: 800;
+  font-style: italic;
 }
 
 .brog-rank-card__price {
@@ -1920,9 +2935,11 @@ ul.brog-rank-grid {
 /* BroG 리스트·지도 공통 헤더 */
 .brog-screen {
   width: 100%;
-  max-width: 1100px;
+  /* app-shell(960)과 동일 룰 — 홈·BroG 세로 기준선 맞춤 */
+  max-width: 960px;
   margin: 0 auto;
-  padding: 0 8px 40px;
+  padding: 0 0 40px;
+  box-sizing: border-box;
   min-height: calc(100vh - 100px);
 }
 
@@ -1931,8 +2948,13 @@ ul.brog-rank-grid {
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 4px 12px;
+  gap: 12px 16px;
+  padding: 16px 0 12px;
+}
+
+.brog-screen__header > div:first-child {
+  min-width: 0;
+  flex: 1 1 12rem;
 }
 
 .brog-screen__title {
@@ -1952,6 +2974,9 @@ ul.brog-rank-grid {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  max-width: 100%;
 }
 
 .brog-screen__cta {
@@ -1969,6 +2994,11 @@ ul.brog-rank-grid {
 .brog-screen__toolbar {
   padding: 14px 18px;
   margin-bottom: 12px;
+}
+
+/* BroG 화면 내 map-card 툴바 = 지도 툴바와 동일 패딩(홈·/map·리스트·작성 라인 통일) */
+.brog-screen .brog-screen__toolbar.map-card {
+  padding: 10px 14px;
 }
 
 .brog-screen__toolbar--list {
@@ -2013,7 +3043,7 @@ ul.brog-rank-grid {
 }
 
 .brog-list-body__count {
-  margin: 4px 4px 14px;
+  margin: 4px 0 14px;
   font-size: 0.92rem;
   color: var(--text-muted);
 }
@@ -2023,7 +3053,7 @@ ul.brog-rank-grid {
 }
 
 .brog-list-body__error {
-  margin: 0 4px 12px;
+  margin: 0 0 12px;
 }
 
 .brog-list-body__empty-hint {
@@ -2050,6 +3080,35 @@ ul.brog-rank-grid {
   font-weight: 700;
   color: #fecaca;
   font-size: 1rem;
+}
+
+.my-page__password-change {
+  margin-top: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.my-page__password-change-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 320px;
+  margin-top: 12px;
+}
+
+.my-page__password-change-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.my-page__password-change-label input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
 }
 
 /* BroG 상세 (풀스크린형) */
@@ -2089,13 +3148,6 @@ ul.brog-rank-grid {
   font-size: 0.95rem;
 }
 
-.brog-detail__back-icon {
-  display: flex;
-  flex-shrink: 0;
-  color: #e8cf8a;
-  opacity: 0.98;
-}
-
 .brog-detail__back-label {
   white-space: nowrap;
 }
@@ -2104,11 +3156,6 @@ ul.brog-rank-grid {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.brog-detail__error-list-link-icon {
-  display: flex;
-  color: var(--gold-soft);
 }
 
 .brog-detail__topbar-links {
@@ -2131,6 +3178,17 @@ ul.brog-rank-grid {
   max-height: min(52vh, 420px);
   /* contain 사용 시 세로·가로 여백(레터박스) */
   background: #161b28;
+}
+
+/* MyG 상세: 대표(1번) 사진이 과도하게 크거나 contain 레터박스로 음식 확인이 어려울 때 */
+.brog-detail--myg-post .brog-detail__hero {
+  aspect-ratio: 4 / 3;
+  max-height: min(34vh, 300px);
+}
+
+.brog-detail--myg-post .brog-detail__hero-img {
+  object-fit: cover;
+  object-position: center;
 }
 
 .brog-detail__hero-img {
@@ -2161,6 +3219,7 @@ ul.brog-rank-grid {
 }
 
 .brog-detail__gallery-tap {
+  position: relative;
   display: block;
   border: none;
   padding: 0;
@@ -2202,6 +3261,42 @@ ul.brog-rank-grid {
   border: 1px solid var(--border);
 }
 
+.brog-detail__section--site-events {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 14px 16px 4px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(212, 175, 55, 0.06);
+}
+
+.brog-detail__section--site-events h2 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  color: var(--gold-soft);
+}
+
+.brog-detail__site-event-bodies {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.brog-detail__site-event-item {
+  margin: 0 0 12px;
+}
+
+.brog-detail__site-event-item:last-child {
+  margin-bottom: 4px;
+}
+
+.brog-detail__site-event-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: var(--cream);
+  font-size: 0.92rem;
+}
+
 .brog-detail__hero-overlay {
   position: absolute;
   left: 0;
@@ -2230,6 +3325,7 @@ ul.brog-rank-grid {
 
 .brog-detail__name--primary {
   font-weight: 800;
+  font-style: italic;
 }
 
 .brog-detail__sub {
@@ -2609,20 +3705,20 @@ form.brog-detail__comment-form {
   }
 
   .topbar {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
   .topbar nav.main-nav {
+    justify-self: stretch;
+    width: auto;
     max-width: none;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .map-hero,
   .hero-panel,
   .map-grid,
   .restaurant-list,
-  .brog-rank-grid,
+  .brog-rank-grid:not(.brog-rank-grid--paged),
   .home-recommend-grid,
   .grid-cards {
     grid-template-columns: 1fr;
@@ -2713,8 +3809,9 @@ form.brog-detail__comment-form {
   z-index: 1;
   width: 100%;
   height: 100%;
-  perspective: 1650px;
-  perspective-origin: 50% 38%;
+  /* 과한 원근은 중앙 파사드가 기울어진 듯 보이므로 완만하게 */
+  perspective: 4200px;
+  perspective-origin: 50% 42%;
   transform-style: preserve-3d;
 }
 
@@ -2902,7 +3999,8 @@ form.brog-detail__comment-form {
   width: min(99vw, 700px);
   padding: 16px;
   text-align: center;
-  transform: translate3d(-50%, -50%, 72px);
+  /* translateZ 제거 — 브라우저 3D 왜곡으로 ‘화면 전체가 삐뚤어짐’처럼 느껴질 수 있음 */
+  transform: translate(-50%, -50%);
   transform-style: preserve-3d;
   transition:
     opacity 0.5s ease 0.05s,
@@ -2911,7 +4009,7 @@ form.brog-detail__comment-form {
 
 .saloon-overlay--opening .saloon-center {
   opacity: 0;
-  transform: translate3d(-50%, -50%, -110px) scale(0.86);
+  transform: translate(-50%, -50%) scale(0.92);
 }
 
 .saloon-logo-frame {
@@ -3126,12 +4224,11 @@ form.brog-detail__comment-form {
     0 1px 0 rgba(0, 0, 0, 0.45),
     0 2px 22px rgba(0, 0, 0, 0.55),
     0 0 48px rgba(212, 175, 55, 0.18);
-  transform: rotate(-1.2deg);
   transform-origin: center;
 }
 
 .saloon-since--lower {
-  /* 한 줄로 묶어서 타이포 기울임꼴(이탤릭 느낌) — 시계 회전이 아니라 skew */
+  /* 한 줄 — 스크립트 폰트만으로 톤 유지, skew는 과하면 화면이 기울어진 듯 보임 */
   display: inline-flex;
   flex-wrap: nowrap;
   align-items: baseline;
@@ -3148,7 +4245,7 @@ form.brog-detail__comment-form {
   padding-top: min(3vh, 28px);
   /* Since · 연도 — Pinyon Script (Google Fonts) */
   font-size: clamp(2.2rem, 6.8vw, 3.5rem);
-  transform: skewX(-6deg);
+  transform: none;
   transform-origin: center center;
 }
 
@@ -3577,4 +4674,291 @@ form.brog-detail__comment-form {
     transform: translate(-50%, -50%) scale(0.96);
     opacity: 0;
   }
+}
+
+/* —— 슈퍼 관리자 /admin —— */
+.admin-page {
+  margin: 0 0 32px;
+}
+
+.admin-page__title {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+  color: var(--text-heading);
+}
+
+.admin-page__h2 {
+  margin: 28px 0 10px;
+  font-size: 1.1rem;
+  color: var(--text-heading);
+}
+
+.admin-page__lead {
+  margin: 0 0 16px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.admin-page__muted {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.admin-page__error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 100, 100, 0.45);
+  background: rgba(80, 30, 30, 0.35);
+  color: #f0b4b4;
+  font-size: 0.88rem;
+}
+
+.admin-page__actions {
+  margin-bottom: 8px;
+}
+
+.admin-page__notice-intro {
+  margin: 0 0 12px;
+  max-width: 52rem;
+}
+
+.admin-page__notice-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin-bottom: 12px;
+}
+
+.admin-page__notice-card {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--navy-card);
+}
+
+.admin-page__notice-card-title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--text-heading);
+}
+
+.admin-page__notice-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-page__notice-input,
+.admin-page__notice-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--cream);
+  font-size: 0.88rem;
+  font-weight: 400;
+  font-family: inherit;
+}
+
+.admin-page__notice-textarea {
+  resize: vertical;
+  min-height: 6rem;
+  line-height: 1.45;
+}
+
+.admin-page__notice-actions {
+  margin-bottom: 8px;
+}
+
+.admin-page__franchise-hint {
+  margin: 0 0 10px;
+  max-width: 52rem;
+  font-size: 0.86rem;
+}
+
+.admin-page__franchise-cell {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.admin-page__franchise-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-page__franchise-row input[type='checkbox'] {
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+}
+
+.admin-page__franchise-auto {
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.admin-page__franchise-auto:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--cream);
+}
+
+.admin-page__franchise-auto:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-page__filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 12px;
+}
+
+.admin-page__filter-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.admin-page__select--filter {
+  min-width: 160px;
+}
+
+.admin-page__filter-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.admin-page__refresh {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--navy-card);
+  color: var(--cream);
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.admin-page__refresh:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.admin-page__table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--navy-card);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  vertical-align: middle;
+}
+
+.admin-table th {
+  color: var(--gold-soft);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table a {
+  color: #f0c27a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-page__user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-page__rest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+}
+
+.admin-page__select {
+  min-width: 120px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--navy-deep);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.admin-page__btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.12);
+  color: var(--cream);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-page__btn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.22);
+}
+
+.admin-page__btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.admin-page__btn--secondary {
+  border-color: rgba(139, 151, 173, 0.45);
+  background: rgba(24, 28, 40, 0.85);
+  color: #c5cdd8;
+}
+
+.admin-page__btn--secondary:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.35);
+  color: #e8cf8a;
+}
+
+.admin-page__btn--danger {
+  border-color: rgba(200, 90, 90, 0.55);
+  background: rgba(90, 30, 30, 0.45);
+  color: #f5c0c0;
+}
+
+.admin-page__btn--danger:hover:not(:disabled) {
+  border-color: rgba(240, 120, 120, 0.65);
+  background: rgba(120, 40, 40, 0.55);
+  color: #fff;
 }

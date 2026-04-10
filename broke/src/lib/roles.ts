@@ -58,11 +58,21 @@ export function canEditCommunityPost(
   return canModerateCommunityPost(user, postDistrict)
 }
 
-/** 무료나눔·MyG 글 삭제: 최종 관리자(super_admin)만 */
+/** 무료나눔 글 삭제: 최종 관리자(super_admin)만 */
 export function canDeleteCommunityPost(user: Pick<User, 'role'> | null | undefined): boolean {
   if (assumeAdminUi()) return true
   if (!user) return false
   return user.role === ROLE_SUPER_ADMIN
+}
+
+/** MyG(KnownRestaurant) 글 삭제: 작성자 본인 또는 해당 구 운영 권한(gourmet `ensure_community_post_author_or_moderation`) */
+export function canDeleteKnownRestaurantPost(
+  user: Pick<User, 'id' | 'role' | 'managed_district_name'> | null | undefined,
+  postAuthorId: number,
+  postDistrict: string | null | undefined,
+): boolean {
+  if (assumeAdminUi()) return true
+  return canEditCommunityPost(user, postAuthorId, postDistrict)
 }
 
 /** @deprecated `canEditCommunityPost` 사용 */

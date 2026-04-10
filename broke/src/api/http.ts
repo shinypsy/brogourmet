@@ -1,4 +1,5 @@
-import { API_BASE_URL } from './config'
+import { notifyAuthChange } from '../authEvents'
+import { ACCESS_TOKEN_KEY, API_BASE_URL } from './config'
 
 function errorDetail(data: unknown): string {
   if (data && typeof data === 'object' && 'detail' in data) {
@@ -52,6 +53,18 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
   }
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      headers.get('Authorization')?.startsWith('Bearer ')
+    ) {
+      try {
+        localStorage.removeItem(ACCESS_TOKEN_KEY)
+        notifyAuthChange()
+      } catch {
+        /* private mode 등 */
+      }
+    }
     let message = response.statusText || 'Request failed'
     try {
       message = errorDetail(await response.json())

@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
-import { ACCESS_TOKEN_KEY, fetchMe } from '../api/auth'
+import {
+  ACCESS_TOKEN_KEY,
+  confirmPasswordChange,
+  fetchMe,
+  requestPasswordChangeCode,
+} from '../api/auth'
 import type { User } from '../api/auth'
 import {
   fetchManageRestaurantList,
@@ -20,6 +25,13 @@ export function MyPage() {
   const [brogListError, setBrogListError] = useState('')
   const [brogListLoading, setBrogListLoading] = useState(false)
   const [includeHiddenBrogs, setIncludeHiddenBrogs] = useState(false)
+  const [pwdCode, setPwdCode] = useState('')
+  const [pwdNew, setPwdNew] = useState('')
+  const [pwdConfirm, setPwdConfirm] = useState('')
+  const [pwdCodeBusy, setPwdCodeBusy] = useState(false)
+  const [pwdSubmitBusy, setPwdSubmitBusy] = useState(false)
+  const [pwdMessage, setPwdMessage] = useState('')
+  const [pwdError, setPwdError] = useState('')
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -65,6 +77,59 @@ export function MyPage() {
       .catch((e) => setBrogListError(e instanceof Error ? e.message : 'BroG 목록을 불러오지 못했습니다.'))
       .finally(() => setBrogListLoading(false))
   }, [user, includeHiddenBrogs])
+
+  const accessToken = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
+  const showPasswordChange = Boolean(user && accessToken)
+
+  async function handleRequestPasswordCode() {
+    const t = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!t) return
+    setPwdError('')
+    setPwdMessage('')
+    setPwdCodeBusy(true)
+    try {
+      const res = await requestPasswordChangeCode(t)
+      if (res.dev_password_change_code) {
+        setPwdMessage(
+          `개발 모드: 인증코드 ${res.dev_password_change_code} (이메일 미발송 시 화면에만 표시됩니다.)`,
+        )
+      } else {
+        setPwdMessage('등록하신 이메일로 6자리 인증코드를 보냈습니다. 몇 분 내로 도착하지 않으면 스팸함을 확인해 주세요.')
+      }
+    } catch (e) {
+      setPwdError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPwdCodeBusy(false)
+    }
+  }
+
+  async function handlePasswordChangeSubmit(event: FormEvent) {
+    event.preventDefault()
+    const t = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!t) return
+    setPwdError('')
+    setPwdMessage('')
+    if (pwdNew !== pwdConfirm) {
+      setPwdError('새 비밀번호 확인이 일치하지 않습니다.')
+      return
+    }
+    if (pwdNew.length < 8) {
+      setPwdError('새 비밀번호는 8자 이상이어야 합니다.')
+      return
+    }
+    setPwdSubmitBusy(true)
+    try {
+      await confirmPasswordChange(t, { code: pwdCode.trim(), new_password: pwdNew })
+      setPwdCode('')
+      setPwdNew('')
+      setPwdConfirm('')
+      setPwdMessage('비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.')
+    } catch (e) {
+      setPwdError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPwdSubmitBusy(false)
+    }
+  }
 
   async function handleRestoreBroG(rowId: number) {
     const t = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -142,6 +207,67 @@ export function MyPage() {
             <p className="helper">
               <Link to="/verify-email">이메일 인증하기</Link>
             </p>
+          ) : null}
+          {showPasswordChange ? (
+            <div className="my-page__password-change">
+              <h2 style={{ fontSize: '1.1rem', marginTop: '1.25rem' }}>비밀번호 변경</h2>
+              <p className="helper" style={{ marginTop: '0.35rem' }}>
+                등록 이메일로 6자리 인증코드를 받은 뒤, 아래에 입력하고 새 비밀번호를 설정합니다.
+              </p>
+              <p style={{ marginTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={pwdCodeBusy}
+                  onClick={() => void handleRequestPasswordCode()}
+                >
+                  {pwdCodeBusy ? '발송 중…' : '인증코드 받기'}
+                </button>
+              </p>
+              {pwdMessage ? (
+                <p className="helper" role="status" style={{ marginTop: '0.5rem' }}>
+                  {pwdMessage}
+                </p>
+              ) : null}
+              {pwdError ? <p className="error" style={{ marginTop: '0.5rem' }}>{pwdError}</p> : null}
+              <form className="my-page__password-change-form" onSubmit={handlePasswordChangeSubmit}>
+                <label className="my-page__password-change-label">
+                  이메일 인증코드 (6자리)
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={8}
+                    value={pwdCode}
+                    onChange={(e) => setPwdCode(e.target.value)}
+                    placeholder="123456"
+                  />
+                </label>
+                <label className="my-page__password-change-label">
+                  새 비밀번호
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={pwdNew}
+                    onChange={(e) => setPwdNew(e.target.value)}
+                    minLength={8}
+                  />
+                </label>
+                <label className="my-page__password-change-label">
+                  새 비밀번호 확인
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={pwdConfirm}
+                    onChange={(e) => setPwdConfirm(e.target.value)}
+                    minLength={8}
+                  />
+                </label>
+                <button type="submit" className="button-primary" disabled={pwdSubmitBusy}>
+                  {pwdSubmitBusy ? '변경 중…' : '비밀번호 변경'}
+                </button>
+              </form>
+            </div>
           ) : null}
           <p className="helper">
             <Link to="/restaurants/manage/new">BroG 작성</Link>

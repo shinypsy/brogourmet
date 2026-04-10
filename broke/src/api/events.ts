@@ -9,17 +9,24 @@ export type SiteEventRead = {
   body: string
   is_active: boolean
   created_at: string
+  /** 없음·null: 상단 티커 전역. 있으면 해당 BroG 메인 리스트 카드 스티커 + 상세 본문 */
+  restaurant_id?: number | null
 }
 
 export async function fetchEventTicker(): Promise<{ text: string }> {
   return requestJson<{ text: string }>('/events/ticker')
 }
 
-export async function createSiteEvent(token: string, body: string): Promise<SiteEventRead> {
+export async function createSiteEvent(
+  token: string,
+  body: string,
+  opts?: { restaurant_id?: number | null },
+): Promise<SiteEventRead> {
+  const restaurant_id = opts?.restaurant_id != null && opts.restaurant_id >= 1 ? opts.restaurant_id : null
   return requestJson<SiteEventRead>('/events', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, restaurant_id }),
   })
 }
 
