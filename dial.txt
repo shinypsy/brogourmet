@@ -979,3 +979,7 @@ Gee: git에 일단 공개해서 올려
 브로(AI):
 - 반영됨 (확인) — GitHub API 기준 **`shinypsy/brogourmet`**는 이미 **`public`**(`private: false`). **`origin/main`** 최신 푸시 상태면 웹에서 바로 열람 가능. 비공개였다면 **Settings → General → Danger zone → Change repository visibility → Public** (또는 `gh repo edit shinypsy/brogourmet --visibility public`).
 
+Gee: ok..내일 전부 다운받아서 재정리할거니깐. 수고했어
+브로(AI):
+- 반영됨 — 내일 **저장소 전체·백업** 받아서 재정리 진행 확인. 이어서 손볼 때 말해 주면 그때 같이 맞추면 돼. Gee도 수고 많았어.
+
