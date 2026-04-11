@@ -12,9 +12,11 @@ import {
 import { BrogRankCard } from '../components/BrogRankCard'
 import { BrogRankGridCarousel } from '../components/BrogRankGridCarousel'
 import {
+  BROG_DISTRICT_ALL,
   brogDistrictOptionsForUi,
   clampBrogDistrictForPhase1,
   isBrogPhase1Restricted,
+  parseBrogDistrictUrlParam,
 } from '../lib/brogPhase1'
 import {
   BROG_LIST_REFRESH_STATE_KEY,
@@ -23,23 +25,19 @@ import {
 import { BROG_MAIN_MENU_PRICE_MAX_OPTIONS } from '../lib/mainMenuPriceMaxFilterOptions'
 import { assumeAdminUi, canManageBrogForDistrict, canSoftDeleteBrogListing } from '../lib/roles'
 
-const DEFAULT_DISTRICT = '마포구'
-
 export function BrogListPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const city = searchParams.get('city') ?? '서울특별시'
-  const districtRaw = searchParams.get('district') ?? DEFAULT_DISTRICT
-  const district = clampBrogDistrictForPhase1(districtRaw)
+  const districtUrlRaw = searchParams.get('district')
+  const district = clampBrogDistrictForPhase1(parseBrogDistrictUrlParam(districtUrlRaw))
 
   useEffect(() => {
-    if (!isBrogPhase1Restricted()) return
-    const next = clampBrogDistrictForPhase1(districtRaw)
-    if (next !== districtRaw) {
-      setSearchParams({ city, district: next }, { replace: true })
+    if ((districtUrlRaw ?? '') !== district) {
+      setSearchParams({ city, district }, { replace: true })
     }
-  }, [city, districtRaw, setSearchParams])
+  }, [city, districtUrlRaw, district, setSearchParams])
 
   const setDistrict = useCallback(
     (gu: string) => {
@@ -107,7 +105,10 @@ export function BrogListPage() {
       if (cancelled) return
       setIsListLoading(true)
       setListError('')
-      void fetchRestaurants({ district, max_price: maxPrice })
+      void fetchRestaurants({
+        ...(district !== BROG_DISTRICT_ALL ? { district } : {}),
+        max_price: maxPrice,
+      })
         .then((data) => {
           if (!cancelled) setRestaurants(data)
         })

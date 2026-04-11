@@ -42,11 +42,21 @@ BroGourmet run.txt
 ================================================================================
 [3] 자주 쓰는 경로·파일
 ================================================================================
-  dial.txt          — 대화·규칙 기록 (brogourmet 루트)
+  dial\dial_YYYY-MM-dd.txt — KST 당일 일일 로그(Gee 원문 전체·브로는 단답 우선; 의견·최종그림 주요 답은 브로 전문). 맨 끝에만 추가. 규칙4·send_dial 첨부 기본 대상(미설정 시 KST 오늘 날짜 파일명).
+  dial\dial_0411.txt — 4월 월 규칙 스냅샷(규칙1~4·확정 목록·아카이브 절차만). Cursor 답 전 Read에 일일 파일과 함께 사용.
+  dial\dial_04_w1.txt 등 — 주간: 매일 일일 dial에서 **해당일 요약**을 쌓음. w1에는 최종본 향 주요 변경·방향 이슈(재논의)를 특히 기입.
+  dial\dial_04_month.txt — 월간: 같은 달 w1~w5 핵심만 압축.
+  dial\dial_old.txt — 2026-04-11 이전 dial 전체(루트에 두던 시절 백업).
   API_key.txt       — 카카오·API 키 안내 (비밀값은 파일에 적지 말 것)
   gourmet\.env      — DB, SMTP, BROG_UPLOAD_DIR·MYG_UPLOAD_DIR·레거시 평면(COMMUNITY_IMAGE_DIR) 등
   broke\.env        — VITE_API_BASE_URL, VITE_KAKAO_MAP_APP_KEY, VITE_KAKAO_REST_API_KEY
                       선택: VITE_ASSUME_ADMIN_UI=1 → 로컬에서도 전 화면을 관리자 UI처럼(기본은 끔, 계정별 역할로 메뉴 구분)
+  dial\archive\     — 선택: 수동 백업용(일일 자동 회전 없음).
+  scripts\dial_auto.ps1 — KST 기준: 당일 dial\dial_YYYY-MM-dd.txt 없으면 생성; 해당 월 dial\dial_MM_wN.txt·dial\dial_MM_month.txt 없으면 껍데기 생성.
+                      수동: 저장소 루트에서  powershell -File scripts\dial_auto.ps1
+                      미리보기:  powershell -File scripts\dial_auto.ps1 -WhatIf
+  scripts\register_dial_schedule.ps1 — Windows 작업 스케줄러에 매일 00:05(로컬) dial_auto 실행 등록(PC 표준시간대 서울 권장).
+  환경변수 BROG_DIAL_MAIL_FILE — 메일 첨부 파일명 강제 지정(`dial\` 아래). 미설정 시 KST 당일 `dial_YYYY-MM-dd.txt`가 기본.
 
 ================================================================================
 [4] 업로드 이미지 저장
@@ -80,3 +90,28 @@ BroGourmet run.txt
     - JavaScript 키 → broke VITE_KAKAO_MAP_APP_KEY, REST 키 → VITE_KAKAO_REST_API_KEY
   CLOVA 연동: gourmet .env 에 CLOVA_OCR_* 설정 후 broke 에 VITE_USE_CLOVA_OCR=1, API 재시작
   브라우저 OCR만 써 볼 때: http://localhost:5173/ocr-lab.html (토큰 + JPEG/PNG)
+
+================================================================================
+[7] 테스트 배포(프론트 빌드·백엔드 공개 URL) — 점메추 게임 /game 포함
+================================================================================
+  프론트(broke) 프로덕션 빌드
+    cd d:\Dev\Project\brogourmet\broke
+    npm run build
+    npm run preview
+    → http://localhost:5173 (빌드본 미리보기). SPA 이므로 정적 호스팅 시 **모든 경로를 index.html로** 넘기도록 설정.
+
+  정적 호스팅 예 (Vercel·Netlify·S3+CloudFront 등)
+    - 빌드 명령: npm run build
+    - 출력 디렉터리: dist
+    - 환경 변수(빌드 시 주입): VITE_API_BASE_URL=https://(백엔드 공개 URL)
+                              VITE_KAKAO_MAP_APP_KEY, VITE_KAKAO_REST_API_KEY
+    - 카카오 개발자 콘솔: 배포 도메인을 Web 플랫폼에 등록(로컬과 별도).
+
+  백엔드(gourmet)
+    - 공개 서버에서 uvicorn(또는 gunicorn+uvicorn worker) + HTTPS 권장.
+    - DATABASE_URL·업로드 디렉터리를 배포 환경에 맞게 설정.
+    - CORS: 기본은 localhost:5173 등 로컬만. 프론트를 다른 도메인에 두면 gourmet .env 에
+      BROG_CORS_EXTRA_ORIGINS=https://(프론트_공개_URL)  (여러 개는 쉼표)
+    - broke는 빌드 시점에 VITE_API_BASE_URL이 박히므로, URL을 바꾸면 **다시 빌드**해야 함.
+
+  점메추 사다리(/game): 위치 권한이 없으면 화면에서 **좌표 직접 입력** 또는 **서울 시청 데모**로 진행 가능.

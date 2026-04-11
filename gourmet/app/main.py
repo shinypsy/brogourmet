@@ -53,16 +53,26 @@ from app.seed import ensure_mapo_brog_demo_restaurants, seed_districts, seed_res
 
 logger = logging.getLogger(__name__)
 
+
+def _cors_extra_origins_from_env() -> frozenset[str]:
+    """테스트·스테이징 배포 URL 등 — 쉼표 구분, 예: https://app.vercel.app,https://staging.example.com"""
+    raw = os.environ.get("BROG_CORS_EXTRA_ORIGINS", "").strip()
+    if not raw:
+        return frozenset()
+    return frozenset(o.strip() for o in raw.split(",") if o.strip())
+
+
 _CORS_ORIGIN_RE = re.compile(
     r"^http://(127\.0\.0\.1|localhost|192\.168\.\d{1,3}\.\d{1,3}):5173$",
 )
-_CORS_ORIGINS = frozenset(
+_CORS_ORIGINS_BASE = frozenset(
     {
         "http://127.0.0.1:5173",
         "http://localhost:5173",
         "http://192.168.0.250:5173",
     },
 )
+_CORS_ORIGINS = _CORS_ORIGINS_BASE | _cors_extra_origins_from_env()
 
 
 def _cors_headers_for_request(request: Request) -> dict[str, str]:
@@ -120,11 +130,7 @@ app = FastAPI(title="Brogourmet API", lifespan=lifespan)
 app.add_middleware(UnhandledExceptionCorsMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        "http://192.168.0.250:5173",
-    ],
+    allow_origins=sorted(_CORS_ORIGINS),
     allow_origin_regex=r"^http://(127\.0\.0\.1|localhost|192\.168\.\d{1,3}\.\d{1,3}):5173$",
     allow_credentials=True,
     allow_methods=["*"],

@@ -15,13 +15,16 @@ if (Test-Path $mailPy) {
 
 . "$PSScriptRoot\smtp_config.ps1"
 
+$tziKst = [System.TimeZoneInfo]::FindSystemTimeZoneById("Korea Standard Time")
+$kstTodayStr = [System.TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $tziKst).ToString("yyyy-MM-dd")
 $today    = Get-Date -Format "yyyy-MM-dd"
-$dialPath = "$PSScriptRoot\dial.txt"
+$dialMail = if ($env:BROG_DIAL_MAIL_FILE) { $env:BROG_DIAL_MAIL_FILE.Trim() } else { "dial_$kstTodayStr.txt" }
+$dialPath = "$PSScriptRoot\dial\$dialMail"
 $ipPath   = "$PSScriptRoot\IP_dial.txt"
 $attachments = @()
 
 if (-not (Test-Path $dialPath)) {
-    Write-Host "dial.txt not found"
+    Write-Host "dial file not found: $dialPath"
     exit 1
 }
 $attachments += $dialPath

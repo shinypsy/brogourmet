@@ -1,5 +1,5 @@
-# 규칙4: 그날 작업 git 동기화 후 dial.txt 메일 발송
-# 사용: dial 맨 끝에 `<N월N일 요약>` 작성 저장한 뒤  .\finish_day.ps1
+# 규칙4: 그날 작업 git 동기화 후 당일 일일 dial 메일 발송 (send_dial.ps1 → KST dial_YYYY-MM-dd.txt)
+# 사용: 당일 dial 맨 끝에 `<N월N일 요약>` 작성 저장한 뒤  .\finish_day.ps1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot

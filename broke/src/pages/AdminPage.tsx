@@ -34,7 +34,7 @@ export function AdminPage() {
   const [busyUserId, setBusyUserId] = useState<number | null>(null)
   const [busyRestaurantId, setBusyRestaurantId] = useState<number | null>(null)
   const [busyFranchiseId, setBusyFranchiseId] = useState<number | null>(null)
-  /** null = 전체 구 */
+  /** null = 전체 보기(필터 없음) */
   const [restaurantDistrictFilter, setRestaurantDistrictFilter] = useState<number | null>(null)
   const [noticeForm, setNoticeForm] = useState<SiteNoticeDraft[]>([
     { slot: 1, title: '', body: '' },

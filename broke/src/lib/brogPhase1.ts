@@ -3,10 +3,13 @@
  * 레거시 이름(`isBrogPhase1Restricted` 등)은 호환용 별칭으로 유지.
  */
 export {
+  BROG_DISTRICT_ALL,
   STAGE1_DEFAULT_DISTRICT as BROG_PHASE1_DISTRICT,
   brogDistrictOptionsForUi,
   clampStage1District as clampBrogDistrictForPhase1,
+  isBrogAllDistrictsSelection,
   isFullMapDeploy,
+  parseBrogDistrictUrlParam,
   isStage1LimitedDistricts as isBrogPhase1Restricted,
 } from './deployStage1'
 

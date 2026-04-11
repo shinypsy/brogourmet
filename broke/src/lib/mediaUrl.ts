@@ -15,7 +15,18 @@ export function firstRestaurantListImageUrl(r: {
   return single || null
 }
 
-/** 업로드 경로(`/uploads/…`)는 API 호스트를 붙여 표시 */
+function parseApiBase(): URL | null {
+  try {
+    return new URL(API_BASE_URL)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 업로드 경로(`/uploads/…`)는 API 호스트 기준으로 표시.
+ * DB에 `http://localhost:8000/uploads/...` 처럼 저장돼 있고 실제 API는 `:8001`인 경우 등 호스트/포트 불일치를 맞춤.
+ */
 export function resolveMediaUrl(url: string | null | undefined): string {
   if (!url) return ''
   let t = url.trim()
@@ -23,7 +34,22 @@ export function resolveMediaUrl(url: string | null | undefined): string {
   if (t.startsWith('//')) {
     t = `https:${t}`
   }
-  if (t.startsWith('http://') || t.startsWith('https://')) return t
+  if (t.startsWith('http://') || t.startsWith('https://')) {
+    try {
+      const u = new URL(t)
+      if (!u.pathname.startsWith('/uploads')) return t
+      const apiBase = parseApiBase()
+      if (!apiBase) return t
+      const loopback =
+        u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]'
+      if (loopback || u.hostname === apiBase.hostname) {
+        return `${apiBase.origin}${u.pathname}${u.search}${u.hash}`
+      }
+    } catch {
+      /* ignore */
+    }
+    return t
+  }
   if (t.startsWith('/')) return `${API_BASE_URL}${t}`
   // DB에 `uploads/brog/…` 처럼 선행 슬래시 없이 들어간 경우 — Vite origin으로 가지 않게 API 붙임
   if (t.startsWith('uploads/')) return `${API_BASE_URL}/${t}`

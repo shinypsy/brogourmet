@@ -288,32 +288,56 @@ input {
 }
 
 .topbar nav.main-nav {
-  /* 줄 바꿈 시에도 각 행이 같은 왼쪽 기준선에서 시작(우측으로 밀리는 느낌 방지) */
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  align-content: flex-start;
-  gap: 8px;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  /* Logout 버튼 기준 너비 — 그리드 셀과 동일 */
+  --main-nav-item-width: 5.5rem;
+  gap: 16px;
   justify-self: end;
   width: max-content;
-  max-width: min(720px, 100%);
+  max-width: 100%;
   box-sizing: border-box;
+}
+
+/* 4열 × 최소 2행, Login/Logout은 그리드 바깥 맨 우측 */
+.main-nav__grid {
+  display: grid;
+  grid-template-columns: repeat(4, var(--main-nav-item-width));
+  grid-template-rows: repeat(2, auto);
+  grid-auto-rows: auto;
+  gap: 16px;
+  align-content: start;
+}
+
+.main-nav__auth {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.main-nav-item--auth {
+  align-self: stretch;
 }
 
 .main-nav-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 9px 4px;
+  box-sizing: border-box;
+  width: var(--main-nav-item-width, 5.5rem);
+  min-width: var(--main-nav-item-width, 5.5rem);
+  max-width: var(--main-nav-item-width, 5.5rem);
+  padding: 9px 10px;
   border: 1px solid var(--gold-dim);
-  border-radius: 999px;
+  border-radius: 8px;
   background: rgba(18, 22, 36, 0.88);
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--cream);
   text-decoration: none;
   white-space: nowrap;
-  min-width: 0;
 }
 
 .main-nav-item--button {
@@ -2173,6 +2197,21 @@ button.compact-link.danger-text {
   margin-bottom: 16px;
 }
 
+/* 홈(그리드 레이아웃)에서 지도 컨테이너 높이가 수축해 빈 영역처럼 보이는 경우 방지 */
+.home-layout--map-home .map-layout--brog {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.home-layout--map-home .kakao-map-embed {
+  min-height: min(48vh, 440px);
+}
+
+.home-layout--map-home .map-page-map-section {
+  min-width: 0;
+}
+
 /* BroG/MyG 지도: 홈과 동일 UX(내 위치 버튼), 크기는 아래 --below 유지 */
 .kakao-map-embed {
   position: relative;
@@ -2207,9 +2246,15 @@ button.compact-link.danger-text {
   color: var(--text-muted);
 }
 
+/* 지도(아래 배치)·점메추 사다리 SVG 구역 — 높이 동일 유지 */
+:root {
+  --kakao-map-below-min-height: 360px;
+  --kakao-map-below-height: min(48vh, 440px);
+}
+
 .kakao-map-container--below {
-  min-height: 360px;
-  height: min(48vh, 440px);
+  min-height: var(--kakao-map-below-min-height);
+  height: var(--kakao-map-below-height);
   margin-top: 0;
 }
 
@@ -3042,6 +3087,43 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   font-size: 0.88rem;
 }
 
+/* MyG 리스트: BroG 지도와 동일 map-page-toolbar 필터 행 + 안내 문단 */
+.myg-board-toolbar.map-page-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px 14px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.myg-board-toolbar .map-page-toolbar__filters-row {
+  width: 100%;
+  margin-bottom: 0;
+  gap: 10px 14px;
+}
+
+.myg-board-toolbar .map-page-toolbar__filter {
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.myg-board-toolbar .price-filter {
+  margin-bottom: 0;
+  gap: 4px;
+}
+
+.myg-board-toolbar .price-filter select {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+.myg-board-toolbar__notes {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .brog-list-body__count {
   margin: 4px 0 14px;
   font-size: 0.92rem;
@@ -3710,8 +3792,15 @@ form.brog-detail__comment-form {
 
   .topbar nav.main-nav {
     justify-self: stretch;
-    width: auto;
+    width: 100%;
     max-width: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .main-nav__grid {
+    grid-template-columns: repeat(4, minmax(4.25rem, var(--main-nav-item-width)));
   }
 
   .map-hero,
@@ -4438,6 +4527,25 @@ form.brog-detail__comment-form {
   max-width: 40rem;
 }
 
+.game-page__geo-fallback {
+  margin-bottom: 20px;
+  max-width: 52rem;
+}
+
+.game-page__manual-coords-intro {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.game-page__manual-coords {
+  margin-top: 4px;
+}
+
+.game-page__demo-seoul {
+  margin-top: 12px;
+}
+
 .game-page__geo-error {
   display: flex;
   flex-wrap: wrap;
@@ -4455,14 +4563,96 @@ form.brog-detail__comment-form {
   margin: 18px 0 20px;
 }
 
+.game-page__ladder-card {
+  margin: 18px 0 20px;
+}
+
+.game-page__ladder-card .map-page-map-section__title {
+  margin-top: 0;
+}
+
 .game-page__map-fallback {
   margin: 12px 0 16px;
   font-size: 0.88rem;
 }
 
+/* Kakao CustomOverlay — 점메추 7곳 말풍선(지도 컨테이너 내부) */
+.brog-map-speech-anchor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.brog-map-speech-spacer {
+  height: 48px;
+  width: 1px;
+  flex-shrink: 0;
+}
+
+.brog-map-speech-bubble {
+  position: relative;
+  max-width: 9.5rem;
+  margin-bottom: 2px;
+  padding: 6px 10px 8px;
+  border-radius: 10px;
+  background: #ffeb3b;
+  border: 1px solid #fbc02d;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #0d47a1;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.brog-map-speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #fbc02d;
+}
+
+.brog-map-speech-bubble__win {
+  font-weight: 800;
+  font-size: 0.72rem;
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+}
+
+.brog-map-speech-bubble__name {
+  font-weight: 700;
+  color: #0d47a1;
+}
+
+.brog-map-speech-bubble--winner {
+  background: #d32f2f;
+  border-color: #b71c1c;
+  color: #fff;
+  box-shadow: 0 2px 14px rgba(183, 28, 28, 0.45);
+}
+
+.brog-map-speech-bubble--winner::after {
+  border-top-color: #b71c1c;
+}
+
+.brog-map-speech-bubble--winner .brog-map-speech-bubble__win,
+.brog-map-speech-bubble--winner .brog-map-speech-bubble__name {
+  color: #fff;
+}
+
 .ladder-game {
-  margin-top: 8px;
-  padding: 18px 0 28px;
+  margin-top: 0;
+  padding: 0 0 12px;
+}
+
+/* 번호·사다리·하단 슬롯 동일 가로 기준(패딩 없이 한 덩어리) */
+.game-page__ladder-card .ladder-game__chart {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ladder-game__toolbar {
@@ -4473,79 +4663,57 @@ form.brog-detail__comment-form {
   font-size: 0.88rem;
 }
 
-.ladder-game__labels {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-  align-items: stretch;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  -webkit-overflow-scrolling: touch;
+/* 상단 번호·하단 슬롯 — SVG 세로줄과 동일 % (7–93 구간) */
+.ladder-game__column-strip {
+  position: relative;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 6px;
 }
 
-.ladder-game__labels > * {
-  flex: 1 1 0;
-  min-width: 72px;
+.ladder-game__column-strip--bottom {
+  margin-bottom: 0;
+  margin-top: 10px;
+  min-height: 56px;
 }
 
-.ladder-game__labels--top {
-  margin-bottom: 8px;
-}
-
-.ladder-game__labels--bottom {
-  margin-top: 8px;
-}
-
-.ladder-game__pick {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border-radius: 12px;
-  border: 1px solid var(--gold-dim);
-  background: rgba(16, 20, 34, 0.88);
-  color: var(--cream);
+.ladder-game__pick-num-only {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--gold-dim);
+  background: rgba(16, 20, 34, 0.92);
+  color: #f0c27a;
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1;
   cursor: pointer;
-  text-align: center;
-  min-width: 0;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition:
     border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    background 0.15s ease;
 }
 
-.ladder-game__pick:hover {
-  border-color: rgba(212, 175, 55, 0.45);
+.ladder-game__pick-num-only:hover {
+  border-color: rgba(212, 175, 55, 0.5);
 }
 
-.ladder-game__pick--active {
-  border-color: rgba(201, 162, 39, 0.75);
-  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2);
+.ladder-game__pick-num-only--active {
+  border-color: rgba(201, 162, 39, 0.9);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.22);
+  background: rgba(40, 52, 82, 0.85);
 }
 
-.ladder-game__pick--running {
-  background: rgba(40, 55, 90, 0.55);
-}
-
-.ladder-game__pick-num {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--gold-soft);
-}
-
-.ladder-game__pick-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.ladder-game__pick-src {
-  font-size: 0.62rem;
-  color: var(--text-muted);
+.ladder-game__pick-num-only--running {
+  color: #ffe082;
 }
 
 .ladder-game__svg-wrap {
@@ -4558,11 +4726,29 @@ form.brog-detail__comment-form {
   padding: 8px;
 }
 
+.game-page__ladder-card .ladder-game__svg-wrap {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  min-height: var(--kakao-map-below-min-height);
+  height: var(--kakao-map-below-height);
+  box-sizing: border-box;
+  /* 가로 패딩 제거 → 상·하단 줄과 SVG 세로선 % 동일선상 */
+  padding: 6px 0;
+}
+
 .ladder-game__svg {
   width: 100%;
   height: auto;
   display: block;
   min-height: 180px;
+}
+
+.game-page__ladder-card .ladder-game__svg {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: block;
 }
 
 .ladder-game__vline {
@@ -4596,6 +4782,21 @@ form.brog-detail__comment-form {
   justify-content: center;
 }
 
+.ladder-game__slot--link {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  max-width: min(7.5rem, 22vw);
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.ladder-game__slot--link:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+}
+
 .ladder-game__slot--hit {
   border-color: rgba(250, 204, 21, 0.55);
   background: rgba(55, 48, 20, 0.45);
@@ -4616,6 +4817,12 @@ form.brog-detail__comment-form {
   margin-top: 18px;
   display: flex;
   justify-content: center;
+}
+
+.ladder-game__cta {
+  min-width: 10rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 999px;
 }
 
 .ladder-game__actions .primary-link {

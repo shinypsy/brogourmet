@@ -1,5 +1,13 @@
 export type Rung = { row: number; leftCol: number }
 
+/** 세로 방향 사다리 칸(가로발이 놓일 줄) 개수 — 이전 대비 약 80%로 11~30 랜덤 */
+export const LADDER_ROW_MIN = 11
+export const LADDER_ROW_MAX = 30
+
+export function randomLadderRowCount(): number {
+  return LADDER_ROW_MIN + Math.floor(Math.random() * (LADDER_ROW_MAX - LADDER_ROW_MIN + 1))
+}
+
 /** 인접한 가로줄이 같은 행에서 맞닿지 않도록 사다리 가로발을 만듭니다. */
 export function generateSadariRungs(numLines: number, numRows: number): Rung[] {
   const rungs: Rung[] = []

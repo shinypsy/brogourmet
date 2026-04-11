@@ -1,0 +1,15 @@
+BroGourmet dial_2026-04-11.txt
+KST 2026-04-11 — 일일 대화. 규칙·확정 목록은 월 스냅샷(4월 dial_0411.txt) 참고. 맨 끝에만 Gee:/브로(AI): 추가.
+
+--- 본문 ---
+
+Gee: 규칙1을 수정해줘. dial은 dial_날짜 형식으로 매일 새로 생성한다. 매일 gee가 얘기하는 것을 그대로 적는다. 브로의 답변은 적용함, code적용 등의 되도록 단답형의 답변으로 기록한다. 내가 의견을 구하거나 최종그림의 주요 내용이 되면 브로의 답변도 정확히 기록한다.  매일 생성하는 dial을 w1, w2등의 주간 다이얼에 해당일의 요약 내용을 적는다. w1~w5까지의 주간파일의 핵심 요약 내용을 month 파일에 요약한다. w1에 주로 기입되어야 하는 주요 내용은 최종본으로 가기 위해 업데이트된 주요변경 내용 기입이며, 방향성에 문제가 생길 시 다시 논의 되어야 한다.
+브로(AI):
+- 「규칙1·일일 dial_날짜·Gee 원문·브로 단답·의견/최종그림 시 브로 전문·주간 일별 요약·월간 w1~w5 압축·w1 역할」→ **코드적용** — dial_0411 규칙/확정/아카이브/규칙4 정리, dial-before-reply, send_dial·send_dial_mail(KST dial_YYYY-MM-dd 기본), dial_auto(일일 생성), run.txt, finish_day 주석.
+
+<4월11일 요약>
+- 최종본_규칙.txt: BroG·MyG 역할(서버 SoT vs 개인/로컬), 폰 BroG 온라인만(1차), BroG→MyG·MyG→BroG UX(자동 등록 실패 시 BroG 작성 화면 안내), 웹·향후 앱, 「전체 보기」통일. 문서 운칙: 본문 수정·합의 시 변경 기록에 YYYY-MM-DD 필수 누적.
+- 임시서버.txt: 집 데스크탑 임시 서버 — 백업(.env·pg_dump·uploads)·신규 PC 설치 순서·PostgreSQL·gourmet venv·uvicorn 0.0.0.0·broke 빌드·preview·CORS·방화벽·LAN 휴대폰 확인 체크리스트.
+- broke 코드: 상단 nav 4×2+Logout 우측·너비/모서리/gap 조정. BroG 구 「전체 보기」·API district 생략. MyG 리스트 map-page-toolbar·가격 필터. MyG 지도 전체보기·목록 필터. BroG 지도만 말풍선. KnownRestaurantPostEdit 지도 링크 기본 BROG_DISTRICT_ALL.
+- 제품 논의 정리: 폰 로컬 MyG(SQLite)·BroG 서버 읽기 전용 갱신, BroG→MyG 텍스트+이미지 URL, MyG→BroG 규칙화·실패 시 유도. 임시 서버=이 PC 가능(LAN/터널).
+- 규칙4: 본 블록 추가 후 finish_day.ps1(git 동기화·send_dial naver/gmail).

@@ -14,9 +14,10 @@ import { BrogKakaoMap } from './BrogKakaoMap'
 import { MapPageBrogImageGridList } from './MapPageBrogImageGridList'
 import { useSeoulMapUserLocation } from '../hooks/useSeoulMapUserLocation'
 import {
+  BROG_DISTRICT_ALL,
   brogDistrictOptionsForUi,
   clampBrogDistrictForPhase1,
-  isBrogPhase1Restricted,
+  parseBrogDistrictUrlParam,
 } from '../lib/brogPhase1'
 import { brogMygMapSectionHint } from '../lib/brogMygTwin'
 import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
@@ -25,8 +26,6 @@ import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
 import { BROG_MAIN_MENU_PRICE_MAX_OPTIONS } from '../lib/mainMenuPriceMaxFilterOptions'
 import { assumeAdminUi, canManageBrogForDistrict, canSoftDeleteBrogListing } from '../lib/roles'
 
-const DEFAULT_DISTRICT = '마포구'
-
 export type MapPageBodyProps = {
   /** true: `/map` — 구를 URL `district`와 동기화 */
   syncDistrictToSearchParams: boolean
@@ -34,21 +33,27 @@ export type MapPageBodyProps = {
   listPresentation?: 'textLines' | 'imageGrid'
   /** 설정 시 목록 API에 `limit` 전달(예: 홈 8건). */
   listFetchLimit?: number
+  /** true: 지도 깃발에 상호 말풍선 표시(`/map` 등). 홈 지도는 false 유지. */
+  mapSpeechBubbles?: boolean
 }
 
 export function MapPageBody({
   syncDistrictToSearchParams,
   listPresentation = 'textLines',
   listFetchLimit,
+  mapSpeechBubbles = false,
 }: MapPageBodyProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const city = searchParams.get('city') ?? '서울특별시'
-  const districtFromUrl = searchParams.get('district') ?? DEFAULT_DISTRICT
+  const districtUrlRaw = searchParams.get('district')
+  const districtFromCanonical = clampBrogDistrictForPhase1(parseBrogDistrictUrlParam(districtUrlRaw))
 
   const [district, setDistrictState] = useState(() =>
-    syncDistrictToSearchParams
-      ? clampBrogDistrictForPhase1(districtFromUrl)
-      : clampBrogDistrictForPhase1(DEFAULT_DISTRICT),
+    clampBrogDistrictForPhase1(
+      syncDistrictToSearchParams && typeof window !== 'undefined'
+        ? parseBrogDistrictUrlParam(new URLSearchParams(window.location.search).get('district'))
+        : BROG_DISTRICT_ALL,
+    ),
   )
   const [maxPrice, setMaxPrice] = useState(10000)
   const [restaurants, setRestaurants] = useState<RestaurantListItem[]>([])
@@ -65,16 +70,15 @@ export function MapPageBody({
 
   useEffect(() => {
     if (!syncDistrictToSearchParams) return
-    setDistrictState(clampBrogDistrictForPhase1(districtFromUrl))
-  }, [districtFromUrl, syncDistrictToSearchParams])
+    setDistrictState(districtFromCanonical)
+  }, [districtFromCanonical, syncDistrictToSearchParams])
 
   useEffect(() => {
-    if (!syncDistrictToSearchParams || !isBrogPhase1Restricted()) return
-    const next = clampBrogDistrictForPhase1(districtFromUrl)
-    if (next !== districtFromUrl) {
-      setSearchParams({ city, district: next }, { replace: true })
+    if (!syncDistrictToSearchParams) return
+    if ((districtUrlRaw ?? '') !== districtFromCanonical) {
+      setSearchParams({ city, district: districtFromCanonical }, { replace: true })
     }
-  }, [city, districtFromUrl, setSearchParams, syncDistrictToSearchParams])
+  }, [city, districtUrlRaw, districtFromCanonical, setSearchParams, syncDistrictToSearchParams])
 
   const setDistrict = useCallback(
     (gu: string) => {
@@ -184,7 +188,10 @@ export function MapPageBody({
     setIsListLoading(true)
     setListError('')
 
-    const base = { district, max_price: maxPrice } as const
+    const base = {
+      ...(district !== BROG_DISTRICT_ALL ? { district } : {}),
+      max_price: maxPrice,
+    } as const
     const useNearForListApi =
       nearIgnoreDistrict && nearLat != null && nearLng != null
     const params = useNearForListApi
@@ -263,6 +270,7 @@ export function MapPageBody({
         .map((r, idx) => ({
           id: r.id,
           title: r.name,
+          mapSpeechLabel: r.name,
           latitude: r.latitude as number,
           longitude: r.longitude as number,
           rank: idx + 1,
@@ -571,6 +579,7 @@ export function MapPageBody({
             mapAriaLabel="BroG 위치 지도"
             shellClassName="kakao-map-embed"
             canvasClassName="kakao-map-container kakao-map-container--below"
+            mapSpeechBubbles={mapSpeechBubbles}
           />
         ) : (
           <>

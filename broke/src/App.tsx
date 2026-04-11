@@ -132,75 +132,95 @@ function App() {
           <h1>고단한 미식가</h1>
         </div>
         <nav className="main-nav" aria-label="주 메뉴">
-          <Link className="main-nav-item" to="/">
-            Home
-          </Link>
-          <Link className="main-nav-item" to="/brog" {...navWarm}>
-            BroG
-          </Link>
-          {!BROG_ONLY ? (
-            <Link
-              className="main-nav-item"
-              to="/known-restaurants"
-              onMouseEnter={() => {
-                prefetch.mygList()
-                prefetch.mygMap()
-              }}
-              onFocus={() => {
-                prefetch.mygList()
-                prefetch.mygMap()
-              }}
-            >
-              MyG
+          <div className="main-nav__grid">
+            <Link className="main-nav-item" to="/">
+              Home
             </Link>
-          ) : null}
-          <Link className="main-nav-item" to="/game" onMouseEnter={prefetch.game} onFocus={prefetch.game}>
-            Game
-          </Link>
-          {!BROG_ONLY ? (
-            <>
-              <Link className="main-nav-item" to="/free-share" onMouseEnter={prefetch.freeShare} onFocus={prefetch.freeShare}>
-                Free
+            <Link className="main-nav-item" to="/brog" {...navWarm}>
+              BroG
+            </Link>
+            {!BROG_ONLY ? (
+              <Link
+                className="main-nav-item"
+                to="/known-restaurants"
+                onMouseEnter={() => {
+                  prefetch.mygList()
+                  prefetch.mygMap()
+                }}
+                onFocus={() => {
+                  prefetch.mygList()
+                  prefetch.mygMap()
+                }}
+              >
+                MyG
               </Link>
-              <Link className="main-nav-item" to="/payment" onMouseEnter={prefetch.payment} onFocus={prefetch.payment}>
-                Pay
+            ) : null}
+            <Link className="main-nav-item" to="/game" onMouseEnter={prefetch.game} onFocus={prefetch.game}>
+              Game
+            </Link>
+            {!BROG_ONLY ? (
+              <>
+                <Link
+                  className="main-nav-item"
+                  to="/free-share"
+                  onMouseEnter={prefetch.freeShare}
+                  onFocus={prefetch.freeShare}
+                >
+                  Free
+                </Link>
+                <Link
+                  className="main-nav-item"
+                  to="/payment"
+                  onMouseEnter={prefetch.payment}
+                  onFocus={prefetch.payment}
+                >
+                  Pay
+                </Link>
+              </>
+            ) : null}
+            {navUser && canWriteSiteEvents(navUser) ? (
+              <Link
+                className="main-nav-item"
+                to="/events/write"
+                onMouseEnter={prefetch.eventWrite}
+                onFocus={prefetch.eventWrite}
+              >
+                이벤트
               </Link>
-            </>
-          ) : null}
-          {navUser && canWriteSiteEvents(navUser) ? (
-            <Link
-              className="main-nav-item"
-              to="/events/write"
-              onMouseEnter={prefetch.eventWrite}
-              onFocus={prefetch.eventWrite}
-            >
-              이벤트
-            </Link>
-          ) : null}
-          {navUser && isSuperAdmin(navUser.role) ? (
-            <Link
-              className="main-nav-item"
-              to="/admin"
-              onMouseEnter={prefetch.admin}
-              onFocus={prefetch.admin}
-            >
-              관리자
-            </Link>
-          ) : null}
-          {hasToken ? (
-            <button
-              type="button"
-              className="main-nav-item main-nav-item--button"
-              onClick={logout}
-              title="Logout"
-            >
-              Logout
-            </button>
-          ) : (
-            <Link className="main-nav-item" to="/login" title="Login" onMouseEnter={prefetch.login} onFocus={prefetch.login}>
-              Login
-            </Link>
-          )}
+            ) : null}
+            {navUser && isSuperAdmin(navUser.role) ? (
+              <Link
+                className="main-nav-item"
+                to="/admin"
+                onMouseEnter={prefetch.admin}
+                onFocus={prefetch.admin}
+              >
+                관리자
+              </Link>
+            ) : null}
+          </div>
+          <div className="main-nav__auth">
+            {hasToken ? (
+              <button
+                type="button"
+                className="main-nav-item main-nav-item--button main-nav-item--auth"
+                onClick={logout}
+                title="Logout"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link
+                className="main-nav-item main-nav-item--auth"
+                to="/login"
+                title="Login"
+                onMouseEnter={prefetch.login}
+                onFocus={prefetch.login}
+              >
+                Login
+              </Link>
+            )}
+          </div>
         </nav>
       </header>
 

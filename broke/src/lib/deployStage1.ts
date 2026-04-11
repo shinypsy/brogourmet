@@ -1,5 +1,13 @@
 import { seoulDistricts } from '../data/regions'
 
+/** BroG 홈·지도·리스트·MyG: 구 미선택 = 서울 전체(백엔드는 stage1이면 허용 구 전부). */
+export const BROG_DISTRICT_ALL = '전체 보기' as const
+
+/** 예전 URL·북마크 호환 */
+const LEGACY_BROG_DISTRICT_ALL_LABEL = '전체보기'
+
+const SEOUL_DISTRICT_SET = new Set<string>(seoulDistricts)
+
 /** 1단계 테스트·시범 배포: 구 선택 범위만 한정. gourmet `deploy_stage1.py` 와 맞출 것. */
 /** gourmet `app/core/deploy_stage1.py` DEFAULT_STAGE1_DISTRICTS 와 동일 (순서·이름 유지). */
 export const DEPLOY_STAGE1_DISTRICTS = [
@@ -30,16 +38,35 @@ export function isStage1LimitedDistricts(): boolean {
 
 export const STAGE1_DEFAULT_DISTRICT: DeployStage1District = '마포구'
 
+/** URL `district` 빈 값·누락 시 기본(전체 보기). 예전 `전체보기`·MyG `all` 은 정규화합니다. */
+export function parseBrogDistrictUrlParam(raw: string | null): string {
+  if (raw == null || raw.trim() === '') return BROG_DISTRICT_ALL
+  const t = raw.trim()
+  if (t === LEGACY_BROG_DISTRICT_ALL_LABEL || t === 'all') return BROG_DISTRICT_ALL
+  return t
+}
+
+export function isBrogAllDistrictsSelection(district: string): boolean {
+  const t = district.trim()
+  return t === BROG_DISTRICT_ALL || t === LEGACY_BROG_DISTRICT_ALL_LABEL || t === 'all'
+}
+
 export function clampStage1District(district: string): string {
-  if (!isStage1LimitedDistricts()) return district
-  if (STAGE1_SET.has(district)) return district
-  return STAGE1_DEFAULT_DISTRICT
+  let d = district.trim()
+  if (d === LEGACY_BROG_DISTRICT_ALL_LABEL || d === 'all') d = BROG_DISTRICT_ALL
+  if (d === '' || d === BROG_DISTRICT_ALL) return BROG_DISTRICT_ALL
+  if (!isStage1LimitedDistricts()) {
+    if (SEOUL_DISTRICT_SET.has(d)) return d
+    return BROG_DISTRICT_ALL
+  }
+  if (STAGE1_SET.has(d)) return d
+  return BROG_DISTRICT_ALL
 }
 
 /** BroG 홈·지도·리스트 구 셀렉트 */
 export function brogDistrictOptionsForUi(): readonly string[] {
-  if (!isStage1LimitedDistricts()) return [...seoulDistricts]
-  return [...DEPLOY_STAGE1_DISTRICTS]
+  const rest = isStage1LimitedDistricts() ? [...DEPLOY_STAGE1_DISTRICTS] : [...seoulDistricts]
+  return [BROG_DISTRICT_ALL, ...rest]
 }
 
 /** MyG 지도 등 BroG와 동일 범위 */

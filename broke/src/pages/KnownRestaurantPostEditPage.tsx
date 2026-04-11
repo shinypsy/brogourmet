@@ -28,7 +28,7 @@ import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeo
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
 import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
 import { assumeAdminUi, canDeleteKnownRestaurantPost, canEditCommunityPost } from '../lib/roles'
-import { STAGE1_DEFAULT_DISTRICT } from '../lib/deployStage1'
+import { BROG_DISTRICT_ALL } from '../lib/deployStage1'
 
 const MAX_IMAGES = 5
 
@@ -42,7 +42,7 @@ function mygListHref(post: KnownRestaurantPost | null): string {
 }
 
 function mygMapHref(post: KnownRestaurantPost | null): string {
-  const d = post?.district?.trim() || STAGE1_DEFAULT_DISTRICT
+  const d = post?.district?.trim() || BROG_DISTRICT_ALL
   return `/known-restaurants/map?district=${encodeURIComponent(d)}`
 }
 

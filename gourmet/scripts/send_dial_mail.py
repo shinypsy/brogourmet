@@ -1,12 +1,15 @@
 """
-dial.txt (및 선택 IP_dial.txt) 를 gourmet/.env 의 SMTP 설정으로 발송.
+dial/일일 로그 .txt (KST 당일 dial_YYYY-MM-dd.txt 기본, 환경변수 BROG_DIAL_MAIL_FILE 로 덮어쓰기)
+및 선택 IP_dial.txt 를 gourmet/.env 의 SMTP 설정으로 발송.
 가입 인증 메일과 동일하게 SMTP_USER + 앱 비밀번호로 로그인한다.
 """
 
 from __future__ import annotations
 
+import os
 import sys
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -30,10 +33,19 @@ from app.services.verification_smtp import (  # noqa: E402
 DIAL_RECIPIENTS = ("shinypsy@naver.com", "shinypsy@gmail.com")
 
 
+def _dial_mail_filename() -> str:
+    env = os.environ.get("BROG_DIAL_MAIL_FILE", "").strip()
+    if env:
+        return env
+    kst = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
+    return f"dial_{kst}.txt"
+
+
 def main() -> int:
-    dial_path = REPO / "dial.txt"
+    dial_mail_file = _dial_mail_filename()
+    dial_path = REPO / "dial" / dial_mail_file
     if not dial_path.is_file():
-        print("dial.txt not found")
+        print(f"dial/{dial_mail_file} not found")
         return 1
 
     try:
@@ -49,7 +61,7 @@ def main() -> int:
     ip_path = REPO / "IP_dial.txt"
     send_ip = ip_path.is_file()
 
-    today = date.today().isoformat()
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat()
     body = f"BroGourmet {today} dial log attached."
     if send_ip:
         body += " IP_dial.txt also attached (will be deleted after send)."
@@ -65,7 +77,7 @@ def main() -> int:
     dial_part = MIMEBase("application", "octet-stream")
     dial_part.set_payload(dial_raw)
     encoders.encode_base64(dial_part)
-    dial_part.add_header("Content-Disposition", "attachment", filename="dial.txt")
+    dial_part.add_header("Content-Disposition", "attachment", filename=dial_mail_file)
     msg.attach(dial_part)
 
     if send_ip:

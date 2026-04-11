@@ -22,6 +22,8 @@ export type BrogKakaoMapPin = {
   href?: string
   /** `franchise` 빨강 · `brog` 파랑(BroG) · `myg` 노랑(MyG). 기본 `brog`. */
   markerKind?: BrogMapMarkerKind
+  /** `mapSpeechBubbles`일 때 깃발 옆 말풍선에 표시할 상호 */
+  mapSpeechLabel?: string
 }
 
 type KakaoLatLngLike = {
@@ -46,6 +48,10 @@ type KakaoMarkerInstance = {
   setMap: (map: KakaoMapInstance | null) => void
 }
 
+type KakaoCustomOverlayInstance = {
+  setMap: (map: KakaoMapInstance | null) => void
+}
+
 type KakaoMapsNs = {
   event?: {
     addListener: (target: unknown, type: string, handler: (e?: unknown) => void) => unknown
@@ -56,6 +62,7 @@ type KakaoMapsNs = {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => KakaoMapInstance
   Marker: new (options: Record<string, unknown>) => KakaoMarkerInstance
   MarkerImage: new (src: string, size: unknown, options?: { offset?: unknown }) => unknown
+  CustomOverlay: new (options: Record<string, unknown>) => KakaoCustomOverlayInstance
   Size: new (width: number, height: number) => unknown
   Point: new (x: number, y: number) => unknown
 }
@@ -88,6 +95,10 @@ export type BrogKakaoMapProps = {
   autoRefitWhenPinsChange?: boolean
   /** 마커 클릭 시 이동할 경로 */
   getDetailPath: (id: number) => string
+  /** 1-based 당첨 순번 — 말풍선에 「축 당첨!」표시(점메추 등) */
+  winnerPinRank?: number | null
+  /** true면 `mapSpeechLabel`이 있는 핀에 말풍선 표시 */
+  mapSpeechBubbles?: boolean
   mapAriaLabel: string
   shellClassName?: string
   shellPlaceholderClassName?: string
@@ -114,6 +125,8 @@ export function BrogKakaoMap({
   mapViewSettleDebounceMs = 450,
   autoRefitWhenPinsChange = true,
   getDetailPath,
+  winnerPinRank = null,
+  mapSpeechBubbles = false,
   mapAriaLabel,
   shellClassName = DEFAULT_SHELL,
   shellPlaceholderClassName = DEFAULT_SHELL_PLACEHOLDER,
@@ -130,6 +143,7 @@ export function BrogKakaoMap({
   const mapRef = useRef<KakaoMapInstance | null>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const markersRef = useRef<KakaoMarkerInstance[]>([])
+  const overlaysRef = useRef<KakaoCustomOverlayInstance[]>([])
   const userMarkerRef = useRef<KakaoMarkerInstance | null>(null)
   const onPickUserLocationRef = useRef(onPickUserLocationOnMap)
   useLayoutEffect(() => {
@@ -186,11 +200,36 @@ export function BrogKakaoMap({
       ro.disconnect()
       markersRef.current.forEach((m) => m.setMap(null))
       markersRef.current = []
+      overlaysRef.current.forEach((o) => o.setMap(null))
+      overlaysRef.current = []
       userMarkerRef.current?.setMap(null)
       userMarkerRef.current = null
       mapRef.current = null
       // 같은 div에 Map을 두 번 만들면 SDK 내부 이벤트가 깨져 removeListener 등에서 터짐 (Strict Mode·재마운트)
       container.innerHTML = ''
+    }
+  }, [mapSdkReady])
+
+  /** 그리드·lazy mount 직후 컨테이너 높이가 0이었다가 잡히는 경우·탭 복귀 시 타일이 비는 현상 완화 */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapSdkReady || !map) return
+    const nudge = () => map.relayout?.()
+    nudge()
+    const raf = window.requestAnimationFrame(nudge)
+    const t1 = window.setTimeout(nudge, 120)
+    const t2 = window.setTimeout(nudge, 400)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') nudge()
+    }
+    window.addEventListener('resize', nudge)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.removeEventListener('resize', nudge)
+      document.removeEventListener('visibilitychange', onVis)
     }
   }, [mapSdkReady])
 
@@ -201,6 +240,8 @@ export function BrogKakaoMap({
 
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current = []
+    overlaysRef.current.forEach((o) => o.setMap(null))
+    overlaysRef.current = []
     userMarkerRef.current?.setMap(null)
     userMarkerRef.current = null
 
@@ -220,7 +261,8 @@ export function BrogKakaoMap({
       const kind = p.markerKind ?? 'brog'
       let image: unknown
       try {
-        const src = p.rank != null ? rankedBrogFlagMarkerUrl(p.rank, kind) : defaultBrogFlagMarkerUrl(kind)
+        const src =
+          p.rank != null ? rankedBrogFlagMarkerUrl(p.rank, kind) : defaultBrogFlagMarkerUrl(kind)
         image = new maps.MarkerImage(src, size, { offset })
       } catch {
         image = undefined
@@ -238,6 +280,51 @@ export function BrogKakaoMap({
       })
       markersRef.current.push(marker)
     })
+
+    if (mapSpeechBubbles && typeof maps.CustomOverlay === 'function') {
+      const speechRows: { pin: (typeof pins)[number]; speech: string; isWinner: boolean }[] = []
+      pins.forEach((p) => {
+        const speech = (p.mapSpeechLabel ?? p.title).trim()
+        if (!speech) return
+        const isWinner = winnerPinRank != null && p.rank != null && winnerPinRank === p.rank
+        speechRows.push({ pin: p, speech, isWinner })
+      })
+      speechRows.sort((a, b) => {
+        const wa = a.isWinner ? 1 : 0
+        const wb = b.isWinner ? 1 : 0
+        return wa - wb
+      })
+      speechRows.forEach(({ pin: p, speech, isWinner }) => {
+        const anchor = document.createElement('div')
+        anchor.className = 'brog-map-speech-anchor'
+        const bubble = document.createElement('div')
+        bubble.className =
+          'brog-map-speech-bubble' + (isWinner ? ' brog-map-speech-bubble--winner' : '')
+        if (isWinner) {
+          const winEl = document.createElement('div')
+          winEl.className = 'brog-map-speech-bubble__win'
+          winEl.textContent = '축 당첨!'
+          bubble.appendChild(winEl)
+        }
+        const nameEl = document.createElement('div')
+        nameEl.className = 'brog-map-speech-bubble__name'
+        nameEl.textContent = speech
+        bubble.appendChild(nameEl)
+        const spacer = document.createElement('div')
+        spacer.className = 'brog-map-speech-spacer'
+        anchor.appendChild(bubble)
+        anchor.appendChild(spacer)
+        const overlay = new maps.CustomOverlay({
+          map,
+          position: new maps.LatLng(p.latitude, p.longitude),
+          content: anchor,
+          xAnchor: 0.5,
+          yAnchor: 1,
+          zIndex: isWinner ? 200 : 10,
+        })
+        overlaysRef.current.push(overlay)
+      })
+    }
 
     const extendPoints: unknown[] = []
     if (userCoords) {
@@ -289,7 +376,7 @@ export function BrogKakaoMap({
     prevPinsKeyRef.current = pinsSig
 
     window.requestAnimationFrame(() => mapRef.current?.relayout?.())
-  }, [mapSdkReady, userCoords, pins, navigate, autoRefitWhenPinsChange])
+  }, [mapSdkReady, userCoords, pins, navigate, autoRefitWhenPinsChange, mapSpeechBubbles, winnerPinRank])
 
   useEffect(() => {
     const maps = getKakaoMaps()
