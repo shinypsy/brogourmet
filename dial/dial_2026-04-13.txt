@@ -48,3 +48,4 @@ Gee: 규칙4 진행해줘
 - dial: 4월 월 스냅샷(`dial_0411.txt`) 기준 규칙 재확인 요청 → 당일 일일 파일에 「dial 규칙 요약」블록으로 정리(일일·월·주간·월간·Read 순서·오늘 그만/이제 그만·`dial_auto` 등).
 - 일일 파일 누락(`dial_2026-04-13.txt`) 발견 → 생성·UTF-8 정상화; **`scripts/dial_auto.ps1`** — **`Write-DialUtf8File`**(dial 산출 UTF-8 무 BOM)·스크립트 본문 UTF-8 BOM·월간 WhatIf 경로 오류 수정.
 - 규칙4 본 턴: 위 요약 확정 후 **메일·git**은 `finish_day.ps1` 일괄 흐름(첨부 기본: KST 당일 **`dial/dial_YYYY-MM-dd.txt`**).
+- 후속: 시스템 Python에 `tzdata` 없을 때 `send_dial_mail.py`가 실패 → **`_now_kst()`** 로 UTC+9 폴백 추가 후 **`send_dial.ps1` 재실행·메일 발송 성공**. **코드적용**: `gourmet/scripts/send_dial_mail.py`.

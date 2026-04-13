@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from email import encoders
 from email.mime.base import MIMEBase
@@ -32,12 +32,22 @@ from app.services.verification_smtp import (  # noqa: E402
 
 DIAL_RECIPIENTS = ("shinypsy@naver.com", "shinypsy@gmail.com")
 
+_KST_FALLBACK = timezone(timedelta(hours=9), name="KST")
+
+
+def _now_kst() -> datetime:
+    """Asia/Seoul; Windows 등 tzdata 미설치 시 UTC+9 고정 오프셋으로 대체."""
+    try:
+        return datetime.now(ZoneInfo("Asia/Seoul"))
+    except Exception:
+        return datetime.now(_KST_FALLBACK)
+
 
 def _dial_mail_filename() -> str:
     env = os.environ.get("BROG_DIAL_MAIL_FILE", "").strip()
     if env:
         return env
-    kst = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
+    kst = _now_kst().strftime("%Y-%m-%d")
     return f"dial_{kst}.txt"
 
 
@@ -61,7 +71,7 @@ def main() -> int:
     ip_path = REPO / "IP_dial.txt"
     send_ip = ip_path.is_file()
 
-    today = datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat()
+    today = _now_kst().date().isoformat()
     body = f"BroGourmet {today} dial log attached."
     if send_ip:
         body += " IP_dial.txt also attached (will be deleted after send)."
