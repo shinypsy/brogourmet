@@ -992,3 +992,19 @@ Gee: dial.txt최종 정리하고 메일발송 다시 진행해
 - **요약 블록 뒤에 이어진 일**: **PostgreSQL 백업** — `scripts/backup_postgres_for_git.ps1`·`db/backups/README.md`·스냅샷 `brogourmet_2026-04-10_185657.sql` **git 반영**. **저장소 공개** — `shinypsy/brogourmet` **public** 확인. **마무리** — 내일 전체 다운로드·재정리 예고·인사. **본 턴** — dial 말미 최종 정리 블록·메일 재발송.
 - **열린 이슈**: MyG **9건·2페이지** 캐러셀 쪽 증상 **Gee 측 미해결** — 다음에 **콘솔 에러·화면 URL** 있으면 재조사.
 
+Gee: 하이 즈로
+브로(AI):
+- 반영됨 — 인사. 브로(AI) 준비돼 있음. 이어서 할 일 있으면 말해 줘.
+
+Gee: 실수..브로를 오타를 쳤네
+브로(AI):
+- 반영됨 — 「하이 즈로」는 **하이 브로** 오타로 이해. 위 `Gee:` 줄은 **규칙1 원문 유지**.
+
+Gee: ㅎㅎㅎ
+브로(AI):
+- 반영됨 — 웃음 수신.
+
+Gee: 일단 git 동기화 진행해줘
+브로(AI):
+- 「git 동기화」→ **반영됨** — `dial.txt` 변경분 **add·commit·push**(`origin/main`).
+
