@@ -23,6 +23,8 @@ export type User = {
   managed_district_name?: string | null
   email_verified_at?: string | null
   is_active: boolean
+  /** BroG 적립 대상 신규 등록 시 가산된 누적 포인트(백엔드 `users.points_balance`) */
+  points_balance?: number
   created_at: string
   updated_at: string
 }

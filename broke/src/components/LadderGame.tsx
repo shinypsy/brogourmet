@@ -12,6 +12,12 @@ import {
 
 const PATH_DURATION_MS = 2800
 
+/** 사다리 하단 칩에만 쓰는 표시용 상호 (앞 4글자, 유니코드 스칼라 단위) */
+function sadariDisplayLabel4(label: string): string {
+  const chars = Array.from(label.trim())
+  return chars.slice(0, 4).join('')
+}
+
 function newLadderLayout(numLines: number): { numRows: number; rungs: Rung[] } {
   const numRows = randomLadderRowCount()
   return { numRows, rungs: generateSadariRungs(numLines, numRows) }
@@ -180,10 +186,6 @@ export function LadderGame({ candidates, onWinnerPinRank }: Props) {
   return (
     <section className="map-page-map-section map-card game-page__ladder-card">
       <h3 className="map-page-map-section__title">사다리 게임</h3>
-      <p className="map-page-map-section__hint">
-        위에서 <strong>번호</strong>를 고른 뒤 <strong>점메추천</strong>을 누르면 사다리가 따라 내려갑니다. 아래 이름을 누르면
-        상세로 이동합니다.
-      </p>
 
       <div className="ladder-game">
         <div className="ladder-game__toolbar">
@@ -247,7 +249,11 @@ export function LadderGame({ candidates, onWinnerPinRank }: Props) {
             </svg>
           </div>
 
-          <div className="ladder-game__column-strip ladder-game__column-strip--bottom">
+          <div
+            className="ladder-game__column-strip ladder-game__column-strip--bottom"
+            role="group"
+            aria-label="하단 후보(사다리 각 열 아래)"
+          >
             {bottomPerm.map((candidateIdx, col) => {
               const c = candidates[candidateIdx]
               const xPct = ladderColumnPercentX(n, col)
@@ -256,12 +262,15 @@ export function LadderGame({ candidates, onWinnerPinRank }: Props) {
                   key={`b-col-${col}-${candidateIdx}`}
                   to={c.href}
                   className={
-                    'ladder-game__slot ladder-game__slot--link' +
+                    'ladder-game__slot ladder-game__slot--link ladder-game__slot--under-col' +
                     (showPath && resultCol === col ? ' ladder-game__slot--hit' : '')
                   }
                   style={{ left: `${xPct}%` }}
+                  aria-label={`${col + 1}열 ${c.label} 상세`}
                 >
-                  <span className="ladder-game__slot-label">{c.label}</span>
+                  <span className="ladder-game__slot-label ladder-game__slot-label--4">
+                    {sadariDisplayLabel4(c.label)}
+                  </span>
                 </Link>
               )
             })}

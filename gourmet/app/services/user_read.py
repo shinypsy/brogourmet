@@ -23,6 +23,7 @@ def build_user_read(db: Session, user: User) -> UserRead:
         managed_district_name=u.managed_district.name if u.managed_district else None,
         email_verified_at=u.email_verified_at,
         is_active=u.is_active,
+        points_balance=int(getattr(u, "points_balance", 0) or 0),
         created_at=u.created_at,
         updated_at=u.updated_at,
     )

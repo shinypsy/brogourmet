@@ -161,7 +161,10 @@ input {
   gap: 3rem;
   padding-left: 8px;
   white-space: nowrap;
-  animation: event-ticker-marquee 32s linear infinite;
+  animation: event-ticker-marquee 21.33s linear infinite;
+  /* 모바일 Safari 등에서 transform 마퀴가 멈추는 경우 완화 */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .event-ticker__segment {
@@ -228,10 +231,20 @@ input {
 
 @keyframes event-ticker-marquee {
   from {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* 움직임 줄이기: 데스크톱에서 마퀴를 꺼 두면 폰(iOS)만 정지처럼 보이는 경우가 많아, 느린 흐름만 유지 */
+@keyframes event-ticker-marquee-slow {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
@@ -264,11 +277,10 @@ input {
   }
 
   .event-ticker__rail {
-    animation: none;
-    transform: none;
-    flex-wrap: wrap;
-    white-space: normal;
-    padding: 4px 12px 4px 8px;
+    animation: event-ticker-marquee-slow 64s linear infinite;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    padding-left: 8px;
   }
 }
 
@@ -276,6 +288,48 @@ input {
   margin: 8px 0 0;
   font-size: 2rem;
   color: var(--text-heading);
+}
+
+/* h1 아래 — 홈 지도 툴바 `home-hub__coord-field`(위도·경도 라벨)과 동일 글자 크기·굵기 */
+.topbar__user-line {
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.topbar__user-line__link {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  max-width: 100%;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-heading);
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.topbar__user-line__link:hover {
+  color: var(--cream);
+}
+
+.topbar__user-line__nick {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(100%, 14rem);
+}
+
+.topbar__user-line__sep {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.topbar__user-line__points {
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .eyebrow {
@@ -464,7 +518,8 @@ input {
   gap: 10px;
 }
 
-.form .brog-category-picker__btn {
+.form .brog-category-picker__btn,
+.game-page__taste-block .brog-category-picker__btn {
   padding: 10px 16px;
   border-radius: 999px;
   border: 1px solid var(--gold-dim);
@@ -473,21 +528,227 @@ input {
   font-weight: 700;
   font-size: 0.88rem;
   box-shadow: none;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
-.form .brog-category-picker__btn:hover {
+.form .brog-category-picker__btn:hover,
+.game-page__taste-block .brog-category-picker__btn:hover {
   border-color: rgba(212, 175, 55, 0.5);
 }
 
-.form .brog-category-picker__btn--active {
+.form .brog-category-picker__btn--active,
+.game-page__taste-block .brog-category-picker__btn--active {
   border-color: rgba(201, 162, 39, 0.85);
   background: rgba(40, 52, 82, 0.75);
   box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.18);
 }
 
-.form .brog-category-picker__btn:focus-visible {
+.form .brog-category-picker__btn:focus-visible,
+.game-page__taste-block .brog-category-picker__btn:focus-visible {
   outline: 2px solid rgba(201, 162, 39, 0.85);
   outline-offset: 2px;
+}
+
+/* BroG 등록/수정: 카테고리 아이콘+라벨 동일 박스 크기 — 점메추 취향과 동일 그리드 */
+.form .brog-category-picker--with-icons,
+.game-page__taste-block .brog-category-picker--with-icons {
+  display: grid;
+  /* BroG(7)·Game(8+상관없음) 모두 2줄에 가깝게 — auto-fill은 폭에 따라 3줄로 갈라짐 */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form .brog-category-picker--with-icons .brog-category-picker__btn,
+.game-page__taste-block .brog-category-picker--with-icons .brog-category-picker__btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 12px 10px;
+  border-radius: 14px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  box-sizing: border-box;
+}
+
+.form .brog-category-picker__icon-wrap,
+.game-page__taste-block .brog-category-picker__icon-wrap {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.form .brog-category-picker__icon-wrap svg,
+.game-page__taste-block .brog-category-picker__icon-wrap svg {
+  width: 24px;
+  height: 24px;
+}
+
+.form .brog-category-picker__label,
+.game-page__taste-block .brog-category-picker__label {
+  font-weight: 700;
+  text-align: center;
+}
+
+/* BroG 등록/수정 폼 레이아웃 */
+.form.brog-manage-form .brog-manage-form__name-district-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: end;
+}
+
+.form.brog-manage-form .brog-manage-form__name-field {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.form.brog-manage-form .brog-manage-form__district-field {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+  flex: 0 1 11rem;
+  min-width: 8.5rem;
+}
+
+.form.brog-manage-form .brog-manage-form__photos-block {
+  display: grid;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.form.brog-manage-form .brog-manage-form__photos-label {
+  font-weight: 600;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-count {
+  font-weight: 600;
+  color: var(--text-muted, #9aa6bc);
+  font-size: 0.9rem;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-url-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-url-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-url-index {
+  min-width: 1.5rem;
+  color: var(--text-muted, #9aa6bc);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-url-index--role {
+  min-width: 6.5rem;
+  max-width: 11rem;
+  line-height: 1.3;
+}
+
+.form.brog-manage-form .brog-manage-form__photo-url-required-mark {
+  font-weight: 500;
+  color: var(--text-muted, #9aa6bc);
+}
+
+.form.brog-manage-form .brog-manage-form__photo-url-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.form.brog-manage-form .brog-manage-icon-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border-radius: 12px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(18, 22, 36, 0.9);
+  color: #f0c27a;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.form.brog-manage-form .brog-manage-icon-btn:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: rgba(28, 36, 56, 0.95);
+}
+
+.form.brog-manage-form .brog-manage-icon-btn:focus-visible {
+  outline: 2px solid rgba(201, 162, 39, 0.85);
+  outline-offset: 2px;
+}
+
+.form.brog-manage-form .brog-manage-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.form.brog-manage-form .brog-manage-icon-btn__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(240, 194, 122, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: brog-manage-icon-spin 0.65s linear infinite;
+}
+
+@keyframes brog-manage-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.form.brog-manage-form .brog-manage-form__menu-block {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.form.brog-manage-form .brog-manage-form__menu-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.form.brog-manage-form .brog-manage-form__menu-heading-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .success,
@@ -531,88 +792,6 @@ input {
   margin-bottom: 0;
 }
 
-/* BroG 작성: 위도·경도 위 지도(홈과 동일 shell·canvas 클래스 사용) */
-.restaurant-manage-location-map {
-  margin: 18px 0 8px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(212, 175, 55, 0.15);
-}
-
-.restaurant-manage-map-place-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  margin-bottom: 10px;
-}
-
-.restaurant-manage-map-place-row__icon {
-  display: flex;
-  flex-shrink: 0;
-  color: var(--gold-soft, #d4af37);
-}
-
-.restaurant-manage-map-place-row__label {
-  flex-shrink: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text-muted, #8892a8);
-  letter-spacing: -0.02em;
-}
-
-.restaurant-manage-map-place-row__input {
-  flex: 1 1 180px;
-  min-width: 0;
-  padding: 8px 11px;
-  border-radius: 10px;
-  border: 1px solid var(--gold-dim, rgba(212, 175, 55, 0.35));
-  background: rgba(12, 16, 28, 0.92);
-  color: var(--text-heading, #e8ecf4);
-  font-size: 0.88rem;
-}
-
-.restaurant-manage-map-place-row__input:focus-visible {
-  outline: 2px solid rgba(212, 175, 55, 0.45);
-  outline-offset: 1px;
-}
-
-.restaurant-manage-map-place-row__btn {
-  flex-shrink: 0;
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(212, 175, 55, 0.45);
-  background: rgba(212, 175, 55, 0.14);
-  color: var(--cream, #f5f0e6);
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  font: inherit;
-}
-
-.restaurant-manage-map-place-row__btn:hover:not(:disabled) {
-  background: rgba(212, 175, 55, 0.22);
-}
-
-.restaurant-manage-map-place-row__btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.restaurant-manage-map-place-row__hint {
-  margin: 0 0 10px;
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.restaurant-manage-map-place-row__hint--warn {
-  color: #c9a87a;
-}
-
-.restaurant-manage-location-map__hint {
-  margin: 10px 0 0;
-  line-height: 1.45;
-}
-
 .profile {
   display: grid;
   gap: 16px;
@@ -646,6 +825,118 @@ input {
 .home-layout--hub {
   min-height: calc(100vh - 120px);
   align-content: start;
+}
+
+/* Game / Free / 이벤트 / 관리자 — 홈·BroG·MyG와 동일 허브 폭·모바일 패딩 */
+.app-route-hub {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.app-route-hub > .board-layout,
+.app-route-hub > .admin-page,
+.app-route-hub > section.page.game-page {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  /* 좌우 여백은 `.app-shell`(이미 calc(100% - 32px) 등)에만 둠 — app-route-hub 이중 패딩은 홈·BroG 대비 Free 등이 좁아 보이던 원인 */
+
+  .map-layout--brog.brog-screen--map .brog-screen__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .map-layout--brog.brog-screen--map .brog-screen__header-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .app-route-hub .board-form-card.card,
+  .app-route-hub .card.board-form-card {
+    padding: 18px 14px;
+  }
+
+  .app-route-hub .game-page__taste-block,
+  .app-route-hub .game-page__intro,
+  .app-route-hub .game-page__geo-fallback {
+    max-width: 100%;
+  }
+
+  .app-route-hub .game-page__manual-coords .home-hub__coord-row,
+  .app-route-hub .game-page .home-hub__coord-row.map-page-toolbar__coord-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-route-hub .game-page__manual-coords .home-hub__coord-field,
+  .app-route-hub .game-page .home-hub__coord-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .app-route-hub .game-page__manual-coords .home-hub__coord-input,
+  .app-route-hub .game-page .home-hub__coord-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+  }
+
+  .app-route-hub .game-page__manual-coords .home-hub__coord-apply,
+  .app-route-hub .game-page .home-hub__coord-apply {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .app-route-hub .admin-page__lead,
+  .app-route-hub .admin-page__muted {
+    overflow-wrap: anywhere;
+  }
+
+  .app-route-hub .admin-page__table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-route-hub .admin-table--single-line-rows tbody td {
+    white-space: nowrap;
+  }
+
+  .app-route-hub .admin-page__user-actions,
+  .app-route-hub .admin-page__rest-actions {
+    flex-wrap: nowrap;
+    max-width: none;
+  }
+
+  .app-route-hub .admin-page__section-toolbar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .app-route-hub .admin-page__search-input--restaurant {
+    max-width: 11rem;
+  }
+
+  .app-route-hub .free-share-detail__title {
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+  }
 }
 
 .home-hub__map-shell {
@@ -1791,6 +2082,24 @@ button.compact-link.danger-text {
   font-size: 0.78rem;
 }
 
+/* 작성·수정 폼 위치 지도 아래 수동 위도·경도 — BroG/MyG 리스트 툴바와 동일 치수 */
+.map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-row {
+  gap: 6px 8px;
+}
+
+.map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-field {
+  gap: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-input {
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+  width: min(100%, 9.5rem);
+}
+
 .map-layout--brog.brog-screen--map .map-page-toolbar__geo-icon-btn {
   min-width: 34px;
   min-height: 34px;
@@ -1883,6 +2192,135 @@ button.compact-link.danger-text {
   margin-top: 1px;
 }
 
+/*
+ * 홈·/map·MyG 지도·BroG/MyG 리스트 — 모바일 검색 툴바
+ * 1행: 가격 상한 + 서울시 (한 줄) / 2행: 위도·경도·좌표 적용·현위치 (한 줄, 매우 좁으면 가로 스크롤)
+ */
+@media (max-width: 720px) {
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .map-page-toolbar__filters-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 6px;
+    margin-bottom: 0;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .map-page-toolbar__filter {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    gap: 3px;
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .price-filter select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 4px 5px;
+    font-size: 0.7rem;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .map-page-toolbar__geo {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .home-hub__coord-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 4px 5px;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .home-hub__coord-field {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 2px;
+    font-size: 0.65rem;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .home-hub__coord-input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    padding: 4px 5px;
+    font-size: 0.7rem;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .home-hub__coord-apply {
+    flex-shrink: 0;
+    align-self: flex-end;
+    padding: 4px 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .map-page-toolbar__geo-icon-btn {
+    flex-shrink: 0;
+    align-self: flex-end;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0 5px;
+    margin-left: 0;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .map-page-toolbar__geo-icon-btn-inner svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 4px 5px;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+  }
+
+  .map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-field {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 2px;
+    font-size: 0.65rem;
+  }
+
+  .map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    padding: 4px 5px;
+    font-size: 0.7rem;
+  }
+}
+
 .map-page-brog-list-section {
   padding: 0 0 20px;
 }
@@ -1961,6 +2399,144 @@ button.compact-link.danger-text {
   flex: 1 1 12rem;
   color: var(--text-muted, #9aa3b5);
   word-break: break-word;
+}
+
+/* `/map` 등 텍스트 목록: 행 전체 한 줄(넘치면 말줄임) */
+.map-page-brog-lines--text-single-line .map-page-brog-lines__row {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.map-page-brog-lines--text-single-line .map-page-brog-lines__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-page-brog-lines--text-single-line .map-page-brog-lines__text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.map-page-brog-lines--text-single-line .map-page-brog-lines__actions {
+  flex-wrap: nowrap;
+}
+
+/* 무료나눔 목록: 열 비율 번호5 · 제목45 · 닉네임10 · 작성일10 · 나눔장소15 · 상태15 (%) */
+.free-share-list-board {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(8, 10, 18, 0.45);
+}
+
+.free-share-list-board .brog-list-carousel {
+  margin-top: 0;
+}
+
+/* 폰: 보드 가로 스크롤이 스와이프를 먹지 않게 + 터치에서 수평 팬을 브라우저에 넘기지 않음 */
+.free-share-list-board .brog-list-carousel__viewport {
+  touch-action: pan-x pan-y;
+}
+
+.free-share-list-column-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 14px;
+  background: rgba(8, 10, 18, 0.55);
+}
+
+.free-share-list-column-header .map-page-brog-lines__row--free-share-header,
+.map-page-brog-lines--free-share .map-page-brog-lines__row--free-share-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 5%) minmax(0, 45%) minmax(0, 10%) minmax(0, 10%) minmax(0, 15%) minmax(0, 15%);
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.map-page-brog-lines__hcell {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-muted, #8892a8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brog-list-carousel__page .map-page-brog-lines.map-page-brog-lines--free-share {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__item {
+  padding: 0 14px;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__item:last-child {
+  padding-bottom: 6px;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__row--free-share-cols {
+  padding: 8px 0;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell {
+  min-width: 0;
+  font-size: 0.93rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted, #9aa3b5);
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell--num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-right: 2px;
+  color: var(--text-muted, #8892a8);
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell--title.map-page-brog-lines__name {
+  flex: unset;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  font-weight: 600;
+  color: #f0d78c;
+  text-decoration: none;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell--title.map-page-brog-lines__name:hover {
+  text-decoration: underline;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell--date {
+  font-variant-numeric: tabular-nums;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell--status {
+  white-space: nowrap;
+}
+
+.map-page-brog-lines--free-share .map-page-brog-lines__cell--status .map-page-brog-lines__tag {
+  font-size: 0.78rem;
 }
 
 .map-page-brog-lines__tag {
@@ -2212,6 +2788,49 @@ button.compact-link.danger-text {
   min-width: 0;
 }
 
+/* BroG/MyG 작성·수정: 홈·지도와 동일 폭·카카오 임베드 최소 높이(map-layout 스택은 폼 안에서도 동작) */
+.home-layout--map-home .map-manage-form-card {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* BroG 작성/수정: 바깥 `card` 제거 — 이중 테두리 방지, 위치 지도 `map-card`만 패널 */
+.home-layout--map-home .brog-list-body.brog-brog-manage-form {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.brog-brog-manage-form__intro .brog-list-toolbar__notes {
+  min-width: 0;
+}
+
+.manage-form-map-stack.map-layout--brog.brog-screen--map {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.manage-form-map-stack.map-layout--brog.brog-screen--map .kakao-map-embed {
+  min-height: min(48vh, 440px);
+}
+
+/* 점메추: BroG 작성 `ManageFormLocationMapSection`과 동일 map-stack */
+.game-page__map-stack.manage-form-map-stack {
+  margin-top: 0;
+}
+
+.manage-form-map-section__coord-status {
+  margin: 10px 0 0;
+}
+
+.manage-form-map-section__manual-coords {
+  margin-top: 14px;
+}
+
 /* BroG/MyG 지도: 홈과 동일 UX(내 위치 버튼), 크기는 아래 --below 유지 */
 .kakao-map-embed {
   position: relative;
@@ -2250,12 +2869,6 @@ button.compact-link.danger-text {
 :root {
   --kakao-map-below-min-height: 360px;
   --kakao-map-below-height: min(48vh, 440px);
-}
-
-.kakao-map-container--below {
-  min-height: var(--kakao-map-below-min-height);
-  height: var(--kakao-map-below-height);
-  margin-top: 0;
 }
 
 .map-hero,
@@ -2413,12 +3026,20 @@ button.compact-link.danger-text {
   list-style: none;
   margin: 12px 0 0;
   padding: 0;
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
 
 .site-event-list__item {
-  padding: 12px 14px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px 14px;
+  min-width: 0;
+  padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--gold-dim);
   background: rgba(18, 22, 36, 0.75);
@@ -2426,10 +3047,11 @@ button.compact-link.danger-text {
 
 .site-event-list__meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 0;
 }
 
 .site-event-list__badge {
@@ -2461,17 +3083,23 @@ button.compact-link.danger-text {
 
 .site-event-list__body {
   margin: 0;
-  white-space: pre-wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--cream);
-  line-height: 1.45;
-  font-size: 0.9rem;
+  line-height: 1.4;
+  font-size: 0.88rem;
 }
 
 .site-event-list__actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .post-list {
@@ -2513,6 +3141,486 @@ button.compact-link.danger-text {
   width: min(360px, 100%);
   border-radius: 12px;
   border: 1px solid var(--gold-dim);
+}
+
+/* 무료나눔·BroG·MyG 목록 헤더: 지도 핀 아이콘 링크(동일 마크업) */
+.free-share-header-map-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.free-share-header-map-link__icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* 무료나눔 목록 툴바 */
+.free-share-board-toolbar__row {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+}
+
+.free-share-board-toolbar__input {
+  min-width: 140px;
+  max-width: 220px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(12, 16, 28, 0.85);
+  color: var(--cream);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.free-share-board-toolbar__input--num {
+  max-width: 120px;
+  min-width: 100px;
+}
+
+.free-share-board-toolbar__confirm {
+  flex-shrink: 0;
+}
+
+/* 무료나눔 상세 */
+.free-share-detail.card,
+.free-share-detail.board-form-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.free-share-detail__nav {
+  margin-bottom: 12px;
+}
+
+.free-share-detail__gallery {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.free-share-detail__gallery-item {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--gold-dim);
+  background: rgba(10, 14, 24, 0.5);
+}
+
+.free-share-detail__gallery-img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: min(75vh, 560px);
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.free-share-detail__image-block {
+  margin: 0 0 14px;
+}
+
+.free-share-detail__image {
+  width: 100%;
+  max-height: min(52vh, 420px);
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid var(--gold-dim);
+}
+
+.free-share-detail__byline {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.free-share-detail__author {
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.free-share-detail__title {
+  margin: 0 0 10px;
+  font-size: clamp(1.4rem, 4.2vw, 1.65rem);
+  line-height: 1.25;
+  color: var(--text-heading);
+}
+
+.free-share-detail__body {
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 상세 나눔 장소 표 + 카카오 — 가로 넘침 방지 */
+.free-share-detail .free-share-place-table {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+}
+
+.free-share-detail .free-share-place-table th,
+.free-share-detail .free-share-place-table td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.free-share-detail .free-share-place-table__map-cell {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.free-share-detail .free-share-place-table__map-cell .kakao-map-embed {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.free-share-detail .free-share-place-table__map-cell .kakao-map-container {
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 무료나눔 상세 보기 — 표(th/td) 없이 전체 폭 지도(모바일에서 갤러리·본문과 동일 폭) */
+.free-share-place-view {
+  margin: 14px 0 18px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: rgba(14, 18, 30, 0.35);
+}
+
+.free-share-place-view__heading {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-heading);
+  border-bottom: 1px solid rgba(139, 151, 173, 0.22);
+  background: rgba(18, 22, 36, 0.5);
+}
+
+.free-share-place-view__empty {
+  margin: 0;
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.free-share-place-view__coords {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(139, 151, 173, 0.22);
+}
+
+.free-share-place-view__coords-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+.free-share-place-view__saved {
+  margin: 0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--cream);
+  font-size: 0.9rem;
+}
+
+.free-share-place-view__map-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.free-share-place-view__map-wrap .kakao-map-embed {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.free-share-place-view__map-wrap .kakao-map-container.kakao-map-container--below {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.free-share-place-view__map-fallback {
+  margin: 0;
+  padding: 14px;
+}
+
+.free-share-detail__upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0 0;
+}
+
+.free-share-detail__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.free-share-images-fieldset__add-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.free-share-place-table {
+  width: 100%;
+  margin: 14px 0 18px;
+  border-collapse: collapse;
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.free-share-place-table__caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-heading);
+  padding: 0 0 8px;
+}
+
+.free-share-place-table th,
+.free-share-place-table td {
+  padding: 10px 12px;
+  border-top: 1px solid rgba(139, 151, 173, 0.2);
+  vertical-align: top;
+}
+
+.free-share-place-table tr:first-child th,
+.free-share-place-table tr:first-child td {
+  border-top: none;
+}
+
+.free-share-place-table th {
+  width: 6.5rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--cream);
+  background: rgba(18, 22, 36, 0.45);
+}
+
+.free-share-place-table__search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.free-share-place-table__search-input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.free-share-place-table__search-btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(212, 175, 55, 0.12);
+  color: var(--cream);
+  cursor: pointer;
+}
+
+.free-share-place-table__search-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.free-share-place-table__hint {
+  margin: 8px 0 0;
+}
+
+.free-share-place-table__hint--warn {
+  color: #e8a598;
+}
+
+.free-share-place-table__saved {
+  margin: 0 0 8px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.free-share-place-table__map-cell {
+  padding: 0 !important;
+}
+
+.free-share-place-table__map-cell .kakao-map-embed {
+  margin: 0;
+  border-radius: 0;
+}
+
+.free-share-place-table__empty {
+  padding: 14px 12px;
+}
+
+/* 무료나눔 글쓰기 — 지도 블록·모바일 표 */
+.free-share-write__place-section {
+  margin-top: 4px;
+}
+
+.free-share-write__place-section .free-share-place-table {
+  margin-top: 0;
+  margin-bottom: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+@media (max-width: 720px) {
+  .free-share-write-page .free-share-place-table tr {
+    display: block;
+  }
+
+  .free-share-write-page .free-share-place-table th,
+  .free-share-write-page .free-share-place-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .free-share-write-page .free-share-place-table th {
+    border-top: 1px solid rgba(139, 151, 173, 0.22);
+    padding-bottom: 6px;
+  }
+
+  .free-share-write-page .free-share-place-table tr:first-child th {
+    border-top: none;
+  }
+
+  .free-share-write-page .free-share-place-table td {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.free-share-place-table--view .home-hub__map-locate {
+  display: none;
+}
+
+.free-share-comments {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--gold-dim);
+}
+
+.free-share-comments__title {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+}
+
+.free-share-comments__list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.free-share-comments__item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 151, 173, 0.25);
+  background: rgba(18, 22, 36, 0.5);
+}
+
+.free-share-comments__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.free-share-comments__body {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.free-share-comments__form {
+  display: grid;
+  gap: 10px;
+}
+
+.free-share-comments__label {
+  display: grid;
+  gap: 6px;
+}
+
+.free-share-detail__footer {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gold-dim);
+  display: grid;
+  gap: 12px;
+}
+
+.free-share-detail__complete {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.free-share-detail__complete input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.free-share-detail__hint {
+  margin: 0;
+}
+
+.free-share-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.free-share-write__complete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+  font-weight: 600;
 }
 
 .upload-hint {
@@ -2587,6 +3695,14 @@ button.compact-link.danger-text {
   background: #1a2333;
 }
 
+/* `.kakao-map-container`가 파일 뒤쪽 규칙으로 height·aspect-ratio를 덮어쓰지 않게 — BroG 지도·작성·Free 상세 등 동일 높이 */
+.kakao-map-container.kakao-map-container--below {
+  aspect-ratio: unset;
+  min-height: var(--kakao-map-below-min-height);
+  height: var(--kakao-map-below-height);
+  margin-top: 0;
+}
+
 /* BroG 랭킹 카드 (다이닝코드 랭킹형: 이미지 + 이름 + 가격) */
 .brog-rank-section__sub {
   margin: 8px 0 0;
@@ -2628,6 +3744,16 @@ ul.brog-rank-grid {
   min-height: 120px;
 }
 
+/*
+ * 홈 BroG 이미지 목록은 `section.home-section` 안에 있어 좌우 padding 20px가 들어간다.
+ * BroG/MyG 리스트는 캐러셀이 brog-screen 전폭이라 동일 4열·2열 그리드여도 셀(썸네일)만 커져 보였음.
+ */
+.brog-screen--list .brog-list-carousel {
+  padding-left: 20px;
+  padding-right: 20px;
+  max-width: 100%;
+}
+
 .brog-list-carousel__viewport {
   flex: 1;
   min-width: 0;
@@ -2666,6 +3792,24 @@ ul.brog-rank-grid.brog-rank-grid--paged {
 /* 캐러셀 안 이미지 그리드: 상단 여백 중복 제거 */
 .brog-list-carousel__page .map-page-brog-image-grid {
   margin-top: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/*
+ * 1페이지일 때 « » 대신 쓰는 자리 — flex 폭이 다페이지와 같아져 모바일 2열 썸네일이 한 화면을 채우지 않음
+ * (버튼과 동일한 width·min-height로 측정 일치)
+ */
+.brog-list-carousel__arrow-spacer {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 44px;
+  min-height: 120px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .brog-list-carousel__arrow {
@@ -2703,10 +3847,28 @@ ul.brog-rank-grid.brog-rank-grid--paged {
     gap: 12px;
   }
 
-  .brog-list-carousel__arrow {
-    width: 40px;
-    min-height: 100px;
-    font-size: 1.2rem;
+  /*
+   * 폰: 좌우 « »·스페이서 자리를 없애 뷰포트만 전폭에 가깝게 — 홈 그리드와 썸네일 크기 체감 맞춤.
+   * 페이지 넘김은 드래그/스와이프 유지(버튼은 DOM에 남아 접근성·포커스는 display:none으로 제외).
+   */
+  .brog-list-carousel {
+    gap: 0;
+  }
+
+  .brog-list-carousel__arrow,
+  .brog-list-carousel__arrow-spacer {
+    display: none;
+  }
+
+  /* BroG/MyG 리스트: 그리드·페이지가 intrinsic 폭으로 부풀면 2열이 깨짐 — 열은 항상 2개·폭 상한 */
+  .brog-screen--list .brog-list-carousel__page {
+    min-width: 0;
+  }
+
+  .brog-screen--list .brog-list-carousel__page .map-page-brog-image-grid.map-page-brog-image-grid--main-4x2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 100%;
+    margin-inline: auto;
   }
 }
 
@@ -3046,29 +4208,7 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   padding: 10px 14px;
 }
 
-.brog-screen__toolbar--list {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px 28px;
-}
-
-.brog-list-toolbar__filter {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: min(200px, 100%);
-}
-
-.brog-list-toolbar__label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--gold-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
+/* 리스트 툴바 밖에서만 넓은 최소폭 — 아래 `.myg-board-toolbar .brog-list-toolbar__notes`가 리스트 카드 안에서는 덮음 */
 .brog-list-toolbar__notes {
   flex: 1;
   min-width: min(420px, 100%);
@@ -3087,38 +4227,37 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   font-size: 0.88rem;
 }
 
-/* MyG 리스트: BroG 지도와 동일 map-page-toolbar 필터 행 + 안내 문단 */
-.myg-board-toolbar.map-page-toolbar {
-  flex-direction: column;
-  align-items: stretch;
-  padding: 10px 14px;
-  gap: 10px;
-  margin-bottom: 12px;
+/* BroG/MyG 리스트: 헤더·안내 문단 모바일 — 툴바는 위 `.map-layout--brog.brog-screen--map` 공통 규칙과 동일 */
+@media (max-width: 720px) {
+  .brog-screen--list {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .brog-screen--list .brog-screen__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brog-screen--list .brog-screen__header-actions {
+    justify-content: flex-start;
+  }
+
+  .brog-list-toolbar__notes {
+    flex: none;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .brog-list-toolbar__note {
+    overflow-wrap: anywhere;
+  }
 }
 
-.myg-board-toolbar .map-page-toolbar__filters-row {
-  width: 100%;
-  margin-bottom: 0;
-  gap: 10px 14px;
-}
-
-.myg-board-toolbar .map-page-toolbar__filter {
-  gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.myg-board-toolbar .price-filter {
-  margin-bottom: 0;
-  gap: 4px;
-}
-
-.myg-board-toolbar .price-filter select {
-  padding: 5px 10px;
-  font-size: 0.8rem;
-  border-radius: 8px;
-}
-
+/* 무료나눔 등: 툴바 안 `myg-board-toolbar__notes`만 쓰는 경우 flex 수축 */
 .myg-board-toolbar__notes {
   flex: 1 1 auto;
   min-width: 0;
@@ -3147,6 +4286,20 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   font-size: 1.12rem;
   font-weight: 800;
   color: var(--text-heading);
+}
+
+/*
+ * BroG/MyG 리스트: 툴바+검색을 홈 `MapPageBody`와 같은 조상으로 감쌈 →
+ * `.map-layout--brog.brog-screen--map` 압축 규칙을 복붙하지 않고 그대로 상속.
+ */
+.brog-list-body__map-stack.map-layout.map-layout--brog.brog-screen--map {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.brog-list-body__map-stack .map-page-map-section {
+  min-width: 0;
 }
 
 .my-page__verify-callout {
@@ -4085,8 +5238,14 @@ form.brog-detail__comment-form {
   left: 50%;
   top: 50%;
   z-index: 2;
-  width: min(99vw, 700px);
+  width: min(
+    calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)),
+    700px
+  );
+  max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
   padding: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   text-align: center;
   /* translateZ 제거 — 브라우저 3D 왜곡으로 ‘화면 전체가 삐뚤어짐’처럼 느껴질 수 있음 */
   transform: translate(-50%, -50%);
@@ -4117,7 +5276,8 @@ form.brog-detail__comment-form {
   width: 100%;
   min-height: min(88vh, 820px);
   margin: 0 auto;
-  padding: 2vh 8px env(safe-area-inset-bottom, 12px);
+  padding: 2vh 8px max(12px, env(safe-area-inset-bottom, 0px));
+  padding-top: max(2vh, env(safe-area-inset-top, 0px));
   border: none;
   background: transparent;
   cursor: pointer;
@@ -4134,7 +5294,7 @@ form.brog-detail__comment-form {
   flex-direction: column;
   flex: 1 1 auto;
   width: 100%;
-  max-width: min(99vw, 680px);
+  max-width: 100%;
   margin: 0 auto;
   align-self: stretch;
   min-height: 0;
@@ -4267,8 +5427,8 @@ form.brog-detail__comment-form {
 }
 
 .saloon-logo-frame--hero {
-  width: auto;
-  max-width: min(96vw, 640px);
+  width: 100%;
+  max-width: 100%;
   height: auto;
   min-height: 0;
   margin: 0 auto;
@@ -4280,15 +5440,16 @@ form.brog-detail__comment-form {
 }
 
 .saloon-logo-frame--hero .saloon-logo-svg--base {
-  width: min(340px, 78vw);
-  height: min(340px, 78vw);
+  width: min(340px, 100%);
+  height: auto;
+  aspect-ratio: 1;
   flex-shrink: 0;
 }
 
 .saloon-hero-full {
   display: block;
   width: 100%;
-  max-width: min(96vw, 640px);
+  max-width: 100%;
   height: auto;
   max-height: min(80vh, 640px);
   object-fit: contain;
@@ -4298,6 +5459,20 @@ form.brog-detail__comment-form {
 
 .saloon-facade-panel .saloon-hero-full {
   max-height: min(68vh, 600px);
+}
+
+@supports (height: 100dvh) {
+  .saloon-tap-target {
+    min-height: min(88dvh, 820px);
+  }
+
+  .saloon-hero-full {
+    max-height: min(80dvh, 640px);
+  }
+
+  .saloon-facade-panel .saloon-hero-full {
+    max-height: min(68dvh, 600px);
+  }
 }
 
 .saloon-since {
@@ -4442,9 +5617,25 @@ form.brog-detail__comment-form {
   line-height: 1.25;
 }
 
+.game-page .game-page__screen-header.brog-screen__header {
+  margin-bottom: 6px;
+}
+
+.game-page__hook--header {
+  margin: 0 0 6px;
+  font-size: clamp(1.4rem, 4.2vw, 1.65rem);
+}
+
+.game-page__header-meta {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .game-page__intro {
   margin: 0 0 22px;
-  max-width: 52rem;
+  max-width: none;
   line-height: 1.55;
 }
 
@@ -4454,7 +5645,10 @@ form.brog-detail__comment-form {
   border-radius: 16px;
   border: 1px solid var(--gold-dim);
   background: rgba(14, 18, 30, 0.72);
-  max-width: 52rem;
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .game-page__taste-title {
@@ -4469,44 +5663,10 @@ form.brog-detail__comment-form {
   line-height: 1.45;
 }
 
-.game-page__taste-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.game-page__taste-btn {
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--gold-dim);
-  background: rgba(18, 22, 36, 0.9);
-  color: #f0c27a;
-  font-weight: 700;
-  font-size: 0.88rem;
-  cursor: pointer;
-  font: inherit;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-
-.game-page__taste-btn:hover {
-  border-color: rgba(212, 175, 55, 0.5);
-}
-
-.game-page__taste-btn--active {
-  border-color: rgba(201, 162, 39, 0.85);
-  background: rgba(40, 52, 82, 0.75);
-  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.18);
-}
-
-.game-page__taste-btn--any {
+/* 점메추 취향 전용 — 그리드·칩 공통은 위 `.form` / `.game-page__taste-block` 병기 규칙 */
+.game-page__taste-block .brog-category-picker__btn--game-any:not(.brog-category-picker__btn--active) {
   color: var(--text-muted);
   border-color: rgba(154, 166, 188, 0.35);
-}
-
-.game-page__taste-btn--any.game-page__taste-btn--active {
-  color: #e8dfd0;
 }
 
 .game-page__taste-reset {
@@ -4529,7 +5689,10 @@ form.brog-detail__comment-form {
 
 .game-page__geo-fallback {
   margin-bottom: 20px;
-  max-width: 52rem;
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .game-page__manual-coords-intro {
@@ -4542,8 +5705,48 @@ form.brog-detail__comment-form {
   margin-top: 4px;
 }
 
-.game-page__demo-seoul {
+.game-page__demo-shinchon {
   margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(18, 22, 36, 0.88);
+  color: #f0c27a;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.game-page__demo-shinchon:hover {
+  border-color: rgba(212, 175, 55, 0.65);
+  background: rgba(28, 34, 52, 0.92);
+}
+
+.game-page__demo-shinchon__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--gold-soft);
+}
+
+.home-layout--map-home .game-page .game-page__map-section.map-page-map-section {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.home-layout--map-home .game-page .game-page__map-section .kakao-map-embed {
+  min-height: min(48vh, 440px);
+  width: 100%;
+  min-width: 0;
 }
 
 .game-page__geo-error {
@@ -4567,6 +5770,18 @@ form.brog-detail__comment-form {
   margin: 18px 0 20px;
 }
 
+/* 사다리 차트 가로 — 카드(map-card) 좌우 패딩을 줄여 SVG·번호줄을 최대한 넓힘 */
+.game-page__ladder-card.map-page-map-section.map-card {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.game-page__ladder-card .map-page-map-section__title,
+.game-page__ladder-card .map-page-map-section__hint {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
 .game-page__ladder-card .map-page-map-section__title {
   margin-top: 0;
 }
@@ -4576,17 +5791,20 @@ form.brog-detail__comment-form {
   font-size: 0.88rem;
 }
 
-/* Kakao CustomOverlay — 점메추 7곳 말풍선(지도 컨테이너 내부) */
+/* Kakao CustomOverlay — 점메추 후보 말풍선(지도 컨테이너 내부) */
 .brog-map-speech-anchor {
   display: flex;
   flex-direction: column;
   align-items: center;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .brog-map-speech-spacer {
   height: 48px;
-  width: 1px;
+  width: 100%;
+  min-width: 2.5rem;
+  align-self: stretch;
   flex-shrink: 0;
 }
 
@@ -4671,10 +5889,11 @@ form.brog-detail__comment-form {
   margin-bottom: 6px;
 }
 
+/* 하단 후보: 상단 번호·SVG 세로줄과 동일 % — 열 아래 4글자 칩 */
 .ladder-game__column-strip--bottom {
-  margin-bottom: 0;
   margin-top: 10px;
-  min-height: 56px;
+  margin-bottom: 0;
+  min-height: 52px;
 }
 
 .ladder-game__pick-num-only {
@@ -4793,6 +6012,15 @@ form.brog-detail__comment-form {
   box-sizing: border-box;
 }
 
+.ladder-game__slot--under-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  min-height: 44px;
+  max-width: min(4.5em, 16vw);
+}
+
 .ladder-game__slot--link:hover {
   border-color: rgba(212, 175, 55, 0.4);
 }
@@ -4811,6 +6039,19 @@ form.brog-detail__comment-form {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.ladder-game__slot-label--4 {
+  display: block;
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
 }
 
 .ladder-game__actions {
@@ -4900,6 +6141,61 @@ form.brog-detail__comment-form {
   color: var(--text-heading);
 }
 
+.admin-page__section-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 28px 0 10px;
+  min-width: 0;
+}
+
+.admin-page__section-toolbar .admin-page__h2 {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.admin-page__toolbar-inline-label {
+  flex-shrink: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.admin-page__search-input {
+  flex: 1 1 6rem;
+  min-width: 0;
+  max-width: 14rem;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--cream);
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+
+.admin-page__search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.admin-page__search-input--restaurant {
+  max-width: min(16rem, 42vw);
+}
+
+.admin-page__select--toolbar {
+  min-width: 5.5rem;
+  max-width: 9rem;
+  flex-shrink: 0;
+}
+
+.admin-page__filter-meta--toolbar {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 .admin-page__lead {
   margin: 0 0 16px;
   font-size: 0.92rem;
@@ -4931,10 +6227,23 @@ form.brog-detail__comment-form {
   max-width: 52rem;
 }
 
+.admin-page__notice-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 12px;
+}
+
+.admin-page__notice-toolbar-label {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
 .admin-page__notice-grid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   margin-bottom: 12px;
 }
 

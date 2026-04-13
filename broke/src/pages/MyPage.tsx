@@ -150,10 +150,6 @@ export function MyPage() {
   return (
     <section className="card my-page">
       <h1>Myinfo</h1>
-      <p className="description">
-        로그인 계정의 프로필입니다. 이메일·닉네임·권한을 확인할 수 있고, BroG 작성 링크와 본인이 등록한 BroG 목록이
-        아래에 이어집니다.
-      </p>
 
       {isLoading ? <p>불러오는 중...</p> : null}
 
@@ -163,7 +159,6 @@ export function MyPage() {
             <div className="my-page__verify-callout" role="status">
               <p className="my-page__verify-callout-title">이메일 인증이 필요합니다</p>
               <p className="helper" style={{ margin: '6px 0 0' }}>
-                인증 후 로그인하면 <strong>바로 홈(메인)</strong>으로 들어갑니다.{' '}
                 <Link to="/verify-email">이메일 인증하기</Link>
               </p>
             </div>
@@ -211,9 +206,6 @@ export function MyPage() {
           {showPasswordChange ? (
             <div className="my-page__password-change">
               <h2 style={{ fontSize: '1.1rem', marginTop: '1.25rem' }}>비밀번호 변경</h2>
-              <p className="helper" style={{ marginTop: '0.35rem' }}>
-                등록 이메일로 6자리 인증코드를 받은 뒤, 아래에 입력하고 새 비밀번호를 설정합니다.
-              </p>
               <p style={{ marginTop: '0.75rem' }}>
                 <button
                   type="button"
@@ -318,14 +310,6 @@ export function MyPage() {
                 ))}
               </ul>
             </>
-          ) : !brogListLoading && !brogListError ? (
-            <p className="helper" style={{ marginTop: '0.5rem' }}>
-              {assumeAdminUi() && !localStorage.getItem(ACCESS_TOKEN_KEY)
-                ? '테스트 UI: BroG 목록은 로그인 후 API에서 불러옵니다.'
-                : isSuperAdmin(user.role) || user.role === ROLE_REGIONAL_MANAGER
-                  ? '등록된 BroG가 없습니다.'
-                  : '아직 등록한 BroG가 없습니다.'}
-            </p>
           ) : null}
           <p className="helper my-page__footer-link">
             <Link to="/">홈으로</Link>

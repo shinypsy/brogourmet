@@ -1,4 +1,5 @@
 from app.models.district import District
+from app.models.free_share_comment import FreeShareComment
 from app.models.free_share_post import FreeSharePost
 from app.models.known_restaurant_post import KnownRestaurantPost
 from app.models.payment_intent import PaymentIntent
@@ -15,6 +16,7 @@ __all__ = [
     "RestaurantMenuItem",
     "RestaurantComment",
     "RestaurantLike",
+    "FreeShareComment",
     "FreeSharePost",
     "KnownRestaurantPost",
     "PaymentIntent",

@@ -57,11 +57,28 @@ CREATE TABLE free_share_posts (
     body TEXT NOT NULL,
     district VARCHAR(50),
     image_url VARCHAR(500),
+    image_urls JSON,
+    share_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    share_category VARCHAR(20) NOT NULL DEFAULT 'other',
+    share_latitude DOUBLE PRECISION,
+    share_longitude DOUBLE PRECISION,
+    share_place_label VARCHAR(200),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX ix_free_share_posts_author_id ON free_share_posts (author_id);
+
+CREATE TABLE free_share_comments (
+    id SERIAL PRIMARY KEY,
+    post_id INTEGER NOT NULL REFERENCES free_share_posts (id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ix_free_share_comments_post_id ON free_share_comments (post_id);
+CREATE INDEX ix_free_share_comments_user_id ON free_share_comments (user_id);
 
 CREATE TABLE known_restaurant_posts (
     id SERIAL PRIMARY KEY,

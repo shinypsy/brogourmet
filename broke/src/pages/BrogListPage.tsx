@@ -9,13 +9,15 @@ import {
   fetchRestaurants,
   type RestaurantListItem,
 } from '../api/restaurants'
-import { BrogRankCard } from '../components/BrogRankCard'
 import { BrogRankGridCarousel } from '../components/BrogRankGridCarousel'
+import { HomeStyleListToolbarGeo } from '../components/HomeStyleListSearchBlocks'
+import { MapPageBrogImageGridList } from '../components/MapPageBrogImageGridList'
+import { useSeoulMapUserLocation } from '../hooks/useSeoulMapUserLocation'
+import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
 import {
   BROG_DISTRICT_ALL,
   brogDistrictOptionsForUi,
   clampBrogDistrictForPhase1,
-  isBrogPhase1Restricted,
   parseBrogDistrictUrlParam,
 } from '../lib/brogPhase1'
 import {
@@ -46,6 +48,28 @@ export function BrogListPage() {
     },
     [city, setSearchParams],
   )
+
+  const [nearIgnoreDistrict, setNearIgnoreDistrict] = useState(false)
+
+  const {
+    geoBusy,
+    mapUserCoords,
+    latInput,
+    setLatInput,
+    lngInput,
+    setLngInput,
+    coordApplyError,
+    handleApplyManualCoords,
+    myLocationFromDevice,
+  } = useSeoulMapUserLocation(setDistrict, {
+    initialGeolocationSetsDistrict: false,
+    enableInitialGeolocation: false,
+    onApplyLatLngResolved: (r) => setNearIgnoreDistrict(r.reason !== 'ok'),
+    onDeviceCoordsWithoutDistrictSync: () => setNearIgnoreDistrict(true),
+  })
+
+  const nearLat = mapUserCoords?.lat ?? null
+  const nearLng = mapUserCoords?.lng ?? null
 
   const [maxPrice, setMaxPrice] = useState(10000)
   const [restaurants, setRestaurants] = useState<RestaurantListItem[]>([])
@@ -105,10 +129,21 @@ export function BrogListPage() {
       if (cancelled) return
       setIsListLoading(true)
       setListError('')
-      void fetchRestaurants({
+      const base = {
         ...(district !== BROG_DISTRICT_ALL ? { district } : {}),
         max_price: maxPrice,
-      })
+      } as const
+      const useNearForListApi = nearIgnoreDistrict && nearLat != null && nearLng != null
+      const params = useNearForListApi
+        ? {
+            ...base,
+            near_lat: nearLat,
+            near_lng: nearLng,
+            radius_m: MAP_NEAR_RADIUS_M,
+            near_ignore_district: true as const,
+          }
+        : base
+      void fetchRestaurants(params)
         .then((data) => {
           if (!cancelled) setRestaurants(data)
         })
@@ -125,7 +160,7 @@ export function BrogListPage() {
     return () => {
       cancelled = true
     }
-  }, [district, maxPrice, listRefreshAt, listReloadTick])
+  }, [district, maxPrice, nearLat, nearLng, nearIgnoreDistrict, listRefreshAt, listReloadTick])
 
   /** 상세·관리에서 삭제 후 넘어온 state 제거(뒤로가기 시 이상한 재요청 방지) */
   useEffect(() => {
@@ -197,70 +232,7 @@ export function BrogListPage() {
     }
   }
 
-  function renderRankCard(restaurant: RestaurantListItem, globalRank: number) {
-    return (
-      <BrogRankCard
-        restaurant={restaurant}
-        rank={globalRank}
-        pinnedSlot={restaurant.bro_list_pin ?? null}
-        footer={
-          <>
-            {canPinRow(restaurant) ? (
-              <div className="brog-rank-card__pin-table" role="group" aria-label="목록 고정">
-                <div className="brog-rank-card__pin-tr">
-                  <div className="brog-rank-card__pin-td">
-                    <button
-                      type="button"
-                      className="brog-rank-card__pin-btn"
-                      disabled={pinBusyId === restaurant.id}
-                      title="미고정: 구 내 빈 슬롯(1~4) 부여 · 고정됨: 다음 슬롯 순환"
-                      onClick={() => void handleCycleListPin(restaurant.id)}
-                    >
-                      {pinBusyId === restaurant.id
-                        ? '적용 중…'
-                        : restaurant.bro_list_pin == null
-                          ? '목록 고정'
-                          : `고정 ${restaurant.bro_list_pin}위 (다음)`}
-                    </button>
-                  </div>
-                  <div className="brog-rank-card__pin-td">
-                    {restaurant.bro_list_pin != null ? (
-                      <button
-                        type="button"
-                        className="brog-rank-card__pin-clear-btn"
-                        disabled={pinBusyId === restaurant.id}
-                        title="이 맛집만 고정 해제 (슬롯 비움)"
-                        onClick={() => void handleClearListPin(restaurant.id)}
-                      >
-                        고정 해제
-                      </button>
-                    ) : (
-                      <span className="brog-rank-card__pin-td-placeholder" aria-hidden />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-            {canDeleteRow(restaurant) ? (
-              <button
-                type="button"
-                className="brog-rank-card__delete-btn"
-                onClick={() => void handleSoftDelete(restaurant)}
-              >
-                목록에서 숨기기
-              </button>
-            ) : null}
-          </>
-        }
-      />
-    )
-  }
-
   const brogDistrictOptions = brogDistrictOptionsForUi()
-
-  const emptyHint = isBrogPhase1Restricted()
-    ? '이 구·가격 조건에 맞는 BroG가 없습니다. 다른 구를 고르거나 가격 상한을 조정해 보세요.'
-    : '가격 상한을 조정하거나 지도에서 다른 구를 선택해 보세요.'
 
   return (
     <div className="brog-screen brog-screen--list">
@@ -268,16 +240,30 @@ export function BrogListPage() {
         <div>
           <p className="eyebrow">BroG · 리스트</p>
           <h1 className="brog-screen__title">{pageTitle}</h1>
-          <p className="brog-screen__meta">
-            {city} · {district} · 대표 메뉴 {maxPrice.toLocaleString()}원 이하
-          </p>
         </div>
         <div className="brog-screen__header-actions">
           <Link
-            className="ghost-button"
+            className="ghost-button free-share-header-map-link"
             to={`/map?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`}
+            aria-label="BroG 지도"
+            title="BroG 지도"
           >
-            지도
+            <svg
+              className="free-share-header-map-link__icon"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M12 21s-8-4.5-8-11a8 8 0 0 1 16 0c0 6.5-8 11-8 11z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            <span className="visually-hidden">지도</span>
           </Link>
           <Link className="brog-screen__cta" to="/restaurants/manage/new">
             BroG 등록
@@ -286,47 +272,53 @@ export function BrogListPage() {
       </header>
 
       <section className="brog-list-body" aria-label="BroG 목록">
-        <div className="brog-screen__toolbar brog-screen__toolbar--list map-card">
-          <label className="price-filter brog-list-toolbar__filter">
-            <span className="brog-list-toolbar__label">가격 상한</span>
-            <select value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))}>
-              {BROG_MAIN_MENU_PRICE_MAX_OPTIONS.map((price) => (
-                <option key={price} value={price}>
-                  {price.toLocaleString()}원 이하
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="price-filter brog-list-toolbar__filter">
-            <span className="brog-list-toolbar__label">서울시</span>
-            <select value={district} onChange={(e) => setDistrict(e.target.value)}>
-              {brogDistrictOptions.map((gu) => (
-                <option key={gu} value={gu}>
-                  {gu}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="brog-list-toolbar__notes">
-            <p className="helper brog-list-toolbar__note">
-              카드를 누르면 상세로 이동합니다. 상세 「관리」에서 수정·목록 숨기기·(슈퍼) 영구 삭제를 할 수 있습니다.
-            </p>
-            <p className="helper brog-list-toolbar__note brog-list-toolbar__note--muted">
-              목록은 <strong>8곳씩</strong>입니다. <strong>« »</strong> 또는 카드 영역을 <strong>좌우로 드래그</strong>
-              (휴대폰은 밀기)해 넘길 수 있습니다.{' '}
-              {isBrogPhase1Restricted()
-                ? '1단계: 구 선택은 6개 구로 한정됩니다. 슈퍼·지역 담당 또는 본인이 등록한 BroG는 카드에서 바로 숨길 수 있습니다.'
-                : '슈퍼·지역 담당 또는 본인이 등록한 BroG는 카드에서 목록·지도 숨김(소프트 삭제)을 할 수 있습니다.'}{' '}
-              슈퍼·해당 구 지역 담당자: 「목록 고정」은 미고정 카드에{' '}
-              <strong>이 구에서 비어 있는 1~4위</strong> 중 가장 앞 슬롯을 줍니다(1위가 있으면 새 카드는 2위부터).
-              이미 고정된 카드에서는 1→2→3→4→해제 순환, 「고정 해제」는 이 카드만 즉시 비움.
-            </p>
+        <div className="brog-list-body__map-stack map-layout map-layout--brog brog-screen--map">
+          {/* 홈 MapPageBody와 동일: `map-page-toolbar map-card`만 — 가격·구·좌표 한 카드·가로 배치(PC) */}
+          <div className="map-page-toolbar map-card">
+            <div className="map-page-toolbar__filters-row">
+              <label className="price-filter map-page-toolbar__filter">
+                가격 상한
+                <select value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))}>
+                  {BROG_MAIN_MENU_PRICE_MAX_OPTIONS.map((price) => (
+                    <option key={price} value={price}>
+                      {price.toLocaleString()}원 이하
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="price-filter map-page-toolbar__filter">
+                서울시
+                <select
+                  value={district}
+                  onChange={(e) => {
+                    setNearIgnoreDistrict(false)
+                    setDistrict(e.target.value)
+                  }}
+                >
+                  {brogDistrictOptions.map((gu) => (
+                    <option key={gu} value={gu}>
+                      {gu}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <HomeStyleListToolbarGeo
+              latInput={latInput}
+              setLatInput={setLatInput}
+              lngInput={lngInput}
+              setLngInput={setLngInput}
+              coordApplyError={coordApplyError}
+              handleApplyManualCoords={handleApplyManualCoords}
+              geoBusy={geoBusy}
+              myLocationFromDevice={myLocationFromDevice}
+            />
           </div>
         </div>
 
         {!isListLoading && !listError ? (
           <p className="brog-list-body__count" role="status">
-            <strong>{restaurants.length}</strong>곳 · 가격 {maxPrice.toLocaleString()}원 이하
+            <strong>{restaurants.length}</strong>곳 표시 · 가격 {maxPrice.toLocaleString()}원 이하
             {carouselPage.pageCount > 1 ? (
               <>
                 {' '}
@@ -342,7 +334,6 @@ export function BrogListPage() {
         {!isListLoading && restaurants.length === 0 && !listError ? (
           <article className="brog-rank-card brog-rank-card--empty">
             <p className="brog-rank-card__name">조건에 맞는 맛집이 없습니다</p>
-            <p className="brog-rank-section__sub brog-list-body__empty-hint">{emptyHint}</p>
             <p className="helper" style={{ marginTop: 12 }}>
               <Link className="compact-link" to="/restaurants/manage/new">
                 BroG 등록하기
@@ -354,10 +345,73 @@ export function BrogListPage() {
         {!isListLoading && restaurants.length > 0 && !listError ? (
           <BrogRankGridCarousel
             items={restaurants}
-            resetKey={`${district}-${maxPrice}`}
+            resetKey={`${district}-${maxPrice}-${nearIgnoreDistrict}-${nearLat ?? ''}-${nearLng ?? ''}`}
             getItemKey={(r) => r.id}
-            renderItem={(restaurant, globalRank) => renderRankCard(restaurant, globalRank)}
-            ariaLabel="BroG 카드 목록, 8곳씩"
+            renderPage={(page, startGlobalRankOneBased) => (
+              <MapPageBrogImageGridList
+                items={page}
+                getDetailHref={(r) => `/restaurants/${r.id}`}
+                getRankDisplay={(r, i) => {
+                  const pin = r.bro_list_pin
+                  const seq = startGlobalRankOneBased + i
+                  return pin != null && pin >= 1 && pin <= 4 ? pin : seq
+                }}
+                showBroListPinMeta
+                renderActions={(restaurant) =>
+                  canPinRow(restaurant) || canDeleteRow(restaurant) ? (
+                    <>
+                      {canPinRow(restaurant) ? (
+                        <>
+                          <button
+                            type="button"
+                            className="map-page-brog-lines__action-btn"
+                            disabled={pinBusyId === restaurant.id}
+                            title="미고정: 구 내 빈 슬롯(1~4) 부여 · 고정됨: 다음 슬롯 순환"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              void handleCycleListPin(restaurant.id)
+                            }}
+                          >
+                            {pinBusyId === restaurant.id
+                              ? '…'
+                              : restaurant.bro_list_pin == null
+                                ? '고정'
+                                : `${restaurant.bro_list_pin}위→`}
+                          </button>
+                          {restaurant.bro_list_pin != null ? (
+                            <button
+                              type="button"
+                              className="map-page-brog-lines__action-btn"
+                              disabled={pinBusyId === restaurant.id}
+                              title="이 맛집만 고정 해제"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                void handleClearListPin(restaurant.id)
+                              }}
+                            >
+                              해제
+                            </button>
+                          ) : null}
+                        </>
+                      ) : null}
+                      {canDeleteRow(restaurant) ? (
+                        <button
+                          type="button"
+                          className="map-page-brog-lines__action-btn map-page-brog-lines__action-btn--danger"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            void handleSoftDelete(restaurant)
+                          }}
+                        >
+                          숨김
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null
+                }
+              />
+            )}
+            ariaLabel="BroG 이미지 목록, 8곳씩"
             onPaginationInfo={onCarouselPagination}
           />
         ) : null}

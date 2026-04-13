@@ -3,8 +3,9 @@
  * - `franchise`: 가맹점 — 빨강
  * - `brog`: BroG 등록 일반 점포 — 파랑
  * - `myg`: MyG 제보 — 노랑
+ * - `freeShare`: 무료나눔 — 녹색
  */
-export type BrogMapMarkerKind = 'franchise' | 'brog' | 'myg'
+export type BrogMapMarkerKind = 'franchise' | 'brog' | 'myg' | 'freeShare'
 
 const MARKER_STYLES: Record<BrogMapMarkerKind, { fill: string; stroke: string; sheen: string }> = {
   franchise: {
@@ -21,6 +22,11 @@ const MARKER_STYLES: Record<BrogMapMarkerKind, { fill: string; stroke: string; s
     fill: '#e6b422',
     stroke: '#9a7209',
     sheen: '#fff4c4',
+  },
+  freeShare: {
+    fill: '#2e9d6c',
+    stroke: '#145a3c',
+    sheen: '#b8f0d4',
   },
 }
 

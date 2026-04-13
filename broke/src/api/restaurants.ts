@@ -92,7 +92,7 @@ export type RestaurantWritePayload = {
   category: BrogCategory
   summary: string
   image_url?: string | null
-  /** BroG 사진 URL 최대 5개 */
+  /** BroG 사진 URL 최대 6개 */
   image_urls?: string[]
   latitude?: number | null
   longitude?: number | null

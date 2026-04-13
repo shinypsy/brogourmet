@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from './api/auth'
-import { AUTH_CHANGE_EVENT } from './authEvents'
+import { AUTH_CHANGE_EVENT, USER_PROFILE_REFRESH_EVENT } from './authEvents'
 import { EventTicker } from './components/EventTicker'
 import { TestUiAdminBanner } from './components/TestUiAdminBanner'
 import { BROG_ONLY } from './config/features'
@@ -27,6 +27,9 @@ const FreeShareWritePage = lazy(() =>
 )
 const FreeSharePostDetailPage = lazy(() =>
   import('./pages/FreeSharePostDetailPage').then((m) => ({ default: m.FreeSharePostDetailPage })),
+)
+const FreeShareMapPage = lazy(() =>
+  import('./pages/FreeShareMapPage').then((m) => ({ default: m.FreeShareMapPage })),
 )
 const KnownRestaurantsBoardPage = lazy(() =>
   import('./pages/KnownRestaurantsBoardPage').then((m) => ({ default: m.KnownRestaurantsBoardPage })),
@@ -66,6 +69,7 @@ const prefetch = {
   mygList: () => void import('./pages/KnownRestaurantsBoardPage'),
   mygMap: () => void import('./pages/KnownRestaurantsMapPage'),
   freeShare: () => void import('./pages/FreeShareBoardPage'),
+  freeShareMap: () => void import('./pages/FreeShareMapPage'),
   payment: () => void import('./pages/PaymentPage'),
   eventWrite: () => void import('./pages/EventWritePage'),
   login: () => void import('./pages/LoginPage'),
@@ -113,6 +117,16 @@ function App() {
     }
   }, [hasToken])
 
+  useEffect(() => {
+    function refreshProfile() {
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+      if (!token) return
+      void fetchMe(token).then(setNavUser).catch(() => setNavUser(null))
+    }
+    window.addEventListener(USER_PROFILE_REFRESH_EVENT, refreshProfile)
+    return () => window.removeEventListener(USER_PROFILE_REFRESH_EVENT, refreshProfile)
+  }, [])
+
   function logout() {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
@@ -130,6 +144,17 @@ function App() {
         <div className="topbar__brand">
           <p className="eyebrow">Broke Gourmet</p>
           <h1>고단한 미식가</h1>
+          {navUser ? (
+            <div className="topbar__user-line">
+              <Link to="/me" className="topbar__user-line__link">
+                <span className="topbar__user-line__nick">{navUser.nickname}</span>
+                <span className="topbar__user-line__sep" aria-hidden>
+                  ·
+                </span>
+                <span className="topbar__user-line__points">{navUser.points_balance ?? 0}P</span>
+              </Link>
+            </div>
+          ) : null}
         </div>
         <nav className="main-nav" aria-label="주 메뉴">
           <div className="main-nav__grid">
@@ -163,8 +188,14 @@ function App() {
                 <Link
                   className="main-nav-item"
                   to="/free-share"
-                  onMouseEnter={prefetch.freeShare}
-                  onFocus={prefetch.freeShare}
+                  onMouseEnter={() => {
+                    prefetch.freeShare()
+                    prefetch.freeShareMap()
+                  }}
+                  onFocus={() => {
+                    prefetch.freeShare()
+                    prefetch.freeShareMap()
+                  }}
                 >
                   Free
                 </Link>
@@ -242,6 +273,7 @@ function App() {
             {!BROG_ONLY ? (
               <>
                 <Route path="/free-share" element={<FreeShareBoardPage />} />
+                <Route path="/free-share/map" element={<FreeShareMapPage />} />
                 <Route path="/free-share/write" element={<FreeShareWritePage />} />
                 <Route path="/free-share/:id" element={<FreeSharePostDetailPage />} />
                 <Route path="/known-restaurants" element={<Navigate to="/known-restaurants/list" replace />} />

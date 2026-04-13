@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { KAKAO_MAP_APP_KEY } from '../api/config'
@@ -20,7 +20,7 @@ export type BrogKakaoMapPin = {
   rank?: number
   /** 있으면 클릭 시 이 경로로 이동 (`getDetailPath` 대신) */
   href?: string
-  /** `franchise` 빨강 · `brog` 파랑(BroG) · `myg` 노랑(MyG). 기본 `brog`. */
+  /** `franchise` 빨강 · `brog` 파랑(BroG) · `myg` 노랑(MyG) · `freeShare` 녹색(무료나눔). 기본 `brog`. */
   markerKind?: BrogMapMarkerKind
   /** `mapSpeechBubbles`일 때 깃발 옆 말풍선에 표시할 상호 */
   mapSpeechLabel?: string
@@ -81,6 +81,8 @@ export type BrogKakaoMapProps = {
    * (지도 컨테이너에서 `contextmenu` 기본 메뉴는 막습니다.)
    */
   onPickUserLocationOnMap?: (lat: number, lng: number) => void
+  /** 있으면 우클릭·롱프레스 안내 문구를 이 내용으로 대체 */
+  pickLocationHint?: ReactNode
   /**
    * 드래그·줌 등으로 지도가 안정된 뒤(디바운스) 현재 화면 중심 좌표.
    * 목록 API의 near 기준으로 쓰기 좋음. 프로그램적 setBounds/setCenter 직후 잠깐은 호출되지 않습니다.
@@ -104,6 +106,15 @@ export type BrogKakaoMapProps = {
   shellPlaceholderClassName?: string
   canvasClassName?: string
   errorClassName?: string
+  /**
+   * 값이 바뀔 때마다 지도 `relayout` (사다리 등 주변 레이아웃 변화 후 타일·크기 맞춤).
+   * 점메추 페이지 등에서 전달.
+   */
+  mapRelayoutKey?: string
+  /**
+   * false: 지도 아래 롱프레스·뷰 안내, 깃발 범례 숨김. 홈 등 안내 유지 시 true(기본).
+   */
+  showInteractionHints?: boolean
 }
 
 const DEFAULT_SHELL = 'home-hub__map-shell'
@@ -121,6 +132,7 @@ export function BrogKakaoMap({
   locating,
   onMyLocationClick,
   onPickUserLocationOnMap,
+  pickLocationHint,
   onMapViewSettled,
   mapViewSettleDebounceMs = 450,
   autoRefitWhenPinsChange = true,
@@ -132,6 +144,8 @@ export function BrogKakaoMap({
   shellPlaceholderClassName = DEFAULT_SHELL_PLACEHOLDER,
   canvasClassName = DEFAULT_CANVAS,
   errorClassName = DEFAULT_ERROR,
+  mapRelayoutKey = '',
+  showInteractionHints = true,
 }: BrogKakaoMapProps) {
   const navigate = useNavigate()
   const getDetailPathRef = useRef(getDetailPath)
@@ -234,6 +248,21 @@ export function BrogKakaoMap({
   }, [mapSdkReady])
 
   useEffect(() => {
+    const map = mapRef.current
+    if (!mapSdkReady || !map || !mapRelayoutKey) return
+    const nudge = () => map.relayout?.()
+    nudge()
+    const raf = window.requestAnimationFrame(nudge)
+    const t1 = window.setTimeout(nudge, 160)
+    const t2 = window.setTimeout(nudge, 520)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [mapSdkReady, mapRelayoutKey])
+
+  useEffect(() => {
     const maps = getKakaoMaps()
     if (!mapSdkReady || !mapRef.current || !maps) return
     const map = mapRef.current
@@ -297,6 +326,28 @@ export function BrogKakaoMap({
       speechRows.forEach(({ pin: p, speech, isWinner }) => {
         const anchor = document.createElement('div')
         anchor.className = 'brog-map-speech-anchor'
+        anchor.setAttribute('role', 'link')
+        anchor.tabIndex = 0
+        anchor.setAttribute('aria-label', `${p.title} 상세 보기`)
+        const goToDetail = () => {
+          const path = p.href ?? getDetailPathRef.current(p.id)
+          navigate(path)
+        }
+        const stopPickPropagation = (e: Event) => e.stopPropagation()
+        anchor.addEventListener('mousedown', stopPickPropagation)
+        anchor.addEventListener('touchstart', stopPickPropagation, { passive: true })
+        const onAnchorActivate = (e: Event) => {
+          e.preventDefault()
+          e.stopPropagation()
+          goToDetail()
+        }
+        anchor.addEventListener('click', onAnchorActivate)
+        anchor.addEventListener('keydown', (e) => {
+          const ke = e as KeyboardEvent
+          if (ke.key === 'Enter' || ke.key === ' ') {
+            onAnchorActivate(e)
+          }
+        })
         const bubble = document.createElement('div')
         bubble.className =
           'brog-map-speech-bubble' + (isWinner ? ' brog-map-speech-bubble--winner' : '')
@@ -556,7 +607,7 @@ export function BrogKakaoMap({
     <div className={shellClassName}>
       {mapLoadError ? <p className={`error ${errorClassName}`}>{mapLoadError}</p> : null}
       <div ref={mapContainerRef} className={canvasClassName} role="application" aria-label={mapAriaLabel} />
-      {onMapViewSettled || onPickUserLocationOnMap ? (
+      {showInteractionHints && (onMapViewSettled || onPickUserLocationOnMap) ? (
         <p className="brog-map-longpress-hint helper">
           {onMapViewSettled ? (
             <>
@@ -564,14 +615,16 @@ export function BrogKakaoMap({
             </>
           ) : null}
           {onPickUserLocationOnMap ? (
-            <>
-              지도를 <strong>길게 누르거나</strong> <strong>우클릭</strong>하면 그 지점을 내 위치로 잡습니다.
-              {onMapViewSettled ? ' (롱프레스는 드래그하면 취소)' : ' (드래그하면 취소)'}
-            </>
+            pickLocationHint ?? (
+              <>
+                지도를 <strong>길게 누르거나</strong> <strong>우클릭</strong>하면 그 지점을 내 위치로 잡습니다.
+                {onMapViewSettled ? ' (롱프레스는 드래그하면 취소)' : ' (드래그하면 취소)'}
+              </>
+            )
           ) : null}
         </p>
       ) : null}
-      {pins.length > 0 ? (
+      {showInteractionHints && pins.length > 0 ? (
         <p className="brog-map-marker-legend helper">
           깃발 색: <span className="brog-map-marker-legend__franchise">■</span> 가맹점 ·{' '}
           <span className="brog-map-marker-legend__brog">■</span> BroG ·{' '}

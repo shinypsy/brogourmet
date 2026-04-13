@@ -2,9 +2,10 @@ import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useSt
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
+import { notifyUserProfileRefresh } from '../authEvents'
 import { fetchDistricts, type District } from '../api/districts'
 import { copyBrogToMyGPost, uploadCommunityImage } from '../api/community'
-import { KAKAO_MAP_APP_KEY, KAKAO_REST_API_KEY } from '../api/config'
+import { KAKAO_REST_API_KEY } from '../api/config'
 import {
   createRestaurant,
   fetchRestaurant,
@@ -14,7 +15,7 @@ import {
   updateRestaurant,
   type RestaurantWritePayload,
 } from '../api/restaurants'
-import { BrogKakaoMap } from '../components/BrogKakaoMap'
+import { ManageFormLocationMapSection } from '../components/ManageFormLocationMapSection'
 import {
   clampMenuTextLineCount,
   MAX_MENU_LINES,
@@ -27,6 +28,7 @@ import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeo
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
+import { BrogCategoryPickerIcon } from '../lib/brogCategoryPickerIcons'
 import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
 import { BROG_ONLY } from '../config/features'
 import {
@@ -40,8 +42,14 @@ import {
   ROLE_SUPER_ADMIN,
 } from '../lib/roles'
 import { TEST_UI_SUPER_ADMIN_PERSONA } from '../lib/testUiAdminPersona'
+import {
+  BROG_MYG_REQUIRED_PHOTO_COUNT,
+  BROG_NEW_REQUIRED_PHOTO_LABELS,
+  brogNewRegisterRequiredPhotosError,
+  mergeUploadedImageUrls,
+} from '../lib/brogMygPhotoSlots'
 
-const MAX_BROG_IMAGES = 5
+const MAX_BROG_IMAGES = 6
 
 type RestaurantManageFormState = Omit<RestaurantWritePayload, 'category'> & {
   category: BrogCategory | ''
@@ -49,6 +57,7 @@ type RestaurantManageFormState = Omit<RestaurantWritePayload, 'category'> & {
 
 export function RestaurantManagePage() {
   const { id } = useParams()
+  const isNewBrog = !id
   const navigate = useNavigate()
   const menuPhotoInputRef = useRef<HTMLInputElement>(null)
   const brogImageInputRef = useRef<HTMLInputElement>(null)
@@ -70,7 +79,7 @@ export function RestaurantManagePage() {
     status: 'published',
   })
   const [menuLinesText, setMenuLinesText] = useState('')
-  const [imageUrls, setImageUrls] = useState<string[]>([])
+  const [imageUrls, setImageUrls] = useState<string[]>(() => (isNewBrog ? ['', '', ''] : []))
   const [brogImageBusy, setBrogImageBusy] = useState(false)
   const [exifGpsHint, setExifGpsHint] = useState('')
   const [ocrBusy, setOcrBusy] = useState(false)
@@ -293,7 +302,9 @@ export function RestaurantManagePage() {
       const urls = await Promise.all(
         slice.map((file) => uploadCommunityImage(token, file, 'brog')),
       )
-      setImageUrls((prev) => [...prev, ...urls].slice(0, MAX_BROG_IMAGES))
+      setImageUrls((prev) =>
+        mergeUploadedImageUrls(prev, urls, MAX_BROG_IMAGES, isNewBrog),
+      )
       const gpsResults = await Promise.all(slice.map((file) => readGpsFromImageFile(file)))
       let filledFromExif = false
       setForm((prev) => {
@@ -322,6 +333,10 @@ export function RestaurantManagePage() {
   }
 
   function removeImageAt(index: number) {
+    if (isNewBrog && index < BROG_MYG_REQUIRED_PHOTO_COUNT) {
+      setImageUrls((prev) => prev.map((u, i) => (i === index ? '' : u)))
+      return
+    }
     setImageUrls((prev) => prev.filter((_, i) => i !== index))
   }
 
@@ -424,6 +439,13 @@ export function RestaurantManagePage() {
       setError('카테고리를 선택하세요.')
       return
     }
+    if (isNewBrog) {
+      const photoErr = brogNewRegisterRequiredPhotosError(imageUrls)
+      if (photoErr) {
+        setError(photoErr)
+        return
+      }
+    }
 
     setError('')
     setIsSubmitting(true)
@@ -444,6 +466,9 @@ export function RestaurantManagePage() {
         more_menu_items: parsed.more,
       }
       const saved = id ? await updateRestaurant(token, Number(id), payload) : await createRestaurant(token, payload)
+      if (!id) {
+        notifyUserProfileRefresh()
+      }
       if (saved.status === 'published') {
         navigate(`/restaurants/${saved.id}`)
       } else {
@@ -458,369 +483,326 @@ export function RestaurantManagePage() {
 
   const canCopyToMyG = Boolean(id) && !BROG_ONLY && Boolean(token) && manageAclRow != null && !loadedIsDeleted
 
+  const manageDetailPath = id ? `/restaurants/manage/${id}` : '/restaurants/manage/new'
+
   return (
-    <div className="brog-screen brog-screen--list">
-      <header className="brog-screen__header">
-        <div>
-          <p className="eyebrow">{id ? 'BroG · 수정' : 'BroG · 작성'}</p>
-          <h1 className="brog-screen__title">{id ? 'BroG 수정' : 'BroG 작성'}</h1>
-          <p className="brog-screen__meta">
-            {id
-              ? '저장 후 공개 상세·관리에서 숨김·댓글·영구 삭제를 다룹니다.'
-              : '지도·카드 맛집으로 등록합니다. 대표 메뉴 1만 원 이하.'}
-          </p>
-        </div>
-      </header>
-
-      <section className="card" aria-label={id ? 'BroG 수정 폼' : 'BroG 등록 폼'}>
-      {!id ? (
-        <div className="brog-screen__toolbar map-card" style={{ marginBottom: 12 }}>
-          <div className="brog-list-toolbar__notes">
-            <p className="helper brog-list-toolbar__note">
-              공개 BroG 맛집으로 등록합니다. 대표 메뉴는 <strong>1만 원 이하</strong>, 표준 카테고리·메뉴 줄 형식을 지켜
-              주세요.
-            </p>
-            <p className="helper brog-list-toolbar__note brog-list-toolbar__note--muted">
-              개인 메모만 필요하면 MyG 작성을 이용하세요. 입력 필드 구성은 MyG와 같게 맞춰 두었습니다.
-            </p>
+    <div className="home-layout home-layout--hub home-layout--map-home app-route-hub">
+      <div className="brog-screen brog-screen--list">
+        <header className="brog-screen__header">
+          <div>
+            <p className="eyebrow">{id ? 'BroG · 수정' : 'BroG · 작성'}</p>
+            <h1 className="brog-screen__title">{id ? 'BroG 수정' : 'BroG 작성'}</h1>
           </div>
-        </div>
-      ) : null}
-      {id ? (
-        <p className="helper" style={{ marginTop: 8 }}>
-          <Link className="compact-link" to={`/restaurants/${id}`}>
-            공개 상세 보기
-          </Link>
-          {' — '}목록·지도에서 숨기기, 댓글 정리, DB 영구 삭제(슈퍼)는 상세 화면 「관리」에서 할 수 있습니다.
-        </p>
-      ) : null}
-      {canCopyToMyG ? (
-        <p className="helper" style={{ marginTop: 8 }}>
-          <button
-            type="button"
-            className="compact-link"
-            disabled={mygCopyBusy}
-            onClick={() => void handleCopyBrogToMyG()}
-          >
-            {mygCopyBusy ? '내려받는 중…' : 'MyG로  내려받기'}
-          </button>
-          {' — '}이 BroG 내용을 그대로 복사해 내 MyG 개인 글을 새로 만듭니다. 로그인한 사용자면 누구나 사용할 수
-          있습니다.
-        </p>
-      ) : null}
+        </header>
 
-      {isLoading ? <p>불러오는 중...</p> : null}
-      {loadedIsDeleted ? (
-        <p className="error" role="status">
-          이 BroG는 목록·지도에서 숨겨진 상태입니다. 슈퍼는 다시 공개하거나 DB에서만 영구 삭제할 수 있습니다.
-        </p>
-      ) : null}
-      {loadedIsDeleted && isSuperAdmin(user?.role) ? (
-        <p className="helper" style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <button type="button" className="compact-link" onClick={handleRestoreVisible}>
-            다시 공개
-          </button>
-          <button type="button" className="compact-link danger-text" onClick={handlePurgePermanent}>
-            DB 영구 삭제
-          </button>
-        </p>
-      ) : null}
-      {!isLoading ? (
-        <form className="form" onSubmit={handleSubmit}>
-          <label>
-            이름
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <p className="helper" style={{ marginTop: 6 }}>
-              같은 구·비슷한 위치(위도·경도)에 같은 이름이 이미 있으면 저장 시 자동으로{' '}
-              <code>이름_*</code>, <code>이름_1</code>, <code>이름_2</code>처럼 붙습니다. <code>_1</code>,{' '}
-              <code>_2</code> 매장은 포인트 적립 대상이 아닙니다.
+        <section
+          className="brog-list-body brog-brog-manage-form"
+          aria-label={id ? 'BroG 수정 폼' : 'BroG 등록 폼'}
+        >
+          {id ? (
+            <p className="helper" style={{ margin: 0 }}>
+              <Link className="compact-link" to={`/restaurants/${id}`}>
+                공개 상세 보기
+              </Link>
             </p>
-          </label>
-          {user?.role === ROLE_SUPER_ADMIN ? (
-            <label>
-              공개 상태
-              <select
-                value={form.status ?? 'published'}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    status: e.target.value === 'draft' ? 'draft' : 'published',
-                  })
-                }
-              >
-                <option value="draft">초안 (지도·목록에 안 보임)</option>
-                <option value="published">공개 (지도·목록 노출)</option>
-              </select>
-            </label>
-          ) : (
-            <p className="helper">
-              지역 담당자가 저장하면 <strong>지도·목록에 바로 반영</strong>됩니다. 삭제는 공개 상세 화면에서만 할 수
-              있습니다.
-            </p>
-          )}
-          <label>
-            구 (district_id)
-            <select
-              value={form.district_id || ''}
-              onChange={(e) => setForm({ ...form, district_id: Number(e.target.value) })}
-              required
-            >
-              <option value="">선택</option>
-              {districts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="brog-category-fieldset">
-            <legend>카테고리</legend>
-            {form.category && !isBrogCategory(form.category) ? (
-              <p className="helper" style={{ margin: 0 }}>
-                저장된 값 「{form.category}」은(는) 현재 표준 목록에 없습니다. 아래에서 카테고리를 다시 골라
-                주세요.
-              </p>
-            ) : null}
-            <div className="brog-category-picker" role="group" aria-label="카테고리 선택">
-              {BROG_CATEGORIES.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={
-                    'brog-category-picker__btn' +
-                    (form.category === c ? ' brog-category-picker__btn--active' : '')
-                  }
-                  onClick={() => setForm({ ...form, category: c })}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-          <label>
-            소개
-            <textarea
-              rows={4}
-              value={form.summary}
-              onChange={(e) => setForm({ ...form, summary: e.target.value })}
-              required
-            />
-          </label>
-          <label>
-            사진 (최대 {MAX_BROG_IMAGES}장)
-            <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
-              첫 장이 목록·지도 대표 썸네일입니다. 한 번에 최대 {MAX_BROG_IMAGES}장까지 선택해 동시에 올릴 수 있습니다(남은
-              슬롯만큼만 업로드). 서버 저장(최대 5MB/장) 또는 아래 URL 입력도 가능합니다. GPS가 있는 사진은 위도·경도가 비어 있을
-              때 EXIF로 채웁니다.
-            </p>
-            <input
-              ref={brogImageInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              multiple
-              style={{ display: 'none' }}
-              onChange={handleBrogImagesChange}
-            />
-            <p style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          ) : null}
+          {canCopyToMyG ? (
+            <p className="helper" style={{ margin: 0 }}>
               <button
                 type="button"
                 className="compact-link"
-                disabled={brogImageBusy || imageUrls.length >= MAX_BROG_IMAGES}
-                onClick={() => brogImageInputRef.current?.click()}
+                disabled={mygCopyBusy}
+                onClick={() => void handleCopyBrogToMyG()}
               >
-                {brogImageBusy ? '업로드 중…' : '파일에서 추가 (여러 장 선택 가능)'}
+                {mygCopyBusy ? '내려받는 중…' : 'MyG로  내려받기'}
               </button>
-              <span className="helper">
-                {imageUrls.length}/{MAX_BROG_IMAGES}장
-              </span>
             </p>
-            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 12px' }}>
-              {imageUrls.map((url, i) => (
-                <li
-                  key={`${i}-${url.slice(0, 40)}`}
-                  style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}
-                >
-                  <span className="helper" style={{ minWidth: 22 }}>
-                    {i + 1}.
-                  </span>
+          ) : null}
+
+          {isLoading ? <p>불러오는 중...</p> : null}
+          {loadedIsDeleted ? (
+            <p className="error" role="status">
+              이 BroG는 목록·지도에서 숨겨진 상태입니다. 슈퍼는 다시 공개하거나 DB에서만 영구 삭제할 수 있습니다.
+            </p>
+          ) : null}
+          {loadedIsDeleted && isSuperAdmin(user?.role) ? (
+            <p className="helper" style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <button type="button" className="compact-link" onClick={handleRestoreVisible}>
+                다시 공개
+              </button>
+              <button type="button" className="compact-link danger-text" onClick={handlePurgePermanent}>
+                DB 영구 삭제
+              </button>
+            </p>
+          ) : null}
+          {!isLoading ? (
+            <form className="form brog-manage-form" onSubmit={handleSubmit}>
+              {user?.role === ROLE_SUPER_ADMIN ? (
+                <label>
+                  공개 상태
+                  <select
+                    value={form.status ?? 'published'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        status: e.target.value === 'draft' ? 'draft' : 'published',
+                      })
+                    }
+                  >
+                    <option value="draft">초안 (지도·목록에 안 보임)</option>
+                    <option value="published">공개 (지도·목록 노출)</option>
+                  </select>
+                </label>
+              ) : null}
+              <div className="brog-manage-form__name-district-row">
+                <label className="brog-manage-form__name-field">
+                  상호명
                   <input
-                    style={{ flex: 1, minWidth: 0 }}
-                    value={url}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setImageUrls((prev) => prev.map((u, j) => (j === i ? v : u)))
-                    }}
-                    placeholder="https://… 또는 /uploads/…"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                    maxLength={200}
                   />
-                  <button type="button" className="compact-link" onClick={() => removeImageAt(i)}>
-                    삭제
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {imageUrls.length < MAX_BROG_IMAGES ? (
-              <button
-                type="button"
-                className="compact-link"
-                onClick={() => setImageUrls((prev) => [...prev, ''].slice(0, MAX_BROG_IMAGES))}
-              >
-                URL 줄 추가
-              </button>
-            ) : null}
-          </label>
-          <div className="restaurant-manage-location-map">
-            <div className="restaurant-manage-map-place-row" aria-label="지명 검색으로 지도 위치 맞추기">
-              <span className="restaurant-manage-map-place-row__icon" aria-hidden>
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                </label>
+                <label className="brog-manage-form__district-field">
+                  구
+                  <select
+                    value={form.district_id || ''}
+                    onChange={(e) => setForm({ ...form, district_id: Number(e.target.value) })}
+                    required
+                  >
+                    <option value="">선택</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <fieldset className="brog-category-fieldset">
+                <legend>카테고리</legend>
+                {form.category && !isBrogCategory(form.category) ? (
+                  <p className="error" style={{ margin: '0 0 8px' }} role="status">
+                    저장된 카테고리 「{form.category}」를 다시 선택해 주세요.
+                  </p>
+                ) : null}
+                <div
+                  className="brog-category-picker brog-category-picker--with-icons"
+                  role="group"
+                  aria-label="카테고리 선택"
                 >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m21 21-4-4" />
-                </svg>
-              </span>
-              <span className="restaurant-manage-map-place-row__label">지명검색 위치로</span>
-              <input
-                type="search"
-                enterKeyHint="search"
-                autoComplete="off"
-                spellCheck={false}
-                className="restaurant-manage-map-place-row__input"
-                placeholder="예: 홍대입구역, 망원동"
-                value={managePlaceQuery}
-                disabled={managePlaceBusy}
-                onChange={(e) => {
-                  setManagePlaceQuery(e.target.value)
-                  if (managePlaceHint) setManagePlaceHint('')
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    void handleManagePlaceSearch()
-                  }
-                }}
-                aria-label="지명 또는 장소 검색"
-              />
-              <button
-                type="button"
-                className="restaurant-manage-map-place-row__btn"
-                disabled={managePlaceBusy || !managePlaceQuery.trim() || !KAKAO_REST_API_KEY.trim()}
-                onClick={() => void handleManagePlaceSearch()}
-              >
-                {managePlaceBusy ? '찾는 중…' : '이 위치로'}
-              </button>
-            </div>
-            {managePlaceHint ? (
-              <p
-                className={`helper restaurant-manage-map-place-row__hint${managePlaceHint.includes('실패') || managePlaceHint.includes('못') || managePlaceHint.includes('필요') ? ' restaurant-manage-map-place-row__hint--warn' : ''}`}
-                role="status"
-              >
-                {managePlaceHint}
-              </p>
-            ) : null}
-            {KAKAO_MAP_APP_KEY ? (
-              <BrogKakaoMap
+                  {BROG_CATEGORIES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={c}
+                      aria-label={c}
+                      className={
+                        'brog-category-picker__btn' +
+                        (form.category === c ? ' brog-category-picker__btn--active' : '')
+                      }
+                      onClick={() => setForm({ ...form, category: c })}
+                    >
+                      <span className="brog-category-picker__icon-wrap" aria-hidden>
+                        <BrogCategoryPickerIcon category={c} />
+                      </span>
+                      <span className="brog-category-picker__label">{c}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <label>
+                소개
+                <textarea
+                  rows={4}
+                  value={form.summary}
+                  onChange={(e) => setForm({ ...form, summary: e.target.value })}
+                  required
+                />
+              </label>
+              <div className="brog-manage-form__photos-block">
+                <span className="brog-manage-form__photos-label" id="brog-manage-photos-label">
+                  사진 (최대 {MAX_BROG_IMAGES}장)
+                  {isNewBrog ? (
+                    <>
+                      {' '}
+                      · 신규는 {BROG_NEW_REQUIRED_PHOTO_LABELS.join('·')} 각 1장 필수, 그 외 추가 선택
+                    </>
+                  ) : null}
+                </span>
+                <input
+                  ref={brogImageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  multiple
+                  className="visually-hidden"
+                  aria-hidden
+                  onChange={handleBrogImagesChange}
+                />
+                <div className="brog-manage-form__photo-toolbar" aria-labelledby="brog-manage-photos-label">
+                  <button
+                    type="button"
+                    className="brog-manage-icon-btn"
+                    title="파일에서 사진 추가"
+                    aria-label="파일에서 사진 추가"
+                    disabled={brogImageBusy || imageUrls.length >= MAX_BROG_IMAGES}
+                    onClick={() => brogImageInputRef.current?.click()}
+                  >
+                    {brogImageBusy ? (
+                      <span className="brog-manage-icon-btn__spinner" aria-hidden />
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L15 16" />
+                        <circle cx="9" cy="8" r="1.5" fill="currentColor" stroke="none" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 5h6M19 2v6" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 19V5a2 2 0 0 1 2-2h7" />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="brog-manage-icon-btn"
+                    title="URL 링크 입력칸 추가"
+                    aria-label="URL 링크 입력칸 추가"
+                    disabled={imageUrls.length >= MAX_BROG_IMAGES}
+                    onClick={() =>
+                      setImageUrls((prev) => (prev.length < MAX_BROG_IMAGES ? [...prev, ''] : prev))
+                    }
+                  >
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"
+                      />
+                    </svg>
+                  </button>
+                  <span className="brog-manage-form__photo-count" aria-live="polite">
+                    {imageUrls.filter((u) => u.trim()).length}/{MAX_BROG_IMAGES}
+                  </span>
+                </div>
+                {imageUrls.length > 0 ? (
+                  <ul className="brog-manage-form__photo-url-list">
+                    {imageUrls.map((url, i) => (
+                      <li key={`url-row-${i}`} className="brog-manage-form__photo-url-row">
+                        <span
+                          className={
+                            'brog-manage-form__photo-url-index' +
+                            (isNewBrog && i < BROG_MYG_REQUIRED_PHOTO_COUNT
+                              ? ' brog-manage-form__photo-url-index--role'
+                              : '')
+                          }
+                        >
+                          {isNewBrog && i < BROG_MYG_REQUIRED_PHOTO_COUNT ? (
+                            <>
+                              {BROG_NEW_REQUIRED_PHOTO_LABELS[i]}
+                              <span className="brog-manage-form__photo-url-required-mark"> · 필수</span>
+                            </>
+                          ) : (
+                            <>{isNewBrog ? `추가 ${i - BROG_MYG_REQUIRED_PHOTO_COUNT + 1}` : `${i + 1}.`}</>
+                          )}
+                        </span>
+                        <input
+                          className="brog-manage-form__photo-url-input"
+                          value={url}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setImageUrls((prev) => prev.map((u, j) => (j === i ? v : u)))
+                          }}
+                          placeholder="https://… 또는 /uploads/…"
+                          aria-label={
+                            isNewBrog && i < BROG_MYG_REQUIRED_PHOTO_COUNT
+                              ? `${BROG_NEW_REQUIRED_PHOTO_LABELS[i]} 이미지 URL`
+                              : `이미지 URL ${i + 1}`
+                          }
+                        />
+                        <button type="button" className="compact-link" onClick={() => removeImageAt(i)}>
+                          {isNewBrog && i < BROG_MYG_REQUIRED_PHOTO_COUNT ? '비우기' : '삭제'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+              <ManageFormLocationMapSection
+                managePlaceQuery={managePlaceQuery}
+                setManagePlaceQuery={setManagePlaceQuery}
+                managePlaceBusy={managePlaceBusy}
+                managePlaceHint={managePlaceHint}
+                setManagePlaceHint={setManagePlaceHint}
+                onManagePlaceSearch={handleManagePlaceSearch}
                 userCoords={
                   form.latitude != null && form.longitude != null
                     ? { lat: form.latitude, lng: form.longitude }
                     : null
                 }
-                pins={[]}
-                locating={mapLocateBusy}
+                mapLocateBusy={mapLocateBusy}
                 onMyLocationClick={() => void onMapLocateGps()}
                 onPickUserLocationOnMap={(la, ln) => void onMapPickUserLocation(la, ln)}
-                getDetailPath={(_id) => '/restaurants/manage/new'}
+                getDetailPath={() => manageDetailPath}
                 mapAriaLabel="BroG 매장 위치 선택 지도"
+                coordPickHint={coordPickHint}
+                latitude={form.latitude ?? null}
+                longitude={form.longitude ?? null}
+                onLatitudeChange={(v) => setForm((f) => ({ ...f, latitude: v }))}
+                onLongitudeChange={(v) => setForm((f) => ({ ...f, longitude: v }))}
               />
-            ) : (
-              <p className="helper">
-                지도를 쓰려면 <code>broke/.env</code>에 <code>VITE_KAKAO_MAP_APP_KEY</code>(JavaScript 키)를 넣으세요.
-                주소·구 자동 입력에는 <code>VITE_KAKAO_REST_API_KEY</code>도 필요합니다.
-              </p>
-            )}
-            {coordPickHint ? (
-              <p className="helper restaurant-manage-location-map__hint" role="status">
-                {coordPickHint}
-              </p>
-            ) : null}
-          </div>
-          <div className="form-coords-row">
-            <label>
-              위도
-              <input
-                type="number"
-                step="any"
-                value={form.latitude ?? ''}
-                onChange={(e) =>
-                  setForm({ ...form, latitude: e.target.value === '' ? null : Number(e.target.value) })
-                }
-              />
-            </label>
-            <label>
-              경도
-              <input
-                type="number"
-                step="any"
-                value={form.longitude ?? ''}
-                onChange={(e) =>
-                  setForm({ ...form, longitude: e.target.value === '' ? null : Number(e.target.value) })
-                }
-              />
-            </label>
-          </div>
-          {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
-          <label>
-            메뉴 목록 (최대 {MAX_MENU_LINES}줄)
-            <p className="helper" style={{ marginTop: 6, marginBottom: 8 }}>
-              한 줄에 <code>메뉴이름 : 가격</code> 형식(콜론 <code>:</code> 또는 <code>：</code> 가능). 첫 줄은 대표
-              메뉴(10,000원 이하), 2~4줄은 카드에 강조, 5~10줄은 상세 목록만.
-            </p>
-            <textarea
-              rows={10}
-              value={menuLinesText}
-              onChange={(e) => setMenuLinesText(clampMenuTextLineCount(e.target.value))}
-              placeholder={'수육국밥 : 9000\n순대 : 5000\n막국수 : 8000'}
-              spellCheck={false}
-            />
-            <input
-              ref={menuPhotoInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={handleMenuPhotoChange}
-            />
-            <p style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-              <button
-                type="button"
-                className="compact-link"
-                disabled={ocrBusy}
-                onClick={() => menuPhotoInputRef.current?.click()}
-              >
-                {ocrBusy ? '사진에서 읽는 중…' : '메뉴판 사진에서 불러오기 → 메뉴 목록에 자동 반영'}
+              {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
+              <label className="brog-manage-form__menu-block">
+                <div className="brog-manage-form__menu-heading">
+                  <span className="brog-manage-form__menu-heading-text" id="brog-manage-menu-label">
+                    메뉴 목록 (최대 {MAX_MENU_LINES}줄)
+                  </span>
+                  <input
+                    ref={menuPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="visually-hidden"
+                    aria-hidden
+                    onChange={handleMenuPhotoChange}
+                  />
+                  <button
+                    type="button"
+                    className="brog-manage-icon-btn"
+                    title={ocrBusy ? '메뉴 인식 중' : '메뉴 사진 불러오기'}
+                    aria-label={ocrBusy ? '메뉴 사진 인식 중' : '메뉴 사진 불러오기'}
+                    disabled={ocrBusy}
+                    onClick={() => menuPhotoInputRef.current?.click()}
+                  >
+                    {ocrBusy ? (
+                      <span className="brog-manage-icon-btn__spinner" aria-hidden />
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2 1.586-1.586a2 2 0 0 1 2.828 0L20 14M4 20h16V8l-5-5H4v17z"
+                        />
+                        <circle cx="9" cy="7" r="1.5" fill="currentColor" stroke="none" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <textarea
+                  rows={10}
+                  value={menuLinesText}
+                  onChange={(e) => setMenuLinesText(clampMenuTextLineCount(e.target.value))}
+                  placeholder={'수육국밥 : 9000\n순대 : 5000\n막국수 : 8000'}
+                  spellCheck={false}
+                  aria-labelledby="brog-manage-menu-label"
+                />
+              </label>
+              <button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? '저장 중…' : '저장'}
               </button>
-            </p>
-            <p className="helper" style={{ marginTop: 4 }}>
-              인식 결과는 아래 메뉴 목록 텍스트에 <strong>덮어씁니다</strong>(기존 입력은 사라집니다). 로그인 상태에서{' '}
-              <code>VITE_USE_CLOVA_OCR=1</code> 이고 서버에 CLOVA 키가 설정되어 있으면 JPEG/PNG는 네이버 CLOVA를 먼저
-              쓰고, 실패·WebP 등은 브라우저 Tesseract(kor+eng)로 이어집니다. Tesseract는 첫 실행 시 모델 로딩이 걸릴 수
-              있습니다. <code>메뉴명 : 가격</code> 형식인지 꼭 확인하세요.
-            </p>
-          </label>
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? '저장 중...' : '저장'}
-          </button>
-        </form>
-      ) : null}
+            </form>
+          ) : null}
 
-      {error ? <p className="error">{error}</p> : null}
-      </section>
+          {error ? <p className="error">{error}</p> : null}
+        </section>
+      </div>
     </div>
   )
 }

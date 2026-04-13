@@ -11,6 +11,7 @@ import {
 import { KAKAO_MAP_APP_KEY, KAKAO_REST_API_KEY } from '../api/config'
 import type { RestaurantListItem } from '../api/restaurants'
 import { BrogKakaoMap } from '../components/BrogKakaoMap'
+import { HomeStyleListToolbarGeo } from '../components/HomeStyleListSearchBlocks'
 import { useSeoulMapUserLocation } from '../hooks/useSeoulMapUserLocation'
 import { haversineMeters } from '../lib/haversine'
 import {
@@ -19,7 +20,6 @@ import {
   mygDistrictOptionsForUi,
   parseBrogDistrictUrlParam,
 } from '../lib/deployStage1'
-import { brogMygMapSectionHint } from '../lib/brogMygTwin'
 import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
 import { knownRestaurantPostMatchesMygMapSearch } from '../lib/mapBroSearch'
 import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
@@ -223,14 +223,18 @@ export function KnownRestaurantsMapPage() {
     () =>
       visiblePosts
         .filter((p) => p.latitude != null && p.longitude != null)
-        .map((p, idx) => ({
-          id: p.id,
-          title: p.restaurant_name || p.title,
-          latitude: p.latitude as number,
-          longitude: p.longitude as number,
-          rank: idx + 1,
-          markerKind: 'myg' as const,
-        })),
+        .map((p, idx) => {
+          const label = (p.restaurant_name || p.title || '').trim()
+          return {
+            id: p.id,
+            title: label || `글 ${p.id}`,
+            mapSpeechLabel: label,
+            latitude: p.latitude as number,
+            longitude: p.longitude as number,
+            rank: idx + 1,
+            markerKind: 'myg' as const,
+          }
+        }),
     [visiblePosts],
   )
 
@@ -248,6 +252,7 @@ export function KnownRestaurantsMapPage() {
   const mygDistrictOptions = mygDistrictOptionsForUi()
 
   return (
+    <div className="home-layout home-layout--hub home-layout--map-home">
     <div className="map-layout map-layout--brog brog-screen brog-screen--map">
       <div className="map-page-toolbar map-card">
         <div className="map-page-toolbar__filters-row">
@@ -278,101 +283,20 @@ export function KnownRestaurantsMapPage() {
             </select>
           </label>
         </div>
-        <div className="map-page-toolbar__geo">
-          <div
-            className="home-hub__coord-edit map-page__coord-edit"
-            aria-label="위도 경도 직접 입력"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void handleApplyManualCoords()
-              }
-            }}
-          >
-            <div className="home-hub__coord-row map-page-toolbar__coord-row">
-              <label className="home-hub__coord-field">
-                위도
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="home-hub__coord-input"
-                  value={latInput}
-                  onChange={(e) => setLatInput(e.target.value)}
-                  placeholder="예: 37.56650"
-                  aria-label="위도"
-                />
-              </label>
-              <label className="home-hub__coord-field">
-                경도
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="home-hub__coord-input"
-                  value={lngInput}
-                  onChange={(e) => setLngInput(e.target.value)}
-                  placeholder="예: 126.97800"
-                  aria-label="경도"
-                />
-              </label>
-              <button type="button" className="home-hub__coord-apply" onClick={() => void handleApplyManualCoords()}>
-                좌표 적용
-              </button>
-              {navigator.geolocation ? (
-                <button
-                  type="button"
-                  className="map-page-toolbar__geo-icon-btn"
-                  disabled={geoBusy}
-                  title="위치 다시 받기"
-                  aria-label={geoBusy ? '위치 받는 중' : '위치 다시 받기'}
-                  onClick={() => void myLocationFromDevice()}
-                >
-                  <span className="map-page-toolbar__geo-icon-btn-inner" aria-hidden>
-                    {geoBusy ? (
-                      <svg width="22" height="22" viewBox="0 0 24 24" className="map-page-toolbar__geo-spinner">
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="9"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeDasharray="42"
-                          strokeLinecap="round"
-                          opacity="0.35"
-                        />
-                        <path
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          d="M12 3a9 9 0 0 1 9 9"
-                        />
-                      </svg>
-                    ) : (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="3" />
-                        <path
-                          strokeLinecap="round"
-                          d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                        />
-                      </svg>
-                    )}
-                  </span>
-                </button>
-              ) : null}
-            </div>
-            {coordApplyError ? <p className="error home-hub__coord-error">{coordApplyError}</p> : null}
-          </div>
-        </div>
+        <HomeStyleListToolbarGeo
+          latInput={latInput}
+          setLatInput={setLatInput}
+          lngInput={lngInput}
+          setLngInput={setLngInput}
+          coordApplyError={coordApplyError}
+          handleApplyManualCoords={handleApplyManualCoords}
+          geoBusy={geoBusy}
+          myLocationFromDevice={myLocationFromDevice}
+        />
       </div>
 
       <section className="map-page-map-section map-card">
         <h3 className="map-page-map-section__title">위치 지도</h3>
-        <p className="map-page-map-section__hint">{brogMygMapSectionHint(true)}</p>
         <div className="map-page-map-search map-page-map-search--dual" aria-label="MyG 지도 검색">
           <div className="map-page-map-search__field map-page-map-search__field--place">
             <span className="map-page-map-search__label-text">장소·지명</span>
@@ -407,11 +331,6 @@ export function KnownRestaurantsMapPage() {
                 {placeSearchBusy ? '찾는 중…' : '이 위치로'}
               </button>
             </div>
-            {!KAKAO_REST_API_KEY.trim() ? (
-              <p className="map-page-map-search__helper map-page-map-search__helper--warn">
-                장소 검색: <code>VITE_KAKAO_REST_API_KEY</code>를 넣으면 카카오 키워드 검색으로 이동할 수 있습니다.
-              </p>
-            ) : null}
             {placeSearchHint ? (
               <p
                 className={
@@ -531,18 +450,14 @@ export function KnownRestaurantsMapPage() {
             onPickUserLocationOnMap={onPickUserLocationOnMap}
             autoRefitWhenPinsChange={false}
             getDetailPath={(id) => `/known-restaurants/${id}`}
+            mapSpeechBubbles
             mapAriaLabel="MyG 위치 지도"
             shellClassName="kakao-map-embed"
             canvasClassName="kakao-map-container kakao-map-container--below"
+            showInteractionHints={false}
           />
         ) : (
-          <>
-            <p className="muted">
-              <code>broke/.env</code>의 <code>VITE_KAKAO_MAP_APP_KEY</code>에는 카카오 콘솔의{' '}
-              <strong>JavaScript 키</strong>만 넣으세요. REST API 키는 지도에 사용할 수 없습니다.
-            </p>
-            <div className="placeholder-box">MAP</div>
-          </>
+          <div className="placeholder-box">MAP</div>
         )}
       </section>
 
@@ -613,6 +528,7 @@ export function KnownRestaurantsMapPage() {
           </ul>
         ) : null}
       </section>
+    </div>
     </div>
   )
 }

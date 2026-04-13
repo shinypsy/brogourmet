@@ -28,7 +28,7 @@ class Restaurant(Base):
     category: Mapped[str] = mapped_column(String(80), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    # BroG 사진 URL 최대 5개 (JSON 배열). 대표 썸네일은 image_url 또는 image_urls[0]
+    # BroG 사진 URL 최대 6개 (JSON 배열). 대표 썸네일은 image_url 또는 image_urls[0]
     image_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     # 동일 장소·동일 브랜드로 나뉜 매장 중 첫 등록(이름 …(원조!!!) 또는 레거시 …_*)만 포인트 적립 대상
     points_eligible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

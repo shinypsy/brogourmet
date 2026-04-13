@@ -42,7 +42,10 @@ router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 _log = logging.getLogger(__name__)
 
 MAX_MAIN_MENU_KRW = 10_000
-MAX_RESTAURANT_IMAGES = 5
+MAX_RESTAURANT_IMAGES = 6
+# BroG 신규 등록(포인트 적립 대상 `points_eligible`) 시 작성자 가산 포인트
+BROG_CREATE_POINTS_USER = 100
+BROG_CREATE_POINTS_REGIONAL_MANAGER = 200
 # 위도·경도 각각 이 차이 이하면 같은 매장 좌표로 본다 (~수십 m)
 SAME_PLACE_LATLON_EPS = 0.00028
 # 동일 장소·동일 베이스 이름 그룹에서 등록순 첫 매장 표시(구 규칙: 이름 끝 `_*` — 레거시 DB 호환은 `restaurant_name_base`에서 처리)
@@ -209,6 +212,22 @@ def _ensure_not_identical_brog_submission(db: Session, user_id: int, payload: Re
                 "다른 글을 그대로 복사해 올릴 수 없습니다."
             ),
         )
+
+
+def _credit_brog_creation_author_points(db: Session, author: User, restaurant: Restaurant) -> None:
+    """`points_eligible`인 BroG 최초 등록 건에 대해 작성자 포인트 적립."""
+    if not restaurant.points_eligible:
+        return
+    u = db.query(User).filter(User.id == author.id).first()
+    if u is None:
+        return
+    delta = (
+        BROG_CREATE_POINTS_REGIONAL_MANAGER
+        if author.role == REGIONAL_MANAGER
+        else BROG_CREATE_POINTS_USER
+    )
+    prev = int(getattr(u, "points_balance", 0) or 0)
+    u.points_balance = prev + delta
 
 
 def apply_duplicate_restaurant_names_for_new(db: Session, restaurant: Restaurant, submitted_name: str) -> None:
@@ -976,6 +995,7 @@ def _persist_new_restaurant(db: Session, current_user: User, payload: Restaurant
     db.flush()
     _replace_menu_items(db, restaurant, payload)
     apply_duplicate_restaurant_names_for_new(db, restaurant, payload.name)
+    _credit_brog_creation_author_points(db, current_user, restaurant)
     db.commit()
     db.refresh(restaurant)
     loaded = (

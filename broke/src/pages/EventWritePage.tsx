@@ -136,6 +136,7 @@ export function EventWritePage() {
   }
 
   return (
+    <div className="home-layout home-layout--hub app-route-hub">
     <div className="board-layout">
       <section className="card board-form-card">
         <p className="eyebrow">Site</p>
@@ -228,7 +229,9 @@ export function EventWritePage() {
                       {new Date(ev.created_at).toLocaleString('ko-KR')}
                     </time>
                   </div>
-                  <p className="site-event-list__body">{ev.body}</p>
+                  <p className="site-event-list__body" title={ev.body}>
+                    {ev.body}
+                  </p>
                   {canMutate ? (
                     <div className="site-event-list__actions">
                       {ev.is_active ? (
@@ -257,6 +260,7 @@ export function EventWritePage() {
           </ul>
         </section>
       ) : null}
+    </div>
     </div>
   )
 }

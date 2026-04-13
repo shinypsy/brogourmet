@@ -24,5 +24,6 @@ class UserRead(BaseModel):
     managed_district_name: str | None = None
     email_verified_at: datetime | None = None
     is_active: bool
+    points_balance: int = 0
     created_at: datetime
     updated_at: datetime

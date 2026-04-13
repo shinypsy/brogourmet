@@ -11,6 +11,8 @@ import type { Key, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 export const BROG_RANK_GRID_PAGE_SIZE = 8
 const SWIPE_PX = 50
 const CLICK_BLOCK_PX = 12
+/** 터치: 수직 스크롤과 구분·가로 스와이프 판정 (px) */
+const TOUCH_AXIS_PX = 12
 
 function chunkItems<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -69,7 +71,9 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     pointerId: number | null
     startX: number
     pulling: boolean
-  }>({ pointerId: null, startX: 0, pulling: false })
+    /** 수평 드래그로 판단된 뒤에만 캡처 — 탭 시 링크·버튼 클린이 포인터 캡처에 먹히지 않게 */
+    captureActive: boolean
+  }>({ pointerId: null, startX: 0, pulling: false, captureActive: false })
   const blockCarouselClickRef = useRef(false)
   const onPaginationInfoRef = useRef(onPaginationInfo)
   onPaginationInfoRef.current = onPaginationInfo
@@ -87,7 +91,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     const el = carouselViewportRef.current
     if (!el) return
     const bump = () => {
-      const cw = el.clientWidth
+      const cw = Math.round(el.getBoundingClientRect().width)
       if (cw > 0) setCarouselWidth(cw)
     }
     const ro = new ResizeObserver(bump)
@@ -105,11 +109,112 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     onPaginationInfoRef.current?.({ pageIndex: safePageIndex, pageCount: listPageCount })
   }, [safePageIndex, listPageCount])
 
+  /* 폰 등: Pointer + 지연 캡처만으로는 touchmove가 안 오는 경우가 있어 touch 전용 스와이프 */
+  useEffect(() => {
+    const el = carouselViewportRef.current
+    if (!el || listPageCount <= 1) return
+
+    let startX = 0
+    let startY = 0
+    let active = false
+    let pulling = false
+    let discard = false
+
+    const resetVisual = () => {
+      setCarouselPullPx(0)
+      setCarouselDragging(false)
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const target = e.target as HTMLElement
+      if (target.closest('button, input, select, textarea, [data-carousel-no-drag]')) return
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      active = true
+      pulling = false
+      discard = false
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!active || e.touches.length !== 1) return
+      const x = e.touches[0].clientX
+      const y = e.touches[0].clientY
+      const dx = x - startX
+      const dy = y - startY
+
+      if (!pulling && !discard) {
+        if (Math.abs(dy) > TOUCH_AXIS_PX && Math.abs(dy) >= Math.abs(dx)) {
+          discard = true
+          return
+        }
+        if (Math.abs(dx) > TOUCH_AXIS_PX && Math.abs(dx) > Math.abs(dy) + 2) {
+          pulling = true
+          setCarouselDragging(true)
+          e.preventDefault()
+        } else {
+          return
+        }
+      }
+
+      if (discard) return
+
+      if (pulling) {
+        e.preventDefault()
+        const ei = Math.min(listPageIndexRef.current, Math.max(0, listPageCount - 1))
+        let pull = dx
+        if (ei <= 0) pull = Math.min(0, pull)
+        if (ei >= listPageCount - 1) pull = Math.max(0, pull)
+        setCarouselPullPx(pull)
+      }
+    }
+
+    const endTouchSwipe = (e: TouchEvent) => {
+      if (!active) return
+      const t = e.changedTouches[0]
+      const dx = t ? t.clientX - startX : 0
+      const wasPulling = pulling
+      active = false
+      pulling = false
+      discard = false
+      resetVisual()
+
+      if (wasPulling && Math.abs(dx) > CLICK_BLOCK_PX) {
+        blockCarouselClickRef.current = true
+        window.setTimeout(() => {
+          blockCarouselClickRef.current = false
+        }, 320)
+      }
+
+      if (wasPulling) {
+        setListPageIndex((i) => {
+          const ei = Math.min(i, Math.max(0, listPageCount - 1))
+          if (dx < -SWIPE_PX && ei < listPageCount - 1) return ei + 1
+          if (dx > SWIPE_PX && ei > 0) return ei - 1
+          return ei
+        })
+      }
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
+    el.addEventListener('touchend', endTouchSwipe, { passive: true, capture: true })
+    el.addEventListener('touchcancel', endTouchSwipe, { passive: true, capture: true })
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart, { capture: true })
+      el.removeEventListener('touchmove', onTouchMove, { capture: true })
+      el.removeEventListener('touchend', endTouchSwipe, { capture: true })
+      el.removeEventListener('touchcancel', endTouchSwipe, { capture: true })
+    }
+  }, [listPageCount, items.length])
+
   const endCarouselDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>, opts: { cancelOnly?: boolean; skipRelease?: boolean } = {}) => {
       const d = carouselDragRef.current
       if (d.pointerId !== e.pointerId) return
-      if (!opts.skipRelease) {
+      const hadCapture = d.captureActive
+      if (!opts.skipRelease && hadCapture) {
         try {
           ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
         } catch {
@@ -118,7 +223,12 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
       }
       const dx = e.clientX - d.startX
       const wasPulling = d.pulling
-      carouselDragRef.current = { pointerId: null, startX: 0, pulling: false }
+      carouselDragRef.current = {
+        pointerId: null,
+        startX: 0,
+        pulling: false,
+        captureActive: false,
+      }
       setCarouselPullPx(0)
       setCarouselDragging(false)
 
@@ -144,31 +254,35 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
   )
 
   const onCarouselPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const t = e.target as HTMLElement
-    /* 카드 본문은 <Link> — 캡처·드래그 판정이 클릭(상세 이동)을 삼키지 않게 함 */
-    if (t.closest('a[href], button, input, select, textarea')) return
+    if (t.closest('button, input, select, textarea, [data-carousel-no-drag]')) return
 
     carouselDragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
       pulling: false,
-    }
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId)
-    } catch {
-      /* */
+      captureActive: false,
     }
   }, [])
 
   const onCarouselPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.pointerType === 'touch') return
       const d = carouselDragRef.current
       if (d.pointerId !== e.pointerId) return
       const dx = e.clientX - d.startX
-      if (!d.pulling && Math.abs(dx) > 8) {
+      if (!d.captureActive) {
+        if (Math.abs(dx) <= 8) return
+        d.captureActive = true
         d.pulling = true
         setCarouselDragging(true)
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {
+          /* */
+        }
       }
       if (d.pulling) {
         let pull = dx
@@ -183,6 +297,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
 
   const onCarouselPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.pointerType === 'touch') return
       endCarouselDrag(e)
     },
     [endCarouselDrag],
@@ -190,6 +305,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
 
   const onCarouselPointerCancel = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.pointerType === 'touch') return
       endCarouselDrag(e, { cancelOnly: true })
     },
     [endCarouselDrag],
@@ -197,6 +313,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
 
   const onCarouselLostPointerCapture = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.pointerType === 'touch') return
       if (carouselDragRef.current.pointerId === e.pointerId) {
         endCarouselDrag(e, { cancelOnly: true, skipRelease: true })
       }
@@ -217,19 +334,40 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
   const trackTranslate = listPageCount > 0 && w > 0 ? -(safePageIndex * w) + carouselPullPx : 0
   const trackWidthPx = listPageCount > 0 && w > 0 ? listPageCount * w : undefined
 
+  /* 1페이지만 있을 때 « »를 숨기면 뷰포트가 가로로 넓어져 모바일 2열 썸네일이 과대해짐 — 화살표와 동일 폭 스페이서 유지 */
+  const prevSlot =
+    listPageCount > 1 ? (
+      <button
+        type="button"
+        className="brog-list-carousel__arrow"
+        aria-label={`이전 ${pageSize}${carouselStepAriaUnit}`}
+        disabled={safePageIndex <= 0}
+        onClick={() => setListPageIndex((i) => Math.max(0, i - 1))}
+      >
+        «
+      </button>
+    ) : (
+      <div className="brog-list-carousel__arrow-spacer" aria-hidden />
+    )
+
+  const nextSlot =
+    listPageCount > 1 ? (
+      <button
+        type="button"
+        className="brog-list-carousel__arrow"
+        aria-label={`다음 ${pageSize}${carouselStepAriaUnit}`}
+        disabled={safePageIndex >= listPageCount - 1}
+        onClick={() => setListPageIndex((i) => Math.min(listPageCount - 1, i + 1))}
+      >
+        »
+      </button>
+    ) : (
+      <div className="brog-list-carousel__arrow-spacer" aria-hidden />
+    )
+
   return (
     <div className="brog-list-carousel" role="region" aria-roledescription="carousel" aria-label={ariaLabel}>
-      {listPageCount > 1 ? (
-        <button
-          type="button"
-          className="brog-list-carousel__arrow"
-          aria-label={`이전 ${pageSize}${carouselStepAriaUnit}`}
-          disabled={safePageIndex <= 0}
-          onClick={() => setListPageIndex((i) => Math.max(0, i - 1))}
-        >
-          «
-        </button>
-      ) : null}
+      {prevSlot}
       <div
         className={`brog-list-carousel__viewport${carouselDragging ? ' brog-list-carousel--dragging' : ''}`}
         ref={carouselViewportRef}
@@ -280,17 +418,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
           ))}
         </div>
       </div>
-      {listPageCount > 1 ? (
-        <button
-          type="button"
-          className="brog-list-carousel__arrow"
-          aria-label={`다음 ${pageSize}${carouselStepAriaUnit}`}
-          disabled={safePageIndex >= listPageCount - 1}
-          onClick={() => setListPageIndex((i) => Math.min(listPageCount - 1, i + 1))}
-        >
-          »
-        </button>
-      ) : null}
+      {nextSlot}
     </div>
   )
 }

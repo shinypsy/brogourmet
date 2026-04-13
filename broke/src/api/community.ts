@@ -8,6 +8,20 @@ export type FreeSharePost = {
   body: string
   district: string | null
   image_url: string | null
+  image_urls?: string[] | null
+  share_completed: boolean
+  share_category: string
+  share_latitude?: number | null
+  share_longitude?: number | null
+  share_place_label?: string | null
+  author_nickname: string
+  created_at: string
+}
+
+export type FreeShareComment = {
+  id: number
+  body: string
+  user_id: number
   author_nickname: string
   created_at: string
 }
@@ -66,7 +80,17 @@ export async function fetchFreeSharePosts(): Promise<FreeSharePost[]> {
 
 export async function createFreeSharePost(
   token: string,
-  body: { title: string; body: string; district?: string | null; image_url?: string | null },
+  body: {
+    title: string
+    body: string
+    district?: string | null
+    image_urls?: string[]
+    image_url?: string | null
+    share_category?: string
+    share_latitude?: number | null
+    share_longitude?: number | null
+    share_place_label?: string | null
+  },
 ): Promise<FreeSharePost> {
   return requestJson<FreeSharePost>('/free-share/posts', {
     method: 'POST',
@@ -78,7 +102,18 @@ export async function createFreeSharePost(
 export async function updateFreeSharePost(
   token: string,
   id: number,
-  body: { title: string; body: string; district?: string | null; image_url?: string | null },
+  body: {
+    title: string
+    body: string
+    district?: string | null
+    image_urls?: string[]
+    image_url?: string | null
+    share_completed?: boolean
+    share_category?: string
+    share_latitude?: number | null
+    share_longitude?: number | null
+    share_place_label?: string | null
+  },
 ): Promise<FreeSharePost> {
   return requestJson<FreeSharePost>(`/free-share/posts/${id}`, {
     method: 'PUT',
@@ -104,6 +139,33 @@ export async function fetchKnownRestaurantPosts(token: string | null): Promise<K
 
 export async function fetchFreeSharePost(id: number): Promise<FreeSharePost> {
   return requestJson<FreeSharePost>(`/free-share/posts/${id}`)
+}
+
+export async function fetchFreeShareComments(postId: number): Promise<FreeShareComment[]> {
+  return requestJson<FreeShareComment[]>(`/free-share/posts/${postId}/comments`)
+}
+
+export async function createFreeShareComment(
+  token: string,
+  postId: number,
+  body: string,
+): Promise<FreeShareComment> {
+  return requestJson<FreeShareComment>(`/free-share/posts/${postId}/comments`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ body }),
+  })
+}
+
+export async function deleteFreeShareComment(
+  token: string,
+  postId: number,
+  commentId: number,
+): Promise<void> {
+  return requestJson<void>(`/free-share/posts/${postId}/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }
 
 export async function fetchKnownRestaurantPost(token: string, id: number): Promise<KnownRestaurantPost> {

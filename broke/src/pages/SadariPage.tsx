@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY } from '../api/auth'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
@@ -9,14 +10,15 @@ import type { RestaurantListItem } from '../api/restaurants'
 import { BrogKakaoMap } from '../components/BrogKakaoMap'
 import { LadderGame } from '../components/LadderGame'
 import { BROG_CATEGORIES, type BrogCategory } from '../lib/brogCategories'
+import { BrogCategoryPickerIcon, BrogGameTasteAnyIcon } from '../lib/brogCategoryPickerIcons'
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
-import { buildSadariCandidates, SADARI_SLOT_COUNT } from '../lib/buildSadariCandidates'
+import { buildSadariCandidates } from '../lib/buildSadariCandidates'
 import { filterBrogsToStage1IfNeeded, filterMygPostsToStage1IfNeeded } from '../lib/deployStage1'
 import type { BrogKakaoMapPin } from '../components/BrogKakaoMap'
 import type { SadariCandidate } from '../lib/buildSadariCandidates'
 
-/** GPS 없는 PC·브라우저 차단 시 데모·테스트용 (서울 시청) */
-const SEOUL_DEMO = { lat: 37.5665, lng: 126.978 }
+/** GPS 없는 PC·브라우저 차단 시 데모·테스트용 (지하철 2호선 신촌역 인근) */
+const SHINCHON_STATION_DEMO = { lat: 37.55505, lng: 126.93682 }
 
 type GeoState =
   | { status: 'pending' }
@@ -40,8 +42,8 @@ export function SadariPage() {
   const [loadingPlaces, setLoadingPlaces] = useState(false)
   const [taste, setTaste] = useState<TasteChoice | null>(null)
   const [mapLocating, setMapLocating] = useState(false)
-  const [manualLat, setManualLat] = useState('37.56650')
-  const [manualLng, setManualLng] = useState('126.97800')
+  const [manualLat, setManualLat] = useState('37.55505')
+  const [manualLng, setManualLng] = useState('126.93682')
   const [manualCoordError, setManualCoordError] = useState('')
   const [winnerMapRank, setWinnerMapRank] = useState<number | null>(null)
 
@@ -141,12 +143,12 @@ export function SadariPage() {
     void fetchPlaces(lat, lng)
   }
 
-  function startWithDemoSeoul() {
+  function startWithDemoShinchon() {
     setManualCoordError('')
-    setManualLat(SEOUL_DEMO.lat.toFixed(5))
-    setManualLng(SEOUL_DEMO.lng.toFixed(5))
-    setGeo({ status: 'ok', lat: SEOUL_DEMO.lat, lng: SEOUL_DEMO.lng })
-    void fetchPlaces(SEOUL_DEMO.lat, SEOUL_DEMO.lng)
+    setManualLat(SHINCHON_STATION_DEMO.lat.toFixed(5))
+    setManualLng(SHINCHON_STATION_DEMO.lng.toFixed(5))
+    setGeo({ status: 'ok', lat: SHINCHON_STATION_DEMO.lat, lng: SHINCHON_STATION_DEMO.lng })
+    void fetchPlaces(SHINCHON_STATION_DEMO.lat, SHINCHON_STATION_DEMO.lng)
   }
 
   const sadariMapPins = useMemo((): BrogKakaoMapPin[] => {
@@ -204,6 +206,16 @@ export function SadariPage() {
       }))
   }, [raw, candidates])
 
+  const sadariMapRelayoutKey = useMemo(() => {
+    return [
+      raw ? 'p' : 'x',
+      taste ?? '',
+      candidates?.map((c) => c.key).join('|') ?? '',
+      String(winnerMapRank ?? ''),
+      String(sadariMapPins.length),
+    ].join(':')
+  }, [raw, taste, candidates, winnerMapRank, sadariMapPins.length])
+
   async function handleMapMyLocation() {
     if (!navigator.geolocation) return
     setMapLocating(true)
@@ -229,36 +241,55 @@ export function SadariPage() {
   )
 
   return (
+    <div className="home-layout home-layout--hub home-layout--map-home app-route-hub">
     <section className="page game-page">
-      <h2 className="game-page__hook">점메추천 SADARI 게임~!</h2>
-      <p className="description game-page__intro">
-        오늘 점심은 뭘 먹을지 모르겠다면, 취향을 고르고 사다리로 운명을 맡겨 보세요. MyG는{' '}
-        <strong>내 위치 1km</strong>, 부족하면 <strong>BroG 2km</strong> 안에서 최대 {SADARI_SLOT_COUNT}곳을
-        뽑습니다.
-      </p>
+      <header className="brog-screen__header game-page__screen-header" aria-label="점메추 게임">
+        <div>
+          <p className="eyebrow">Game · 점메추</p>
+          <h2 className="game-page__hook game-page__hook--header">점메추천 SADARI 게임~!</h2>
+        </div>
+        <div className="brog-screen__header-actions">
+          <Link className="ghost-button" to="/">
+            홈
+          </Link>
+        </div>
+      </header>
 
       <div className="game-page__taste-block">
         <h3 className="game-page__taste-title">무슨 음식을 좋아하세요?</h3>
-        <p className="muted game-page__taste-hint">
-          고른 종류와 같은 카테고리(한식·중식 등) 매장을 같은 거리 조건 안에서 먼저 채웁니다.
-        </p>
-        <div className="game-page__taste-grid" role="group" aria-label="음식 취향">
+        <div
+          className="brog-category-picker brog-category-picker--with-icons"
+          role="group"
+          aria-label="음식 취향"
+        >
           {BROG_CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
-              className={'game-page__taste-btn' + (taste === cat ? ' game-page__taste-btn--active' : '')}
+              className={
+                'brog-category-picker__btn' +
+                (taste === cat ? ' brog-category-picker__btn--active' : '')
+              }
               onClick={() => setTaste(cat)}
             >
-              {cat}
+              <span className="brog-category-picker__icon-wrap" aria-hidden>
+                <BrogCategoryPickerIcon category={cat} />
+              </span>
+              <span className="brog-category-picker__label">{cat}</span>
             </button>
           ))}
           <button
             type="button"
-            className={'game-page__taste-btn game-page__taste-btn--any' + (taste === 'any' ? ' game-page__taste-btn--active' : '')}
+            className={
+              'brog-category-picker__btn brog-category-picker__btn--game-any' +
+              (taste === 'any' ? ' brog-category-picker__btn--active' : '')
+            }
             onClick={() => setTaste('any')}
           >
-            상관없음
+            <span className="brog-category-picker__icon-wrap" aria-hidden>
+              <BrogGameTasteAnyIcon />
+            </span>
+            <span className="brog-category-picker__label">상관없음</span>
           </button>
         </div>
         {taste != null ? (
@@ -279,9 +310,6 @@ export function SadariPage() {
               위치 다시 시도
             </button>
           </div>
-          <p className="muted game-page__manual-coords-intro">
-            테스트·데스크톱에서는 아래 좌표로도 진행할 수 있습니다. (지도 페이지와 동일한 WGS84)
-          </p>
           <div
             className="home-hub__coord-edit map-page__coord-edit game-page__manual-coords"
             aria-label="위도 경도 직접 입력"
@@ -303,7 +331,7 @@ export function SadariPage() {
                   className="home-hub__coord-input"
                   value={manualLat}
                   onChange={(e) => setManualLat(e.target.value)}
-                  placeholder="예: 37.56650"
+                  placeholder="예: 37.55505"
                   aria-label="위도"
                 />
               </label>
@@ -317,7 +345,7 @@ export function SadariPage() {
                   className="home-hub__coord-input"
                   value={manualLng}
                   onChange={(e) => setManualLng(e.target.value)}
-                  placeholder="예: 126.97800"
+                  placeholder="예: 126.93682"
                   aria-label="경도"
                 />
               </label>
@@ -326,8 +354,29 @@ export function SadariPage() {
               </button>
             </div>
             {manualCoordError ? <p className="error home-hub__coord-error">{manualCoordError}</p> : null}
-            <button type="button" className="ghost-button game-page__demo-seoul" onClick={startWithDemoSeoul}>
-              서울 시청 근처(데모)로 바로 시작
+            <button
+              type="button"
+              className="game-page__demo-shinchon"
+              onClick={startWithDemoShinchon}
+              title="2호선 신촌역 인근 좌표로 시작"
+            >
+              <span className="game-page__demo-shinchon__icon" aria-hidden>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 11h16v7H4zM6 11V9h12v2" />
+                  <path d="M8 7V5h8v2M9 18v2M15 18v2" />
+                  <path d="M7 14h2M11 14h2M15 14h2" opacity="0.85" />
+                </svg>
+              </span>
+              <span className="game-page__demo-shinchon__label">신촌역 데모 시작</span>
             </button>
           </div>
         </div>
@@ -355,33 +404,28 @@ export function SadariPage() {
       ) : null}
 
       {geo.status === 'ok' && KAKAO_MAP_APP_KEY ? (
-        <section className="map-page-map-section map-card game-page__map-section">
-          <h3 className="map-page-map-section__title">주변 지도</h3>
-          <p className="map-page-map-section__hint">
-            {candidates
-              ? '사다리·상단 번호와 같은 숫자가 깃발에 표시됩니다. 점메추천 후 당첨 말풍선이 빨간색으로 바뀝니다. MyG·BroG 좌표가 있으면 표시됩니다.'
-              : '취향을 고르기 전에는 2km 안 BroG 전체가 표시됩니다. 취향 선택 후에는 사다리 후보만 번호 깃발로 보입니다.'}
-          </p>
-          <BrogKakaoMap
-            userCoords={{ lat: geo.lat, lng: geo.lng }}
-            pins={sadariMapPins}
-            locating={mapLocating}
-            onMyLocationClick={() => void handleMapMyLocation()}
-            onPickUserLocationOnMap={onPickUserLocationOnMap}
-            getDetailPath={(id) => `/restaurants/${id}`}
-            winnerPinRank={winnerMapRank}
-            mapSpeechBubbles={Boolean(candidates?.length)}
-            mapAriaLabel="점메추 주변 지도"
-            shellClassName="kakao-map-embed"
-            canvasClassName="kakao-map-container kakao-map-container--below"
-          />
-        </section>
-      ) : null}
-      {geo.status === 'ok' && !KAKAO_MAP_APP_KEY ? (
-        <p className="muted game-page__map-fallback">
-          지도를 쓰려면 <code>broke/.env</code>에 <code>VITE_KAKAO_MAP_APP_KEY</code>(JavaScript 키)를 설정하세요.
-        </p>
+        <div className="manage-form-map-stack map-layout map-layout--brog brog-screen brog-screen--map game-page__map-stack">
+          <section className="map-page-map-section map-card manage-form-map-section game-page__map-section">
+            <h3 className="map-page-map-section__title">주변 지도</h3>
+            <BrogKakaoMap
+              userCoords={{ lat: geo.lat, lng: geo.lng }}
+              pins={sadariMapPins}
+              locating={mapLocating}
+              onMyLocationClick={() => void handleMapMyLocation()}
+              onPickUserLocationOnMap={onPickUserLocationOnMap}
+              getDetailPath={(id) => `/restaurants/${id}`}
+              winnerPinRank={winnerMapRank}
+              mapSpeechBubbles={Boolean(candidates?.length)}
+              mapAriaLabel="점메추 주변 지도"
+              shellClassName="kakao-map-embed"
+              canvasClassName="kakao-map-container kakao-map-container--below"
+              mapRelayoutKey={sadariMapRelayoutKey}
+              showInteractionHints={false}
+            />
+          </section>
+        </div>
       ) : null}
     </section>
+    </div>
   )
 }

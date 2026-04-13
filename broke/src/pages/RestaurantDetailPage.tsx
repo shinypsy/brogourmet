@@ -444,12 +444,6 @@ export function RestaurantDetailPage() {
             {actionError}
           </p>
         ) : null}
-        {restaurant.points_eligible === false ? (
-          <p className="helper brog-detail__no-points" role="status">
-            이 매장은 같은 위치에 같은 이름으로 중복 등록된 구분 매장(이름 끝이 <code>_1</code>, <code>_2</code> 등)으로,
-            <strong> 포인트 적립·정산 대상이 아닙니다.</strong>
-          </p>
-        ) : null}
         {restaurant.submitted_by_user_id != null ? (
           <section className="brog-detail__section brog-detail__registrar" aria-label="BroG 등록자">
             <h2>등록 정보</h2>
@@ -521,12 +515,6 @@ export function RestaurantDetailPage() {
             </button>
             <span className="brog-detail__comment-count">댓글 {engagement?.comment_count ?? 0}</span>
           </div>
-          {!token && !assumeAdminUi() ? (
-            <p className="helper">좋아요·댓글은 로그인 후 이용할 수 있습니다.</p>
-          ) : null}
-          {!token && assumeAdminUi() ? (
-            <p className="helper">테스트 UI: 좋아요·댓글 폼은 보이며, 실제 반영은 로그인 후입니다.</p>
-          ) : null}
         </section>
 
         <section className="brog-detail__section">
@@ -704,12 +692,7 @@ export function RestaurantDetailPage() {
                   </button>
                 ) : null}
               </>
-            ) : (
-              <p className="helper">
-                BroG 수정·목록 숨기기는 최종 관리자, 해당 구 지역 담당자, 또는 이 맛집을 등록한 본인만 할 수
-                있습니다.
-              </p>
-            )}
+            ) : null}
             <Link className="compact-link" to="/events/write" title="이벤트 작성">
               이벤트
             </Link>

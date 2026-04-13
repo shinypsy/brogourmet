@@ -8,11 +8,13 @@ import {
   type KnownRestaurantPost,
 } from '../api/community'
 import { createRestaurantFromMyGPost } from '../api/restaurants'
+import { notifyUserProfileRefresh } from '../authEvents'
 import { FoodPhotoWithMenuOverlay } from '../components/FoodPhotoWithMenuOverlay'
 import { MAX_MENU_LINES, parseMenuLine } from '../lib/menuLines'
 import { galleryUrlsFromMygPost } from '../lib/mygPostGallery'
 import { assumeAdminUi, canDeleteKnownRestaurantPost, canEditCommunityPost } from '../lib/roles'
 import { imgReferrerPolicyForResolvedSrc, resolveMediaUrl } from '../lib/mediaUrl'
+import { getMygListNavigatePath, mygListRefreshNavigateState } from '../lib/mygListNavigation'
 
 function isBrogShapedPost(p: KnownRestaurantPost): boolean {
   return p.district_id != null && p.district_id >= 1
@@ -109,6 +111,7 @@ export function KnownRestaurantPostDetailPage() {
     setActionError('')
     try {
       const r = await createRestaurantFromMyGPost(token, post.id)
+      notifyUserProfileRefresh()
       navigate(`/restaurants/${r.id}`)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'BroG 등록에 실패했습니다.')
@@ -128,7 +131,7 @@ export function KnownRestaurantPostDetailPage() {
     setActionError('')
     try {
       await deleteKnownRestaurantPost(token, post.id)
-      navigate('/known-restaurants/list')
+      navigate(getMygListNavigatePath(), { state: mygListRefreshNavigateState() })
     } catch (e) {
       setActionError(e instanceof Error ? e.message : '삭제 실패')
     } finally {
@@ -333,7 +336,6 @@ export function KnownRestaurantPostDetailPage() {
               >
                 {brogRegisterBusy ? 'BroG 등록 중…' : 'BroG 등록'}
               </button>
-              {' — '}이 글을 공개 BroG 맛집으로 새로 올립니다. (BroG 규칙: 대표메뉴 1만원 이하·표준 카테고리·메뉴 줄 형식)
             </p>
           </section>
         ) : null}
@@ -352,13 +354,6 @@ export function KnownRestaurantPostDetailPage() {
               </button>
             ) : null}
           </div>
-          {!canEdit && !(token && canDelete) ? (
-            <p className="helper">
-              수정·삭제는 작성자 본인 또는 해당 구 운영 권한(최종 관리자·지역 담당)이 있는 경우에만 할 수 있습니다.
-            </p>
-          ) : !canEdit && token && canDelete ? (
-            <p className="helper">이 글의 수정 권한은 없고, 운영 권한이 있으면 삭제만 할 수 있습니다.</p>
-          ) : null}
         </section>
       </div>
     </div>

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import verify_password
 from app.deps import get_current_user, get_db
+from app.models.free_share_comment import FreeShareComment
 from app.models.free_share_post import FreeSharePost
 from app.models.known_restaurant_post import KnownRestaurantPost
 from app.models.payment_intent import PaymentIntent
@@ -38,6 +39,7 @@ def delete_account(
 
     db.execute(delete(RestaurantComment).where(RestaurantComment.user_id == uid))
     db.execute(delete(RestaurantLike).where(RestaurantLike.user_id == uid))
+    db.execute(delete(FreeShareComment).where(FreeShareComment.user_id == uid))
     db.execute(delete(KnownRestaurantPost).where(KnownRestaurantPost.author_id == uid))
     db.execute(delete(FreeSharePost).where(FreeSharePost.author_id == uid))
     db.execute(delete(PaymentIntent).where(PaymentIntent.user_id == uid))

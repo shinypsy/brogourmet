@@ -13,3 +13,5 @@ BroGourmet dial_04_w2.txt
 
 비고
 - 규칙4 첨부: KST 당일 **`dial/dial_YYYY-MM-dd.txt`**(기본). 월 규칙만 보낼 때 등은 `BROG_DIAL_MAIL_FILE`로 지정.
+
+- [2026-04-13] 일일 dial 운영·규칙 요약 블록·`dial_auto` 인코딩/버그 수정·**규칙4**(`<4월13일 요약>`·`send_dial`·git 동기화).

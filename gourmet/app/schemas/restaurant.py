@@ -98,8 +98,8 @@ class RestaurantWrite(BaseModel):
     category: BroGCategory
     summary: str = Field(min_length=1, max_length=8000)
     image_url: str | None = Field(default=None, max_length=500)
-    # BroG 사진 URL 최대 5개. 비우면 image_url만 사용(하위 호환).
-    image_urls: list[str] = Field(default_factory=list, max_length=5)
+    # BroG 사진 URL 최대 6개. 비우면 image_url만 사용(하위 호환).
+    image_urls: list[str] = Field(default_factory=list, max_length=6)
     latitude: float | None = None
     longitude: float | None = None
     main_menu_name: str = Field(min_length=1, max_length=200)
@@ -121,7 +121,7 @@ class RestaurantWrite(BaseModel):
             s = str(x).strip()
             if s:
                 out.append(s[:500])
-        return out[:5]
+        return out[:6]
 
 
 class RestaurantManageRow(BaseModel):

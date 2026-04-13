@@ -19,7 +19,6 @@ import {
   clampBrogDistrictForPhase1,
   parseBrogDistrictUrlParam,
 } from '../lib/brogPhase1'
-import { brogMygMapSectionHint } from '../lib/brogMygTwin'
 import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
 import { restaurantMatchesBroMapSearch } from '../lib/mapBroSearch'
 import { MAP_NEAR_RADIUS_M } from '../lib/mapConstants'
@@ -35,6 +34,8 @@ export type MapPageBodyProps = {
   listFetchLimit?: number
   /** true: 지도 깃발에 상호 말풍선 표시(`/map` 등). 홈 지도는 false 유지. */
   mapSpeechBubbles?: boolean
+  /** false: `/map` — 지도 아래 조작·범례 안내 숨김. 홈은 true 유지. */
+  showMapInteractionHints?: boolean
 }
 
 export function MapPageBody({
@@ -42,6 +43,7 @@ export function MapPageBody({
   listPresentation = 'textLines',
   listFetchLimit,
   mapSpeechBubbles = false,
+  showMapInteractionHints = true,
 }: MapPageBodyProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const city = searchParams.get('city') ?? '서울특별시'
@@ -417,7 +419,6 @@ export function MapPageBody({
 
       <section className="map-page-map-section map-card">
         <h3 className="map-page-map-section__title">위치 지도</h3>
-        <p className="map-page-map-section__hint">{brogMygMapSectionHint(false)}</p>
         <div className="map-page-map-search map-page-map-search--dual" aria-label="BroG 지도 검색">
           <div className="map-page-map-search__field map-page-map-search__field--place">
             <span className="map-page-map-search__label-text">장소·지명</span>
@@ -452,11 +453,6 @@ export function MapPageBody({
                 {placeSearchBusy ? '찾는 중…' : '이 위치로'}
               </button>
             </div>
-            {!KAKAO_REST_API_KEY.trim() ? (
-              <p className="map-page-map-search__helper map-page-map-search__helper--warn">
-                장소 검색: <code>VITE_KAKAO_REST_API_KEY</code>를 넣으면 카카오 키워드 검색으로 이동할 수 있습니다.
-              </p>
-            ) : null}
             {placeSearchHint ? (
               <p
                 className={
@@ -580,15 +576,10 @@ export function MapPageBody({
             shellClassName="kakao-map-embed"
             canvasClassName="kakao-map-container kakao-map-container--below"
             mapSpeechBubbles={mapSpeechBubbles}
+            showInteractionHints={showMapInteractionHints}
           />
         ) : (
-          <>
-            <p className="muted">
-              <code>broke/.env</code>의 <code>VITE_KAKAO_MAP_APP_KEY</code>에는 카카오 콘솔의{' '}
-              <strong>JavaScript 키</strong>만 넣으세요. REST API 키는 지도에 사용할 수 없습니다.
-            </p>
-            <div className="placeholder-box">MAP</div>
-          </>
+          <div className="placeholder-box">MAP</div>
         )}
       </section>
 
@@ -668,7 +659,13 @@ export function MapPageBody({
             }
           />
         ) : (
-          <ul className="map-page-brog-lines">
+          <ul
+            className={
+              listPresentation === 'textLines'
+                ? 'map-page-brog-lines map-page-brog-lines--text-single-line'
+                : 'map-page-brog-lines'
+            }
+          >
             {visibleRestaurants.map((restaurant, index) => {
               const pin = restaurant.bro_list_pin
               const displayRank =

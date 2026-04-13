@@ -23,6 +23,22 @@ import { fetchMe, type User } from '../api/auth'
 import { ACCESS_TOKEN_KEY } from '../api/config'
 import { ROLE_REGIONAL_MANAGER, ROLE_SUPER_ADMIN, isSuperAdmin } from '../lib/roles'
 
+const MAX_SITE_NOTICE_SLOTS = 3
+
+function computeVisibleNoticeSlots(rows: SiteNoticeDraft[]): number {
+  let max = 1
+  for (const r of rows) {
+    if (
+      r.slot >= 1 &&
+      r.slot <= MAX_SITE_NOTICE_SLOTS &&
+      (r.title.trim() || r.body.trim())
+    ) {
+      max = Math.max(max, r.slot)
+    }
+  }
+  return max
+}
+
 export function AdminPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
   const [me, setMe] = useState<User | null | undefined>(undefined)
@@ -36,11 +52,15 @@ export function AdminPage() {
   const [busyFranchiseId, setBusyFranchiseId] = useState<number | null>(null)
   /** null = 전체 보기(필터 없음) */
   const [restaurantDistrictFilter, setRestaurantDistrictFilter] = useState<number | null>(null)
+  const [userNicknameSearch, setUserNicknameSearch] = useState('')
+  const [restaurantNameSearch, setRestaurantNameSearch] = useState('')
   const [noticeForm, setNoticeForm] = useState<SiteNoticeDraft[]>([
     { slot: 1, title: '', body: '' },
     { slot: 2, title: '', body: '' },
     { slot: 3, title: '', body: '' },
   ])
+  /** 폼에 보이는 공지 카드 수(1~3). 저장 시에는 항상 슬롯 1~3 전체를 전송. */
+  const [noticeVisibleSlots, setNoticeVisibleSlots] = useState(1)
   const [busyNotices, setBusyNotices] = useState(false)
 
   useEffect(() => {
@@ -73,12 +93,12 @@ export function AdminPage() {
       setUsers(du)
       setRestaurants(dr)
       setDistricts(dd)
-      setNoticeForm(
-        notices
-          .slice()
-          .sort((a, b) => a.slot - b.slot)
-          .map((n) => ({ slot: n.slot, title: n.title, body: n.body })),
-      )
+      const nextNotices = notices
+        .slice()
+        .sort((a, b) => a.slot - b.slot)
+        .map((n) => ({ slot: n.slot, title: n.title, body: n.body }))
+      setNoticeForm(nextNotices)
+      setNoticeVisibleSlots(computeVisibleNoticeSlots(nextNotices))
       setDistrictPick((prev) => {
         const next = { ...prev }
         for (const u of du) {
@@ -116,10 +136,24 @@ export function AdminPage() {
     void loadAll()
   }, [me, loadAll])
 
+  const userNicknameNeedle = userNicknameSearch.trim().toLowerCase()
+  const restaurantNameNeedle = restaurantNameSearch.trim().toLowerCase()
+
+  const filteredUsers = useMemo(() => {
+    if (!userNicknameNeedle) return users
+    return users.filter((u) => u.nickname.toLowerCase().includes(userNicknameNeedle))
+  }, [users, userNicknameNeedle])
+
   const filteredRestaurants = useMemo(() => {
-    if (restaurantDistrictFilter === null) return restaurants
-    return restaurants.filter((r) => r.district_id === restaurantDistrictFilter)
-  }, [restaurants, restaurantDistrictFilter])
+    let list = restaurants
+    if (restaurantDistrictFilter !== null) {
+      list = list.filter((r) => r.district_id === restaurantDistrictFilter)
+    }
+    if (restaurantNameNeedle) {
+      list = list.filter((r) => r.name.toLowerCase().includes(restaurantNameNeedle))
+    }
+    return list
+  }, [restaurants, restaurantDistrictFilter, restaurantNameNeedle])
 
   if (!token) {
     return <Navigate to="/login" replace state={{ from: '/admin' }} />
@@ -127,19 +161,23 @@ export function AdminPage() {
 
   if (me === undefined) {
     return (
+      <div className="home-layout home-layout--hub app-route-hub">
       <section className="admin-page">
         <p className="route-fallback">불러오는 중…</p>
       </section>
+      </div>
     )
   }
 
   if (me === null || !isSuperAdmin(me.role)) {
     return (
+      <div className="home-layout home-layout--hub app-route-hub">
       <section className="admin-page">
         <h1 className="admin-page__title">관리자</h1>
         <p className="admin-page__muted">최종 관리자(super_admin)만 이 페이지를 볼 수 있습니다.</p>
         <Link to="/">Home</Link>
       </section>
+      </div>
     )
   }
 
@@ -255,6 +293,7 @@ export function AdminPage() {
   }
 
   return (
+    <div className="home-layout home-layout--hub app-route-hub">
     <section className="admin-page">
       <h1 className="admin-page__title">관리자</h1>
       <p className="admin-page__lead">
@@ -272,14 +311,47 @@ export function AdminPage() {
         </button>
       </div>
 
-      <h2 className="admin-page__h2">홈 공지 (슬롯 3개)</h2>
+      <h2 className="admin-page__h2">홈 공지 (최대 {MAX_SITE_NOTICE_SLOTS}개)</h2>
       <p className="admin-page__muted admin-page__notice-intro">
-        제목·본문을 비우면 해당 슬롯은 홈에서 숨깁니다. 저장하면 즉시 반영됩니다.
+        기본은 공지 1칸만 보입니다. <strong>슬롯 추가</strong>로 2·3칸을 열 수 있습니다. 제목·본문을 비우면 해당
+        슬롯은 홈에서 숨깁니다. 저장하면 즉시 반영됩니다.
       </p>
+      <div className="admin-page__notice-toolbar">
+        <button
+          type="button"
+          className="brog-manage-icon-btn"
+          title="공지 슬롯 추가"
+          aria-label="공지 슬롯 추가"
+          disabled={noticeVisibleSlots >= MAX_SITE_NOTICE_SLOTS}
+          onClick={() =>
+            setNoticeVisibleSlots((n) => Math.min(MAX_SITE_NOTICE_SLOTS, n + 1))
+          }
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"
+            />
+          </svg>
+        </button>
+        <span className="admin-page__notice-toolbar-label">
+          슬롯 추가 ({noticeVisibleSlots}/{MAX_SITE_NOTICE_SLOTS})
+        </span>
+      </div>
       <div className="admin-page__notice-grid">
         {noticeForm
           .slice()
           .sort((a, b) => a.slot - b.slot)
+          .filter((row) => row.slot <= noticeVisibleSlots)
           .map((row) => (
             <div key={row.slot} className="admin-page__notice-card">
               <h3 className="admin-page__notice-card-title">슬롯 {row.slot}</h3>
@@ -327,9 +399,25 @@ export function AdminPage() {
         </button>
       </div>
 
-      <h2 className="admin-page__h2">사용자</h2>
+      <div className="admin-page__section-toolbar">
+        <h2 className="admin-page__h2">사용자</h2>
+        <input
+          type="search"
+          className="admin-page__search-input"
+          placeholder="닉네임 검색"
+          aria-label="닉네임으로 사용자 검색"
+          value={userNicknameSearch}
+          onChange={(ev) => setUserNicknameSearch(ev.target.value)}
+          autoComplete="off"
+        />
+        <span className="admin-page__filter-meta admin-page__filter-meta--toolbar">
+          {filteredUsers.length === users.length
+            ? `${users.length}명`
+            : `${filteredUsers.length}명 표시 (전체 ${users.length}명)`}
+        </span>
+      </div>
       <div className="admin-page__table-wrap">
-        <table className="admin-table">
+        <table className="admin-table admin-table--single-line-rows">
           <thead>
             <tr>
               <th>ID</th>
@@ -341,7 +429,7 @@ export function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {filteredUsers.map((u) => (
               <tr key={u.id}>
                 <td>{u.id}</td>
                 <td>{u.email}</td>
@@ -402,14 +490,15 @@ export function AdminPage() {
         </table>
       </div>
 
-      <h2 className="admin-page__h2">BroG 음식점</h2>
-      <div className="admin-page__filter-row">
-        <label className="admin-page__filter-label" htmlFor="admin-restaurant-district">
-          구 선택
+      <div className="admin-page__section-toolbar">
+        <h2 className="admin-page__h2">BroG 음식점</h2>
+        <label className="admin-page__toolbar-inline-label" htmlFor="admin-restaurant-district">
+          구
         </label>
         <select
           id="admin-restaurant-district"
-          className="admin-page__select admin-page__select--filter"
+          className="admin-page__select admin-page__select--filter admin-page__select--toolbar"
+          aria-label="구별 음식점 필터"
           value={restaurantDistrictFilter === null ? '' : String(restaurantDistrictFilter)}
           onChange={(ev) => {
             const v = ev.target.value
@@ -423,7 +512,16 @@ export function AdminPage() {
             </option>
           ))}
         </select>
-        <span className="admin-page__filter-meta">
+        <input
+          type="search"
+          className="admin-page__search-input admin-page__search-input--restaurant"
+          placeholder="상호 검색"
+          aria-label="상호로 음식점 검색"
+          value={restaurantNameSearch}
+          onChange={(ev) => setRestaurantNameSearch(ev.target.value)}
+          autoComplete="off"
+        />
+        <span className="admin-page__filter-meta admin-page__filter-meta--toolbar">
           {filteredRestaurants.length === restaurants.length
             ? `${restaurants.length}곳`
             : `${filteredRestaurants.length}곳 표시 (전체 ${restaurants.length}곳)`}
@@ -434,7 +532,7 @@ export function AdminPage() {
         <strong>자동</strong>은 등록 계정이 franchise 역할일 때만 가맹으로 표시됩니다.
       </p>
       <div className="admin-page__table-wrap">
-        <table className="admin-table">
+        <table className="admin-table admin-table--single-line-rows">
           <thead>
             <tr>
               <th>구</th>
@@ -534,5 +632,6 @@ export function AdminPage() {
         </table>
       </div>
     </section>
+    </div>
   )
 }

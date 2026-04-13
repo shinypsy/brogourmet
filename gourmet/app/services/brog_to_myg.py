@@ -25,7 +25,7 @@ from app.schemas.community import KnownRestaurantPostCreate
 logger = logging.getLogger(__name__)
 
 
-def _image_urls_for_post(r: Restaurant, max_n: int = 5) -> list[str]:
+def _image_urls_for_post(r: Restaurant, max_n: int = 6) -> list[str]:
     """BroG API와 동일 규칙(JSON 문자열·image_url 폴백) — 직접 순회 시 문자열 JSON을 글자 단위로 도는 버그 방지."""
     return _restaurant_image_urls_list(r)[:max_n]
 
@@ -141,7 +141,7 @@ def _copy_upload_to_myg(upload_path: str) -> str | None:
     return f"/uploads/myg/{dest_name}"
 
 
-def materialize_image_urls_for_myg_from_brog(urls: list[str], max_n: int = 5) -> list[str]:
+def materialize_image_urls_for_myg_from_brog(urls: list[str], max_n: int = 6) -> list[str]:
     """
     BroG에 저장된 URL 목록 → MyG에 저장할 URL 목록.
     - 서버 디스크에 있는 `/uploads/brog|myg|평면` 파일은 `/uploads/myg/` 로 복사.

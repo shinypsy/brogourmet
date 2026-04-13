@@ -3,7 +3,7 @@ import type { RestaurantListItem } from '../api/restaurants'
 import type { BrogCategory } from './brogCategories'
 import { haversineMeters } from './haversine'
 
-export const SADARI_SLOT_COUNT = 7
+export const SADARI_SLOT_COUNT = 6
 const MYG_RADIUS_M = 1000
 const BROG_RADIUS_M = 2000
 
@@ -41,7 +41,7 @@ function orderByTasteThenDistance<T>(
 /**
  * MyG 1km 이내 → 부족분은 BroG 2km 이내.
  * 선호 카테고리가 있으면 같은 반경·거리 규칙 안에서 해당 종류를 우선합니다.
- * 7칸을 채우기 위해 부족하면 이미 뽑은 목록을 순환해 채웁니다.
+ * 6칸을 채우기 위해 부족하면 이미 뽑은 목록을 순환해 채웁니다.
  */
 export function buildSadariCandidates(
   userLat: number,

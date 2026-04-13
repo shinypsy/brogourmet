@@ -74,7 +74,7 @@ def _can_read_known_restaurant_post(
     return can_moderate_community_post_district(user, dname, db)
 
 
-def _trim_image_urls(raw: list[str], max_n: int = 5) -> list[str]:
+def _trim_image_urls(raw: list[str], max_n: int = 6) -> list[str]:
     out: list[str] = []
     for u in raw:
         s = (u or "").strip()

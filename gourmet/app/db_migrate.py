@@ -6,6 +6,7 @@ import os
 from sqlalchemy import func, inspect, text
 
 from app.db import SessionLocal, engine
+from app.models.free_share_post import FreeSharePost
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def ensure_post_image_columns() -> None:
 
 
 def ensure_restaurant_image_urls_and_points() -> None:
-    """BroG: 다중 이미지(최대 5)·포인트 적립 플래그."""
+    """BroG: 다중 이미지(최대 6)·포인트 적립 플래그."""
     dialect = engine.dialect.name
     # PostgreSQL: JSON, SQLite: TEXT (SQLAlchemy JSON 양쪽 모두 list 직렬화)
     image_urls_type = "JSON" if dialect == "postgresql" else "TEXT"
@@ -154,6 +155,99 @@ def ensure_known_restaurant_brog_shape() -> None:
         except Exception:  # noqa: BLE001
             pass
     logger.info("known_restaurant_posts BroG-shape columns ensured.")
+
+
+def ensure_free_share_image_urls_column() -> None:
+    """무료나눔: 이미지 최대 6장(JSON 배열). 기존 image_url 은 단일 요소 배열로 이전."""
+    dialect = engine.dialect.name
+    col_type = "JSON" if dialect == "postgresql" else "TEXT"
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(f"ALTER TABLE free_share_posts ADD COLUMN IF NOT EXISTS image_urls {col_type}"),
+            )
+        logger.info("free_share_posts.image_urls column ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_free_share_image_urls_column add column skipped: %s", exc)
+        return
+    db = SessionLocal()
+    try:
+        for p in db.query(FreeSharePost).all():
+            raw = getattr(p, "image_urls", None)
+            has_list = isinstance(raw, list) and len(raw) > 0
+            if has_list:
+                continue
+            legacy = (p.image_url or "").strip()
+            if legacy:
+                p.image_urls = [legacy[:500]]
+        db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ensure_free_share_image_urls backfill skipped: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
+def ensure_free_share_share_category_column() -> None:
+    """무료나눔: 분류(음식·가전·가구·도서·기타)."""
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE free_share_posts ADD COLUMN IF NOT EXISTS share_category VARCHAR(20) "
+                    "NOT NULL DEFAULT 'other'"
+                )
+            )
+        logger.info("free_share_posts.share_category column ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_free_share_share_category_column skipped: %s", exc)
+
+
+def ensure_free_share_place_columns() -> None:
+    """무료나눔: 나눔 장소(위도·경도·표시용 주소 라벨)."""
+    statements = [
+        "ALTER TABLE free_share_posts ADD COLUMN IF NOT EXISTS share_latitude DOUBLE PRECISION",
+        "ALTER TABLE free_share_posts ADD COLUMN IF NOT EXISTS share_longitude DOUBLE PRECISION",
+        "ALTER TABLE free_share_posts ADD COLUMN IF NOT EXISTS share_place_label VARCHAR(200)",
+    ]
+    try:
+        with engine.begin() as conn:
+            for sql in statements:
+                conn.execute(text(sql))
+        logger.info("free_share_posts share place columns ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_free_share_place_columns skipped: %s", exc)
+
+
+def ensure_free_share_share_completed_column() -> None:
+    """무료나눔: 나눔 완료 플래그."""
+    dialect = engine.dialect.name
+    default = "FALSE" if dialect == "postgresql" else "0"
+    stmt = (
+        f"ALTER TABLE free_share_posts ADD COLUMN IF NOT EXISTS share_completed BOOLEAN "
+        f"NOT NULL DEFAULT {default}"
+    )
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(stmt))
+        logger.info("free_share_posts.share_completed column ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_free_share_share_completed_column skipped: %s", exc)
+
+
+def ensure_user_points_balance_column() -> None:
+    """회원 포인트 잔액 — BroG 신규 등록(적립 대상) 시 가산."""
+    dialect = engine.dialect.name
+    default = "0"
+    stmt = (
+        f"ALTER TABLE users ADD COLUMN IF NOT EXISTS points_balance INTEGER NOT NULL DEFAULT {default}"
+    )
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(stmt))
+        logger.info("users.points_balance column ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_user_points_balance_column skipped: %s", exc)
 
 
 def ensure_user_password_change_columns() -> None:

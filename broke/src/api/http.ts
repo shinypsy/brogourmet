@@ -46,7 +46,7 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
     if (isLikelyNetworkFailure(error)) {
       throw new Error(
         `서버에 연결할 수 없습니다. gourmet API(uvicorn)가 켜져 있는지 확인하세요. ` +
-          `broke/.env의 VITE_API_BASE_URL은 프론트 주소(:5173)가 아니라 API 주소(예: http://192.168.0.250:8001)여야 합니다. (현재: ${API_BASE_URL})`,
+          `broke/.env의 VITE_API_BASE_URL은 프론트 주소(:5173)가 아니라 API 주소(예: http://192.168.0.47:8001)여야 합니다. (현재: ${API_BASE_URL})`,
       )
     }
     throw error
