@@ -9,7 +9,7 @@ import { coordsFieldsBothEmpty, readGpsFromImageFile } from '../lib/imageExifGps
 import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
 import {
   FREE_SHARE_CATEGORY_LABELS,
-  FREE_SHARE_CATEGORY_VALUES,
+  FREE_SHARE_CATEGORY_VALUES_FOR_FREE_BOARD,
   type FreeShareCategoryValue,
 } from '../lib/freeShareCategory'
 import { FREE_SHARE_MAX_IMAGES, normalizeFreeShareImageUrls } from '../lib/freeShareImages'
@@ -17,14 +17,18 @@ import { mapGeoHintMessage } from '../lib/mapGeoHint'
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
 
-export function FreeShareWritePage() {
+export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: 'free' | 'qna' } = {}) {
   const navigate = useNavigate()
   const freeImageInputRef = useRef<HTMLInputElement>(null)
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
+  const isQna = boardVariant === 'qna'
+  const afterSubmitPath = isQna ? '/qna' : '/free-share'
 
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [shareCategory, setShareCategory] = useState<FreeShareCategoryValue>('other')
+  const [shareCategory, setShareCategory] = useState<FreeShareCategoryValue>(() =>
+    isQna ? 'qa' : 'other',
+  )
   const [mapCoords, setMapCoords] = useState<{ latitude: number | null; longitude: number | null }>({
     latitude: null,
     longitude: null,
@@ -129,21 +133,33 @@ export function FreeShareWritePage() {
     try {
       const urls = await Promise.all(slice.map((file) => uploadCommunityImage(token, file)))
       setImageUrls((prev) => [...prev, ...urls].slice(0, FREE_SHARE_MAX_IMAGES))
+      const parts: string[] = []
       const gpsResults = await Promise.all(slice.map((file) => readGpsFromImageFile(file)))
-      let filledFromExif = false
-      setMapCoords((prev) => {
-        if (!coordsFieldsBothEmpty(prev.latitude, prev.longitude)) return prev
+      if (isQna) {
         for (const gps of gpsResults) {
           if (gps) {
-            filledFromExif = true
-            return { latitude: gps.latitude, longitude: gps.longitude }
+            await onMapPickUserLocation(gps.latitude, gps.longitude)
+            parts.push(
+              '사진에 포함된 위치로 구를 반영했습니다. 「현재 위치로 구 반영」이나 지명 검색으로 다시 맞출 수 있습니다.',
+            )
+            break
           }
         }
-        return prev
-      })
-      const parts: string[] = []
-      if (filledFromExif) {
-        parts.push('업로드한 사진 중 GPS가 있는 첫 파일로 위도·경도를 채웠습니다. 필요하면 수정하세요.')
+      } else {
+        let filledFromExif = false
+        setMapCoords((prev) => {
+          if (!coordsFieldsBothEmpty(prev.latitude, prev.longitude)) return prev
+          for (const gps of gpsResults) {
+            if (gps) {
+              filledFromExif = true
+              return { latitude: gps.latitude, longitude: gps.longitude }
+            }
+          }
+          return prev
+        })
+        if (filledFromExif) {
+          parts.push('업로드한 사진 중 GPS가 있는 첫 파일로 위도·경도를 채웠습니다. 필요하면 수정하세요.')
+        }
       }
       if (files.length > slice.length) {
         parts.push(`${files.length}장 중 ${slice.length}장만 반영했습니다(최대 ${FREE_SHARE_MAX_IMAGES}장).`)
@@ -186,7 +202,7 @@ export function FreeShareWritePage() {
               : null
             : null,
       })
-      navigate('/free-share')
+      navigate(afterSubmitPath)
     } catch (e) {
       setError(e instanceof Error ? e.message : '작성에 실패했습니다.')
     } finally {
@@ -199,12 +215,15 @@ export function FreeShareWritePage() {
       <div className="brog-screen brog-screen--list">
         <header className="brog-screen__header">
           <div>
-            <p className="eyebrow">무료나눔 · 작성</p>
-            <h1 className="brog-screen__title">무료나눔 작성</h1>
+            <p className="eyebrow">{isQna ? 'Q&A · 작성' : '무료나눔 · 작성'}</p>
+            <h1 className="brog-screen__title">{isQna ? 'Q&A 작성' : '무료나눔 작성'}</h1>
           </div>
         </header>
 
-        <section className="brog-list-body brog-brog-manage-form" aria-label="무료나눔 등록 폼">
+        <section
+          className="brog-list-body brog-brog-manage-form"
+          aria-label={isQna ? 'Q&A 등록 폼' : '무료나눔 등록 폼'}
+        >
           <form className="form brog-manage-form" onSubmit={handleSubmit}>
             <div className="brog-manage-form__name-district-row">
               <label className="brog-manage-form__name-field">
@@ -216,31 +235,77 @@ export function FreeShareWritePage() {
                 <input
                   readOnly
                   value={resolvedDistrict ?? ''}
-                  placeholder="나눔 장소 지정 시"
-                  aria-label="행정구 (나눔 장소에서 자동)"
+                  placeholder={isQna ? '위치·사진 GPS·지명으로 반영' : '나눔 장소 지정 시'}
+                  aria-label={isQna ? '행정구 (위치 정보로 자동)' : '행정구 (나눔 장소에서 자동)'}
                 />
               </label>
             </div>
-            <fieldset className="brog-category-fieldset">
-              <legend>분류</legend>
-              <div className="brog-category-picker" role="group" aria-label="무료나눔 분류 선택">
-                {FREE_SHARE_CATEGORY_VALUES.map((v) => (
+            {isQna ? (
+              <div className="brog-manage-form__qna-location-block">
+                <p className="brog-manage-form__qna-location-actions">
                   <button
-                    key={v}
                     type="button"
-                    title={FREE_SHARE_CATEGORY_LABELS[v]}
-                    aria-label={FREE_SHARE_CATEGORY_LABELS[v]}
-                    className={
-                      'brog-category-picker__btn' +
-                      (shareCategory === v ? ' brog-category-picker__btn--active' : '')
-                    }
-                    onClick={() => setShareCategory(v)}
+                    className="ghost-button"
+                    disabled={mapLocateBusy}
+                    onClick={() => void onMapLocateGps()}
                   >
-                    <span className="brog-category-picker__label">{FREE_SHARE_CATEGORY_LABELS[v]}</span>
+                    {mapLocateBusy ? '위치 확인 중…' : '현재 위치로 구 반영'}
                   </button>
-                ))}
+                </p>
+                {coordPickHint ? <p className="helper brog-manage-form__qna-coord-hint">{coordPickHint}</p> : null}
+                <div className="brog-manage-form__qna-place-search">
+                  <label className="brog-manage-form__qna-place-search-label">
+                    지명으로 구 반영
+                    <span className="brog-manage-form__qna-place-search-row">
+                      <input
+                        type="search"
+                        value={managePlaceQuery}
+                        onChange={(e) => {
+                          setManagePlaceQuery(e.target.value)
+                          if (managePlaceHint) setManagePlaceHint('')
+                        }}
+                        placeholder="예: 홍대입구역, 망원동"
+                        maxLength={120}
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-label="지명 검색"
+                      />
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        disabled={managePlaceBusy || !managePlaceQuery.trim()}
+                        onClick={() => void handleManagePlaceSearch()}
+                      >
+                        {managePlaceBusy ? '검색 중…' : '적용'}
+                      </button>
+                    </span>
+                  </label>
+                  {managePlaceHint ? <p className="helper">{managePlaceHint}</p> : null}
+                </div>
               </div>
-            </fieldset>
+            ) : null}
+            {!isQna ? (
+              <fieldset className="brog-category-fieldset">
+                <legend>분류</legend>
+                <div className="brog-category-picker" role="group" aria-label="무료나눔 분류 선택">
+                  {FREE_SHARE_CATEGORY_VALUES_FOR_FREE_BOARD.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      title={FREE_SHARE_CATEGORY_LABELS[v]}
+                      aria-label={FREE_SHARE_CATEGORY_LABELS[v]}
+                      className={
+                        'brog-category-picker__btn' +
+                        (shareCategory === v ? ' brog-category-picker__btn--active' : '')
+                      }
+                      onClick={() => setShareCategory(v)}
+                    >
+                      <span className="brog-category-picker__label">{FREE_SHARE_CATEGORY_LABELS[v]}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
             <label>
               내용
               <textarea
@@ -331,30 +396,32 @@ export function FreeShareWritePage() {
                 </ul>
               ) : null}
             </div>
-            <ManageFormLocationMapSection
-              managePlaceQuery={managePlaceQuery}
-              setManagePlaceQuery={setManagePlaceQuery}
-              managePlaceBusy={managePlaceBusy}
-              managePlaceHint={managePlaceHint}
-              setManagePlaceHint={setManagePlaceHint}
-              onManagePlaceSearch={handleManagePlaceSearch}
-              userCoords={
-                mapCoords.latitude != null && mapCoords.longitude != null
-                  ? { lat: mapCoords.latitude, lng: mapCoords.longitude }
-                  : null
-              }
-              mapLocateBusy={mapLocateBusy}
-              onMyLocationClick={() => void onMapLocateGps()}
-              onPickUserLocationOnMap={(la, ln) => void onMapPickUserLocation(la, ln)}
-              getDetailPath={() => '/free-share/write'}
-              mapAriaLabel="무료나눔 나눔 장소 선택 지도"
-              coordPickHint={coordPickHint}
-              latitude={mapCoords.latitude}
-              longitude={mapCoords.longitude}
-              onLatitudeChange={(v) => setMapCoords((c) => ({ ...c, latitude: v }))}
-              onLongitudeChange={(v) => setMapCoords((c) => ({ ...c, longitude: v }))}
-              sectionTitle="나눔 장소"
-            />
+            {!isQna ? (
+              <ManageFormLocationMapSection
+                managePlaceQuery={managePlaceQuery}
+                setManagePlaceQuery={setManagePlaceQuery}
+                managePlaceBusy={managePlaceBusy}
+                managePlaceHint={managePlaceHint}
+                setManagePlaceHint={setManagePlaceHint}
+                onManagePlaceSearch={handleManagePlaceSearch}
+                userCoords={
+                  mapCoords.latitude != null && mapCoords.longitude != null
+                    ? { lat: mapCoords.latitude, lng: mapCoords.longitude }
+                    : null
+                }
+                mapLocateBusy={mapLocateBusy}
+                onMyLocationClick={() => void onMapLocateGps()}
+                onPickUserLocationOnMap={(la, ln) => void onMapPickUserLocation(la, ln)}
+                getDetailPath={() => '/free-share/write'}
+                mapAriaLabel="무료나눔 나눔 장소 선택 지도"
+                coordPickHint={coordPickHint}
+                latitude={mapCoords.latitude}
+                longitude={mapCoords.longitude}
+                onLatitudeChange={(v) => setMapCoords((c) => ({ ...c, latitude: v }))}
+                onLongitudeChange={(v) => setMapCoords((c) => ({ ...c, longitude: v }))}
+                sectionTitle="나눔 장소"
+              />
+            ) : null}
             {exifGpsHint ? <p className="helper form-exif-gps-hint">{exifGpsHint}</p> : null}
             <button type="submit" disabled={isSubmitting}>
               {isSubmitting ? '등록 중…' : '등록'}

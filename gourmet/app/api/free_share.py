@@ -28,7 +28,7 @@ router = APIRouter(prefix="/free-share", tags=["free-share"])
 
 def _category_read(
     post: FreeSharePost,
-) -> Literal["food", "appliance", "furniture", "books", "other"]:
+) -> Literal["food", "appliance", "furniture", "books", "other", "qa"]:
     raw = (getattr(post, "share_category", None) or "other").strip().lower()
     if raw == "food":
         return "food"
@@ -38,6 +38,8 @@ def _category_read(
         return "furniture"
     if raw == "books":
         return "books"
+    if raw == "qa":
+        return "qa"
     if raw == "other":
         return "other"
     return "other"
@@ -245,7 +247,14 @@ def create_comment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _post_or_404(db, post_id)
+    post = _post_or_404(db, post_id)
+    raw_cat = (getattr(post, "share_category", None) or "other").strip().lower()
+    if raw_cat == "qa":
+        if not can_moderate_community_post_district(current_user, post.district, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Q&A 답변은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다.",
+            )
     c = FreeShareComment(
         post_id=post_id,
         user_id=current_user.id,

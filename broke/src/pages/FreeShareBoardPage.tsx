@@ -7,7 +7,7 @@ import { BrogRankGridCarousel } from '../components/BrogRankGridCarousel'
 import { fetchFreeSharePosts, type FreeSharePost } from '../api/community'
 import {
   FREE_SHARE_CATEGORY_LABELS,
-  FREE_SHARE_CATEGORY_VALUES,
+  FREE_SHARE_CATEGORY_VALUES_FOR_FREE_BOARD,
   normalizeFreeShareCategory,
   type FreeShareCategoryValue,
 } from '../lib/freeShareCategory'
@@ -68,7 +68,9 @@ function buildRows(
   return ranked
 }
 
-export function FreeShareBoardPage() {
+export type FreeShareBoardVariant = 'free' | 'qna'
+
+export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: FreeShareBoardVariant } = {}) {
   const [posts, setPosts] = useState<FreeSharePost[]>([])
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -122,16 +124,29 @@ export function FreeShareBoardPage() {
 
   const listNoMaxApplied = listNoApplied
 
+  const boardPosts = useMemo(() => {
+    const mapped = posts.map(normalizePost)
+    if (boardVariant === 'qna') {
+      return mapped.filter((p) => normalizeFreeShareCategory(p.share_category) === 'qa')
+    }
+    return mapped.filter((p) => normalizeFreeShareCategory(p.share_category) !== 'qa')
+  }, [posts, boardVariant])
+
   const filteredRows = useMemo(
-    () => buildRows(posts, categoryKey, searchMode, nicknameApplied, listNoMaxApplied, user?.id ?? null),
-    [posts, categoryKey, searchMode, nicknameApplied, listNoMaxApplied, user?.id],
+    () => buildRows(boardPosts, categoryKey, searchMode, nicknameApplied, listNoMaxApplied, user?.id ?? null),
+    [boardPosts, categoryKey, searchMode, nicknameApplied, listNoMaxApplied, user?.id],
   )
 
   const carouselResetKey = useMemo(
     () =>
-      `${categoryKey}-${searchMode}-${nicknameApplied}-${listNoMaxApplied ?? ''}-${posts.map((p) => p.id).join('-')}`,
-    [categoryKey, searchMode, nicknameApplied, listNoMaxApplied, posts],
+      `${categoryKey}-${searchMode}-${nicknameApplied}-${listNoMaxApplied ?? ''}-${boardPosts.map((p) => p.id).join('-')}`,
+    [categoryKey, searchMode, nicknameApplied, listNoMaxApplied, boardPosts],
   )
+
+  const isQna = boardVariant === 'qna'
+  const listBasePath = isQna ? '/qna' : '/free-share'
+  const writePath = isQna ? '/qna/write' : '/free-share/write'
+  const placeHeader = isQna ? '장소' : '나눔장소'
 
   function onSearchModeChange(next: SearchMode) {
     setSearchMode(next)
@@ -172,60 +187,64 @@ export function FreeShareBoardPage() {
     <div className="brog-screen brog-screen--list">
       <header className="brog-screen__header">
         <div>
-          <p className="eyebrow">Community · 무료나눔</p>
-          <h1 className="brog-screen__title">무료나눔</h1>
+          <p className="eyebrow">{isQna ? 'Community · Q&A' : 'Community · 무료나눔'}</p>
+          <h1 className="brog-screen__title">{isQna ? 'Q&A' : '무료나눔'}</h1>
         </div>
         <div className="brog-screen__header-actions">
-          <Link
-            className="ghost-button free-share-header-map-link"
-            to="/free-share/map"
-            aria-label="무료나눔 지도"
-            title="나눔 지도"
-          >
-            <svg
-              className="free-share-header-map-link__icon"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
+          {!isQna ? (
+            <Link
+              className="ghost-button free-share-header-map-link"
+              to="/free-share/map"
+              aria-label="무료나눔 지도"
+              title="나눔 지도"
             >
-              <path d="M12 21s-8-4.5-8-11a8 8 0 0 1 16 0c0 6.5-8 11-8 11z" />
-              <circle cx="12" cy="10" r="2.5" />
-            </svg>
-            <span className="visually-hidden">지도</span>
-          </Link>
-          <Link className="brog-screen__cta" to="/free-share/write">
+              <svg
+                className="free-share-header-map-link__icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M12 21s-8-4.5-8-11a8 8 0 0 1 16 0c0 6.5-8 11-8 11z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+              <span className="visually-hidden">지도</span>
+            </Link>
+          ) : null}
+          <Link className="brog-screen__cta" to={writePath}>
             작성
           </Link>
         </div>
       </header>
 
-      <section className="brog-list-body" aria-label="무료나눔 목록">
+      <section className="brog-list-body" aria-label={isQna ? 'Q&A 목록' : '무료나눔 목록'}>
         <div className="map-page-toolbar map-card free-share-board-toolbar">
           <div className="map-page-toolbar__filters-row free-share-board-toolbar__row">
-            <label className="price-filter map-page-toolbar__filter">
-              분류
-              <select
-                value={categoryKey}
-                onChange={(e) =>
-                  setCategoryKey(
-                    e.target.value === 'all' ? 'all' : (e.target.value as FreeShareCategoryValue),
-                  )
-                }
-              >
-                <option value="all">전체</option>
-                {FREE_SHARE_CATEGORY_VALUES.map((v) => (
-                  <option key={v} value={v}>
-                    {FREE_SHARE_CATEGORY_LABELS[v]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!isQna ? (
+              <label className="price-filter map-page-toolbar__filter">
+                분류
+                <select
+                  value={categoryKey}
+                  onChange={(e) =>
+                    setCategoryKey(
+                      e.target.value === 'all' ? 'all' : (e.target.value as FreeShareCategoryValue),
+                    )
+                  }
+                >
+                  <option value="all">전체</option>
+                  {FREE_SHARE_CATEGORY_VALUES_FOR_FREE_BOARD.map((v) => (
+                    <option key={v} value={v}>
+                      {FREE_SHARE_CATEGORY_LABELS[v]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="price-filter map-page-toolbar__filter">
               검색
               <select value={searchMode} onChange={(e) => onSearchModeChange(e.target.value as SearchMode)}>
@@ -274,7 +293,7 @@ export function FreeShareBoardPage() {
         {!isLoading && !error ? (
           <p className="brog-list-body__count" role="status">
             <strong>{filteredRows.length}</strong>건
-            {categoryKey !== 'all' ? ` · ${FREE_SHARE_CATEGORY_LABELS[categoryKey]}` : ''}
+            {!isQna && categoryKey !== 'all' ? ` · ${FREE_SHARE_CATEGORY_LABELS[categoryKey]}` : ''}
             {searchMode === 'nickname' && nicknameApplied ? ` · 닉네임 "${nicknameApplied}"` : ''}
             {searchMode === 'listno' && listNoApplied != null ? ` · 번호 ≤ ${listNoApplied}` : ''}
             {searchMode === 'mine' ? ' · 내 글' : ''}
@@ -301,18 +320,25 @@ export function FreeShareBoardPage() {
         ) : null}
 
         {!isLoading && !mineNeedsLogin && filteredRows.length > 0 && !error ? (
-          <section className="home-section map-page-brog-list-section" aria-label="무료나눔 목록">
+          <section
+            className="home-section map-page-brog-list-section"
+            aria-label={isQna ? 'Q&A 목록' : '무료나눔 목록'}
+          >
             <h3 className="map-page-brog-list-section__title">목록</h3>
             <div className="free-share-list-board">
-              <div className="free-share-list-column-header" aria-hidden>
-                <div className="map-page-brog-lines__row map-page-brog-lines__row--free-share-header">
-                  <span className="map-page-brog-lines__hcell">번호</span>
-                  <span className="map-page-brog-lines__hcell">제목</span>
-                  <span className="map-page-brog-lines__hcell">닉네임</span>
-                  <span className="map-page-brog-lines__hcell">작성일</span>
-                  <span className="map-page-brog-lines__hcell">나눔장소</span>
-                  <span className="map-page-brog-lines__hcell">상태</span>
+              <div className="free-share-list-header-carousel" aria-hidden>
+                <div className="free-share-list-header-carousel__spacer" />
+                <div className="free-share-list-column-header">
+                  <div className="map-page-brog-lines__row map-page-brog-lines__row--free-share-header">
+                    <span className="map-page-brog-lines__hcell">번호</span>
+                    <span className="map-page-brog-lines__hcell">제목</span>
+                    <span className="map-page-brog-lines__hcell">닉네임</span>
+                    <span className="map-page-brog-lines__hcell">작성일</span>
+                    <span className="map-page-brog-lines__hcell">{placeHeader}</span>
+                    <span className="map-page-brog-lines__hcell">상태</span>
+                  </div>
                 </div>
+                <div className="free-share-list-header-carousel__spacer" />
               </div>
               <BrogRankGridCarousel<FreeShareListRow>
                 items={filteredRows}
@@ -331,7 +357,7 @@ export function FreeShareBoardPage() {
                               {row.listNo}.
                             </span>
                             <Link
-                              to={`/free-share/${row.post.id}`}
+                              to={`${listBasePath}/${row.post.id}`}
                               className="map-page-brog-lines__name map-page-brog-lines__cell map-page-brog-lines__cell--title"
                             >
                               {row.post.title}
@@ -353,9 +379,11 @@ export function FreeShareBoardPage() {
                             </span>
                             <span className="map-page-brog-lines__cell map-page-brog-lines__cell--status">
                               {row.post.share_completed ? (
-                                <span className="map-page-brog-lines__tag map-page-brog-lines__tag--event">나눔완료</span>
+                                <span className="map-page-brog-lines__tag map-page-brog-lines__tag--event">
+                                  {isQna ? '해결' : '나눔완료'}
+                                </span>
                               ) : (
-                                <span className="map-page-brog-lines__tag">진행중</span>
+                                <span className="map-page-brog-lines__tag">{isQna ? '미해결' : '진행중'}</span>
                               )}
                             </span>
                           </div>
@@ -364,7 +392,7 @@ export function FreeShareBoardPage() {
                     })}
                   </ul>
                 )}
-                ariaLabel={`무료나눔 목록, ${FREE_LIST_PAGE_SIZE}건씩`}
+                ariaLabel={`${isQna ? 'Q&A' : '무료나눔'} 목록, ${FREE_LIST_PAGE_SIZE}건씩`}
                 onPaginationInfo={onCarouselPagination}
                 carouselStepAriaUnit="건"
               />

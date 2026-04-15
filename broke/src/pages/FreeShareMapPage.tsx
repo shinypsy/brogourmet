@@ -80,9 +80,10 @@ export function FreeShareMapPage() {
     const out: BrogKakaoMapPin[] = []
     for (const p of posts) {
       if (p.share_completed) continue
+      const cat = normalizeFreeShareCategory(p.share_category)
+      if (cat === 'qa') continue
       const ll = postLatLng(p)
       if (!ll) continue
-      const cat = normalizeFreeShareCategory(p.share_category)
       out.push({
         id: p.id,
         title: p.title,

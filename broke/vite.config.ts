@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const gourmetProxyTarget = process.env.GOURMET_API_PROXY_TARGET || 'http://127.0.0.1:8001'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -10,6 +12,12 @@ export default defineConfig({
     strictPort: true,
     // dapi 직접 로드가 막힐 때(일부 네트워크·LAN) 브라우저가 같은 origin으로 요청하도록 우회
     proxy: {
+      // broke: VITE_API_BASE_URL 비움 + DEV → API_BASE_URL=/__gourmet_api__ (브라우저는 :5173만 사용)
+      '/__gourmet_api__': {
+        target: gourmetProxyTarget,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/__gourmet_api__/, '') || '/',
+      },
       '/kakao-maps-sdk.js': {
         target: 'https://dapi.kakao.com',
         changeOrigin: true,

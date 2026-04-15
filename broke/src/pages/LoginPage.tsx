@@ -49,9 +49,8 @@ export function LoginPage() {
     <section className="card">
       <h1>로그인</h1>
       <p className="description">
-        JWT로 로그인합니다. 접속이 안 되면 백엔드(gourmet)를 먼저 실행하고,{' '}
-        <code>.env</code>의 <code>VITE_API_BASE_URL</code>이 API 포트(예: <code>:8001</code>)를 가리키는지
-        확인하세요. (프론트 <code>:5173</code>와 같으면 안 됩니다.)
+        JWT로 로그인합니다. 접속이 안 되면 백엔드(gourmet)를 먼저 실행하세요. 개발 모드에서{' '}
+        <code>VITE_API_BASE_URL</code>을 비우면 Vite가 API로 프록시합니다. 값이 있으면 그 URL로 직접 요청합니다.
       </p>
       {import.meta.env.DEV ? (
         <p className="muted" style={{ fontSize: '0.85rem' }}>

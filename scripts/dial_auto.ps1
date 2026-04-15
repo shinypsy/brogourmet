@@ -70,7 +70,7 @@ $weekPath = Join-Path $dialDir ("dial_{0}_w{1}.txt" -f $mm, $wN)
 if (-not (Test-Path $weekPath)) {
     $body = @"
 BroGourmet dial_${mm}_w${wN}.txt
-${year}년 ${month}월 제${wN}주 (KST 약 ${month}/${weekStart}–${weekEnd}) — 일일 dial_YYYY-MM-dd 요약을 날짜별로 쌓는다. w1에는 최종본을 향한 주요 변경·방향 이슈(재논의 필요)를 특히 남긴다.
+${year}년 ${month}월 제${wN}주 (KST 약 ${month}/${weekStart}–${weekEnd}) — 당일 요약은 <mm-dd 요약> 블록으로 쌓는다. 최종본(제품) 변경·이슈는 주간본에 기록(dial/dial_MMDD.txt 규칙1).
 
 --- 본문 ---
 
@@ -90,7 +90,7 @@ $monthPath = Join-Path $dialDir ("dial_{0}_month.txt" -f $mm)
 if (-not (Test-Path $monthPath)) {
     $mbody = @"
 BroGourmet dial_${mm}_month.txt
-${year}년 ${month}월 월간 핵심 — 같은 달 w1~w5 주간 파일 핵심만 압축.
+${year}년 ${month}월 월간 — 주간본(w1, w2, ...) 종합. 최종본 이슈 보관·압축(dial/dial_MMDD.txt 규칙1).
 
 --- 본문 ---
 

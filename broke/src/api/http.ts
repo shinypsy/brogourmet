@@ -44,9 +44,12 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
     })
   } catch (error) {
     if (isLikelyNetworkFailure(error)) {
+      const proxyHint =
+        import.meta.env.DEV && API_BASE_URL.startsWith('/')
+          ? ' 개발 모드는 Vite가 API로 프록시합니다. gourmet가 이 PC에서 uvicorn --host 0.0.0.0 --port 8001 로 떠 있는지 확인하세요.'
+          : ' broke/.env의 VITE_API_BASE_URL은 API 주소(예: http://192.168.0.47:8001)여야 하며, 집 안에서 공인IP:8001이 안 되면 DEV에서 VITE_API_BASE_URL을 비워 프록시를 쓰세요.'
       throw new Error(
-        `서버에 연결할 수 없습니다. gourmet API(uvicorn)가 켜져 있는지 확인하세요. ` +
-          `broke/.env의 VITE_API_BASE_URL은 프론트 주소(:5173)가 아니라 API 주소(예: http://192.168.0.47:8001)여야 합니다. (현재: ${API_BASE_URL})`,
+        `서버에 연결할 수 없습니다. gourmet API(uvicorn)가 켜져 있는지 확인하세요. (현재 API 베이스: ${API_BASE_URL})${proxyHint}`,
       )
     }
     throw error

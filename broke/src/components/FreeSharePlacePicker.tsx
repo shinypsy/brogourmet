@@ -16,6 +16,8 @@ export type FreeSharePlacePickerProps = {
   onDistrictResolved?: (district: string | null) => void
   /** 상세 글 ID — 보기 모드 지도의 `getDetailPath`용 */
   detailPostId?: number
+  /** 기본 `/free-share` — Q&A는 `/qna` */
+  boardBasePath?: string
   pickHint?: ReactNode
   /** 바깥에 `map-page-map-section__title` 등이 있을 때 시각적 캡션 중복 방지(스크린리더용 캡션은 유지) */
   hideTableCaption?: boolean
@@ -36,6 +38,7 @@ export function FreeSharePlacePicker({
   onPlaceChange,
   onDistrictResolved,
   detailPostId,
+  boardBasePath = '/free-share',
   pickHint,
   hideTableCaption = false,
 }: FreeSharePlacePickerProps) {
@@ -108,7 +111,8 @@ export function FreeSharePlacePicker({
     }
   }, [mode, onPlaceChange, applyCoords])
 
-  const detailPath = detailPostId != null ? `/free-share/${detailPostId}` : '/free-share/write'
+  const detailPath =
+    detailPostId != null ? `${boardBasePath}/${detailPostId}` : `${boardBasePath}/write`
 
   const captionClass = hideTableCaption ? 'visually-hidden' : 'free-share-place-table__caption'
   const viewHeadingClass = hideTableCaption ? 'visually-hidden' : 'free-share-place-view__heading'

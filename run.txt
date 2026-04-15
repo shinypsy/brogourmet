@@ -11,29 +11,35 @@ BroGourmet run.txt
 ================================================================================
 [1] 백엔드 gourmet (FastAPI) — venv 권장
 ================================================================================
-  위치: d:\brogourmet\gourmet
+  위치: (저장소 루트)\gourmet  예: d:\project\brogourmet\gourmet
 
   (처음 한 번) 가상환경 만들기
-    cd d:\brogourmet\gourmet
+    cd (저장소루트)\gourmet
     python -m venv .venv
     .\.venv\Scripts\Activate.ps1
     pip install -r requirements.txt
 
   매번 구동
-    cd d:\brogourmet\gourmet
+    cd (저장소루트)\gourmet
     .\.venv\Scripts\Activate.ps1
+    ※ PowerShell에서 Activate.ps1 이 막히면(실행 정책): 아래 중 하나
+      - 한 세션만:  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+      - 이후 계속:  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+      - CMD에서:    .venv\Scripts\activate.bat
     # .env 확인: DATABASE_URL, BROG_UPLOAD_DIR·MYG_UPLOAD_DIR·레거시(COMMUNITY_IMAGE_DIR), JWT 등
+    # DB가 다른 머신이면 pg_hba.conf·listen_addresses·5432 방화벽 확인(gourmet/.env.example 주석)
     python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 
-  ※ broke\.env 의 VITE_API_BASE_URL 이 위 포트와 같아야 함 (예: http://localhost:8001)
+    ※ broke\.env 의 VITE_API_BASE_URL: npm run dev 에서 비우면 Vite→127.0.0.1:8001 프록시(공인IP:8001 직접 호출 불필요).
+      빌드·preview 는 브라우저가 부를 수 있는 API 전체 URL로 지정 (예: http://localhost:8001)
   ※ venv 없이 전역 Python으로 돌리면 될 수는 있으나, 의존성 꼬임 방지용으로 venv 권장.
 
 ================================================================================
 [2] 프론트 broke (Vite)
 ================================================================================
-  위치: d:\brogourmet\broke
+  위치: (저장소 루트)\broke
 
-    cd d:\brogourmet\broke
+    cd (저장소루트)\broke
     npm install
     npm run dev
 
@@ -95,7 +101,7 @@ BroGourmet run.txt
 [7] 테스트 배포(프론트 빌드·백엔드 공개 URL) — 점메추 게임 /game 포함
 ================================================================================
   프론트(broke) 프로덕션 빌드
-    cd d:\Dev\Project\brogourmet\broke
+    cd (저장소루트)\broke
     npm run build
     npm run preview
     → http://localhost:5173 (빌드본 미리보기). SPA 이므로 정적 호스팅 시 **모든 경로를 index.html로** 넘기도록 설정.
@@ -110,8 +116,12 @@ BroGourmet run.txt
   백엔드(gourmet)
     - 공개 서버에서 uvicorn(또는 gunicorn+uvicorn worker) + HTTPS 권장.
     - DATABASE_URL·업로드 디렉터리를 배포 환경에 맞게 설정.
-    - CORS: 기본은 localhost:5173 등 로컬만. 프론트를 다른 도메인에 두면 gourmet .env 에
-      BROG_CORS_EXTRA_ORIGINS=https://(프론트_공개_URL)  (여러 개는 쉼표)
-    - broke는 빌드 시점에 VITE_API_BASE_URL이 박히므로, URL을 바꾸면 **다시 빌드**해야 함.
+    - CORS: LAN·localhost :5173 은 코드 기본 허용. 공인IP:5173 접속은 기본에 없음 → gourmet/.env 에
+      BROG_CORS_EXTRA_ORIGINS=http://공인IP:5173 또는 임시로 BROG_CORS_WAN_HTTP_DEV=true → API 재시작
+    - 그 외(HTTPS·ngrok 등): BROG_CORS_EXTRA_ORIGINS=https://프론트origin (쉼표, 끝 슬래시 없음)
+    - broke는 dev·빌드 모두 VITE_API_BASE_URL이 박히므로 URL 바꾸면 **dev 재시작 또는 다시 빌드**
+    - 인증 메일 링크: FRONTEND_PUBLIC_URL = 사용자가 실제로 여는 프론트 URL
+
+  인터넷(ngrok·배포) 직전: broke/.env.example · gourmet/.env.example 의 체크리스트 순서 참고.
 
   점메추 사다리(/game): 위치 권한이 없으면 화면에서 **좌표 직접 입력** 또는 **서울 시청 데모**로 진행 가능.

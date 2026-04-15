@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { fetchSiteNotices, type SiteNoticeItem } from '../api/siteNotices'
 import { MapPageBody } from '../components/MapPageBody'
 import { HomeAccountDock } from '../components/HomeAccountDock'
 import { SaloonWelcome } from '../components/SaloonWelcome'
+import { BROG_ONLY } from '../config/features'
 import { isBrogPhase1Restricted } from '../lib/brogPhase1'
 
 /** 메인 이미지 그리드 4×2(8칸) — API `limit`과 동일 */
@@ -53,9 +55,47 @@ export function HomePage() {
         <h1 className="visually-hidden">Broke Gourmet 홈</h1>
 
         <section className="service-overview home-notice" aria-labelledby="home-notice-heading">
+          <div className="home-notice__head">
+            <h2 id="home-notice-heading">
+              {hasAdminHomeNotices ? '공지사항' : homeNoticeTitle}
+            </h2>
+            {!BROG_ONLY ? (
+              <Link
+                className="home-notice__qna"
+                to="/qna"
+                title="Q&A 게시판"
+                aria-label="Q&A 게시판"
+                onMouseEnter={() => void import('./FreeShareBoardPage')}
+                onFocus={() => void import('./FreeShareBoardPage')}
+              >
+                <span className="visually-hidden">Q&A</span>
+                <svg
+                  className="home-notice__qna-icon"
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z"
+                  />
+                  <path
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    d="M9.5 9a2.5 2.5 0 0 1 4.2-1.8A2.4 2.4 0 0 1 14 11c0 1.2-.8 1.8-1.3 2.1-.3.2-.7.4-.7 1.1V15"
+                  />
+                  <circle cx="12" cy="17.5" r="0.75" fill="currentColor" stroke="none" />
+                </svg>
+              </Link>
+            ) : null}
+          </div>
           {hasAdminHomeNotices ? (
             <>
-              <h2 id="home-notice-heading">공지사항</h2>
               {visibleSiteNotices.map((n) => (
                 <div key={n.slot} className="home-notice__slot">
                   {n.title.trim() ? (
@@ -68,10 +108,7 @@ export function HomePage() {
               ))}
             </>
           ) : (
-            <>
-              <h2 id="home-notice-heading">{homeNoticeTitle}</h2>
-              <p className="description">{homeNoticeBody}</p>
-            </>
+            <p className="description">{homeNoticeBody}</p>
           )}
         </section>
 

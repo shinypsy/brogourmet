@@ -68,10 +68,16 @@ def _cors_extra_origins_from_env() -> frozenset[str]:
     return frozenset(o.strip() for o in raw.split(",") if o.strip())
 
 
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+
 # Vite dev 5173 · preview 4173. LAN 192.168.*.* 동일 포트 허용(IP 변경 시에도 재설정 최소화).
-_CORS_ORIGIN_RE = re.compile(
+_CORS_RE_LAN_HTTP = re.compile(
     r"^http://(127\.0\.0\.1|localhost|192\.168\.\d{1,3}\.\d{1,3}):(5173|4173)$",
 )
+# 공유기 포트포워딩으로 http://공인IPv4:5173 접속 시 Origin 이 아래에만 맞음(LAN 정규식 제외).
+_CORS_RE_WAN_LITERAL_IPV4_HTTP = re.compile(r"^http://(?:[0-9]{1,3}\.){3}[0-9]{1,3}:(5173|4173)$")
 _CORS_ORIGINS_BASE = frozenset(
     {
         "http://127.0.0.1:5173",
@@ -81,6 +87,22 @@ _CORS_ORIGINS_BASE = frozenset(
     },
 )
 _CORS_ORIGINS = _CORS_ORIGINS_BASE | _cors_extra_origins_from_env()
+
+
+def _cors_allow_origin_regex_for_middleware() -> str:
+    lan = r"^http://(127\.0\.0\.1|localhost|192\.168\.\d{1,3}\.\d{1,3}):(5173|4173)$"
+    if _env_truthy("BROG_CORS_WAN_HTTP_DEV"):
+        wan = r"^http://(?:[0-9]{1,3}\.){3}[0-9]{1,3}:(5173|4173)$"
+        return rf"(?:{lan})|(?:{wan})"
+    return lan
+
+
+def _cors_origin_matches_regex(origin: str) -> bool:
+    if _CORS_RE_LAN_HTTP.match(origin):
+        return True
+    if _env_truthy("BROG_CORS_WAN_HTTP_DEV") and _CORS_RE_WAN_LITERAL_IPV4_HTTP.match(origin):
+        return True
+    return False
 
 
 def _ensure_upload_dir(label: str, directory) -> None:
@@ -99,7 +121,7 @@ def _cors_headers_for_request(request: Request) -> dict[str, str]:
     origin = request.headers.get("origin")
     if not origin:
         return {}
-    if origin in _CORS_ORIGINS or _CORS_ORIGIN_RE.match(origin):
+    if origin in _CORS_ORIGINS or _cors_origin_matches_regex(origin):
         return {
             "access-control-allow-origin": origin,
             "access-control-allow-credentials": "true",
@@ -156,7 +178,7 @@ app.add_middleware(UnhandledExceptionCorsMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(_CORS_ORIGINS),
-    allow_origin_regex=r"^http://(127\.0\.0\.1|localhost|192\.168\.\d{1,3}\.\d{1,3}):(5173|4173)$",
+    allow_origin_regex=_cors_allow_origin_regex_for_middleware(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

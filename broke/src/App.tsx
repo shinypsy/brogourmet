@@ -6,6 +6,7 @@ import { AUTH_CHANGE_EVENT, USER_PROFILE_REFRESH_EVENT } from './authEvents'
 import { EventTicker } from './components/EventTicker'
 import { TestUiAdminBanner } from './components/TestUiAdminBanner'
 import { BROG_ONLY } from './config/features'
+import { QNA_BOARD_NAV } from './lib/communityBoardNav'
 import { canWriteSiteEvents, isSuperAdmin } from './lib/roles'
 import { HomePage } from './pages/HomePage'
 
@@ -70,6 +71,7 @@ const prefetch = {
   mygMap: () => void import('./pages/KnownRestaurantsMapPage'),
   freeShare: () => void import('./pages/FreeShareBoardPage'),
   freeShareMap: () => void import('./pages/FreeShareMapPage'),
+  qna: () => void import('./pages/FreeShareBoardPage'),
   payment: () => void import('./pages/PaymentPage'),
   eventWrite: () => void import('./pages/EventWritePage'),
   login: () => void import('./pages/LoginPage'),
@@ -207,6 +209,40 @@ function App() {
                 >
                   Pay
                 </Link>
+                <Link
+                  className="main-nav-item main-nav-item--qna"
+                  to="/qna"
+                  onMouseEnter={prefetch.qna}
+                  onFocus={prefetch.qna}
+                  title="Q&A 게시판"
+                  aria-label="Q&A 게시판"
+                >
+                  <span className="main-nav-item__qna-inner">
+                    <svg
+                      className="main-nav-item__qna-icon"
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z"
+                      />
+                      <path
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        d="M9.5 9a2.5 2.5 0 0 1 4.2-1.8A2.4 2.4 0 0 1 14 11c0 1.2-.8 1.8-1.3 2.1-.3.2-.7.4-.7 1.1V15"
+                      />
+                      <circle cx="12" cy="17.5" r="0.75" fill="currentColor" stroke="none" />
+                    </svg>
+                    <span className="main-nav-item__qna-text">Q&A</span>
+                  </span>
+                </Link>
               </>
             ) : null}
             {navUser && canWriteSiteEvents(navUser) ? (
@@ -276,6 +312,9 @@ function App() {
                 <Route path="/free-share/map" element={<FreeShareMapPage />} />
                 <Route path="/free-share/write" element={<FreeShareWritePage />} />
                 <Route path="/free-share/:id" element={<FreeSharePostDetailPage />} />
+                <Route path="/qna" element={<FreeShareBoardPage boardVariant="qna" />} />
+                <Route path="/qna/write" element={<FreeShareWritePage boardVariant="qna" />} />
+                <Route path="/qna/:id" element={<FreeSharePostDetailPage boardNav={QNA_BOARD_NAV} />} />
                 <Route path="/known-restaurants" element={<Navigate to="/known-restaurants/list" replace />} />
                 <Route path="/known-restaurants/list" element={<KnownRestaurantsBoardPage />} />
                 <Route path="/known-restaurants/map" element={<KnownRestaurantsMapPage />} />

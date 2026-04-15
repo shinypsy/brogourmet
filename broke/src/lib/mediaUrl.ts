@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../api/config'
+import { API_BASE_URL, resolveApiBaseUrl } from '../api/config'
 
 /** 목록·카드용: `image_urls` 중 첫 비어 있지 않은 값, 없으면 `image_url` */
 export function firstRestaurantListImageUrl(r: {
@@ -17,7 +17,7 @@ export function firstRestaurantListImageUrl(r: {
 
 function parseApiBase(): URL | null {
   try {
-    return new URL(API_BASE_URL)
+    return resolveApiBaseUrl()
   } catch {
     return null
   }

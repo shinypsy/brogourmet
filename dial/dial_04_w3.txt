@@ -1,0 +1,10 @@
+BroGourmet dial_04_w3.txt
+2026년 4월 제3주 (KST 약 4/15–21) — 당일 요약은 `<mm-dd 요약>` 블록으로 쌓는다. 최종본(제품) 변경·이슈는 주간본에 기록(dial_0411.txt 규칙1).
+
+--- 본문 ---
+
+<4-15 요약>
+- 규칙1 개정: 일일 `dial_YYYY-MM-dd` 매일 생성 유지. 당일 요약 → 주간 `dial_MM_wN`에 `<mm-dd 요약>`. 월간 `dial_MM_month`는 주간본(w1, w2, …) 종합·최종본 이슈 보관. 최종본 변경·이슈는 주간본에 정리.
+- `dial_0411.txt`·`.mdc`·`WHERE_IS_DIAL.txt` 반영, `dial_0411.txt.old` 백업.
+- `dial/DIAL_RULES_FOR_AI.txt` 신규 — 브로용 규칙1~4 요약·Read 순서·「dial 읽고 시작」시 `dial_auto.ps1`·불명확 시 전날/주간/월간 dial 확인.
+- `dial/FOLDER_LAYOUT.txt`, `dial/archive/README.txt` 추가. Gee 「이제 그만」— `<4월15일 요약>`·메일·git(`finish_day.ps1`).

@@ -1,0 +1,29 @@
+BroGourmet dial/ 폴더 구성 (Gee·브로 합의 운영 기준)
+
+[루트 dial/ — 파일은 모두 이 평면에 둔다. dial_auto.ps1·메일 첨부 경로와 호환.]
+
+메타 (브로 선행 Read)
+  DIAL_RULES_FOR_AI.txt   규칙1~4 압축·Read 순서·트리거
+  WHERE_IS_DIAL.txt       경로 안내
+  FOLDER_LAYOUT.txt       본 파일 — 폴더 역할·파일 종류
+
+월 스냅샷 (규칙·확정·아카이브 절차 정본)
+  dial_MMDD.txt           예: dial_0411.txt (2026년 4월)
+
+일일 (KST, 매일 1파일)
+  dial_YYYY-MM-dd.txt     대화 원문 Gee:/브로(AI): 맨 끝 추가
+
+주간
+  dial_MM_wN.txt          <mm-dd 요약> 누적, 최종본 변경·이슈
+
+월간
+  dial_MM_month.txt       주간본 종합, 최종본 이슈 보관
+
+레거시
+  dial_old.txt            이전 통합 로그
+
+백업
+  archive/                수동 백업·규칙 개정 전 스냅샷 등
+                          예: archive/dial_0411.txt.old
+
+[저장소 루트 dial.txt]    brogourmet/dial.txt — 긴 이력(선택). 일일 정본은 dial/ 폴더.

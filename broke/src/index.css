@@ -405,6 +405,34 @@ input {
   border-color: rgba(212, 175, 55, 0.45);
 }
 
+.main-nav-item--qna {
+  color: #a5d4fc;
+  border-color: rgba(147, 197, 253, 0.35);
+}
+
+.main-nav-item--qna:hover {
+  border-color: rgba(147, 197, 253, 0.5);
+  background: rgba(22, 32, 52, 0.95);
+}
+
+.main-nav-item__qna-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.main-nav-item__qna-icon {
+  flex-shrink: 0;
+  display: block;
+}
+
+.main-nav-item__qna-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .content {
   display: grid;
 }
@@ -623,6 +651,42 @@ input {
   font-weight: 600;
   flex: 0 1 11rem;
   min-width: 8.5rem;
+}
+
+.form.brog-manage-form .brog-manage-form__qna-location-block {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  background: rgba(12, 16, 28, 0.5);
+}
+
+.form.brog-manage-form .brog-manage-form__qna-location-actions {
+  margin: 0;
+}
+
+.form.brog-manage-form .brog-manage-form__qna-coord-hint {
+  margin: 0;
+}
+
+.form.brog-manage-form .brog-manage-form__qna-place-search-label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.form.brog-manage-form .brog-manage-form__qna-place-search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.form.brog-manage-form .brog-manage-form__qna-place-search-row input {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .form.brog-manage-form .brog-manage-form__photos-block {
@@ -2438,6 +2502,33 @@ button.compact-link.danger-text {
   background: rgba(8, 10, 18, 0.45);
 }
 
+/* 헤더 행 너비를 캐러셀 뷰포트(« · 목록 · »)와 동일하게 — 전체 폭 그리드는 화살표 폭만큼 어긋남 */
+.free-share-list-header-carousel {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.brog-screen--list .free-share-list-board .free-share-list-header-carousel {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.free-share-list-header-carousel__spacer {
+  flex-shrink: 0;
+  width: 44px;
+  min-width: 44px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.free-share-list-column-header {
+  flex: 1;
+  min-width: 0;
+}
+
 .free-share-list-board .brog-list-carousel {
   margin-top: 0;
 }
@@ -2451,6 +2542,7 @@ button.compact-link.danger-text {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding: 10px 14px;
   background: rgba(8, 10, 18, 0.55);
+  box-sizing: border-box;
 }
 
 .free-share-list-column-header .map-page-brog-lines__row--free-share-header,
@@ -2472,6 +2564,12 @@ button.compact-link.danger-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.map-page-brog-lines__row--free-share-header .map-page-brog-lines__hcell:first-child {
+  text-align: right;
+  padding-right: 2px;
 }
 
 .brog-list-carousel__page .map-page-brog-lines.map-page-brog-lines--free-share {
@@ -2923,6 +3021,55 @@ button.compact-link.danger-text {
 
 .home-layout--hub > .home-notice {
   margin-bottom: 0;
+}
+
+.home-notice__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-notice__head h2 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 1.15rem;
+  color: var(--text-heading);
+}
+
+.home-notice__qna {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  background: rgba(18, 28, 48, 0.85);
+  color: #a5d4fc;
+  text-decoration: none;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.home-notice__qna:hover {
+  transform: translateY(-1px);
+  border-color: rgba(147, 197, 253, 0.55);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.home-notice__qna:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.6);
+  outline-offset: 2px;
+}
+
+.home-notice__qna-icon {
+  display: block;
 }
 
 .home-notice__slot {
@@ -3858,6 +4005,18 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   .brog-list-carousel__arrow,
   .brog-list-carousel__arrow-spacer {
     display: none;
+  }
+
+  /* 무료나눔/Q&A 목록 헤더: 폰에서 « » 숨김과 동일하게 스페이서 제거 */
+  .brog-screen--list .free-share-list-board .free-share-list-header-carousel {
+    gap: 0;
+  }
+
+  .free-share-list-header-carousel__spacer {
+    display: none;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   /* BroG/MyG 리스트: 그리드·페이지가 intrinsic 폭으로 부풀면 2열이 깨짐 — 열은 항상 2개·폭 상한 */

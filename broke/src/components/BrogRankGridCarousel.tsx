@@ -128,7 +128,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
       const target = e.target as HTMLElement
-      if (target.closest('button, input, select, textarea, [data-carousel-no-drag]')) return
+      if (target.closest('a, button, input, select, textarea, [data-carousel-no-drag]')) return
       startX = e.touches[0].clientX
       startY = e.touches[0].clientY
       active = true
@@ -257,7 +257,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     if (e.pointerType === 'touch') return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const t = e.target as HTMLElement
-    if (t.closest('button, input, select, textarea, [data-carousel-no-drag]')) return
+    if (t.closest('a, button, input, select, textarea, [data-carousel-no-drag]')) return
 
     carouselDragRef.current = {
       pointerId: e.pointerId,

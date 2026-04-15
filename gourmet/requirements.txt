@@ -1,7 +1,7 @@
 bcrypt
 email-validator
 fastapi
-psycopg2-binary
+psycopg[binary]>=3.2
 python-jose[cryptography]
 python-dotenv
 sqlalchemy

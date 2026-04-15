@@ -19,6 +19,7 @@ import {
   canEditCommunityPost,
   canModerateCommunityPost,
 } from '../lib/roles'
+import { FREE_SHARE_BOARD_NAV, type CommunityBoardNav } from '../lib/communityBoardNav'
 import {
   FREE_SHARE_CATEGORY_LABELS,
   FREE_SHARE_CATEGORY_VALUES,
@@ -53,7 +54,8 @@ function sharePlaceApiFields(lat: number | null, lng: number | null, label: stri
   }
 }
 
-export function FreeSharePostDetailPage() {
+export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoardNav } = {}) {
+  const nav = boardNav ?? FREE_SHARE_BOARD_NAV
   const { id } = useParams()
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -135,6 +137,8 @@ export function FreeSharePostDetailPage() {
 
   const canEdit = Boolean(post && canEditCommunityPost(user, post.author_id, post.district))
   const canDelete = Boolean(post && canDeleteCommunityPost(user))
+  const answerThread = Boolean(nav.answerThread)
+  const canPostAnswer = Boolean(post && user && canModerateCommunityPost(user, post.district))
 
   const canRemoveComment = (c: FreeShareComment) =>
     Boolean(
@@ -283,7 +287,7 @@ export function FreeSharePostDetailPage() {
     setBusy(true)
     try {
       await deleteFreeSharePost(token, post.id)
-      navigate('/free-share')
+      navigate(nav.listPath)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : '삭제 실패')
     } finally {
@@ -330,7 +334,7 @@ export function FreeSharePostDetailPage() {
       <div className="board-layout">
         <section className="card">
           <p className="error">{loadError}</p>
-          <Link className="compact-link" to="/free-share">
+          <Link className="compact-link" to={nav.listPath}>
             목록
           </Link>
         </section>
@@ -353,11 +357,11 @@ export function FreeSharePostDetailPage() {
     <div className="home-layout home-layout--hub home-layout--map-home app-route-hub">
     <div className="board-layout">
       <section className="card board-form-card free-share-detail">
-        <p className="eyebrow">Community</p>
+        <p className="eyebrow">Community · {nav.boardName}</p>
         <p className="helper free-share-detail__nav">
-          <Link to="/free-share">목록</Link>
+          <Link to={nav.listPath}>목록</Link>
           {' · '}
-          <Link to="/free-share/write">새 글</Link>
+          <Link to={nav.writePath}>새 글</Link>
         </p>
 
         {!editing && galleryUrls.length > 0 ? (
@@ -400,6 +404,7 @@ export function FreeSharePostDetailPage() {
               longitude={post.share_longitude ?? null}
               placeLabel={post.share_place_label ?? ''}
               detailPostId={post.id}
+              boardBasePath={nav.placeBasePath}
             />
           </>
         ) : (
@@ -428,6 +433,7 @@ export function FreeSharePostDetailPage() {
               longitude={shareLng}
               placeLabel={sharePlaceLabel}
               detailPostId={post.id}
+              boardBasePath={nav.placeBasePath}
               onPlaceChange={(la, ln, lb) => {
                 setShareLat(la)
                 setShareLng(ln)
@@ -511,11 +517,19 @@ export function FreeSharePostDetailPage() {
           </form>
         )}
 
-        <section className="free-share-comments" aria-labelledby="free-share-comments-heading">
-          <h2 id="free-share-comments-heading" className="free-share-comments__title">
-            댓글
+        <section
+          className="free-share-comments"
+          aria-labelledby={answerThread ? 'free-share-answers-heading' : 'free-share-comments-heading'}
+        >
+          <h2
+            id={answerThread ? 'free-share-answers-heading' : 'free-share-comments-heading'}
+            className="free-share-comments__title"
+          >
+            {answerThread ? '답변' : '댓글'}
           </h2>
-          {comments.length === 0 ? <p className="helper">아직 댓글이 없습니다.</p> : null}
+          {comments.length === 0 ? (
+            <p className="helper">{answerThread ? '아직 답변이 없습니다.' : '아직 댓글이 없습니다.'}</p>
+          ) : null}
           <ul className="free-share-comments__list">
             {comments.map((c) => (
               <li key={c.id} className="free-share-comments__item">
@@ -537,20 +551,26 @@ export function FreeSharePostDetailPage() {
               </li>
             ))}
           </ul>
-          {token ? (
+          {answerThread && !token ? (
+            <p className="helper">답변 등록은 로그인한 최종 관리자 또는 해당 구 지역 담당자만 할 수 있습니다.</p>
+          ) : null}
+          {answerThread && token && !canPostAnswer ? (
+            <p className="helper">답변은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다.</p>
+          ) : null}
+          {token && (!answerThread || canPostAnswer) ? (
             <form className="free-share-comments__form" onSubmit={(e) => void handleCommentSubmit(e)}>
               <label className="free-share-comments__label">
-                댓글 작성
+                {answerThread ? '답변 작성' : '댓글 작성'}
                 <textarea
                   value={commentDraft}
                   onChange={(e) => setCommentDraft(e.target.value)}
                   rows={3}
                   maxLength={2000}
-                  placeholder="댓글을 입력하세요"
+                  placeholder={answerThread ? '답변 내용을 입력하세요' : '댓글을 입력하세요'}
                 />
               </label>
               <button type="submit" disabled={commentsBusy || !commentDraft.trim()}>
-                {commentsBusy ? '등록 중…' : '댓글 등록'}
+                {commentsBusy ? '등록 중…' : answerThread ? '답변 등록' : '댓글 등록'}
               </button>
             </form>
           ) : null}
@@ -564,7 +584,7 @@ export function FreeSharePostDetailPage() {
               disabled={!canEdit || busy || editing}
               onChange={(e) => void handleShareCompletedChange(e)}
             />
-            나눔 완료
+            {nav.completeCheckboxLabel}
           </label>
           <div className="free-share-detail__actions">
             {canEdit && !editing ? (
