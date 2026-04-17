@@ -8,3 +8,10 @@ BroGourmet dial_04_w3.txt
 - `dial_0411.txt`·`.mdc`·`WHERE_IS_DIAL.txt` 반영, `dial_0411.txt.old` 백업.
 - `dial/DIAL_RULES_FOR_AI.txt` 신규 — 브로용 규칙1~4 요약·Read 순서·「dial 읽고 시작」시 `dial_auto.ps1`·불명확 시 전날/주간/월간 dial 확인.
 - `dial/FOLDER_LAYOUT.txt`, `dial/archive/README.txt` 추가. Gee 「이제 그만」— `<4월15일 요약>`·메일·git(`finish_day.ps1`).
+
+<4-17 요약>
+- BroG 작성 사진: 채워진 슬롯 수 기준 `room`/버튼(`RestaurantManagePage`).
+- BroG/MyG 상세: 히어로 라이트박스·전면 링크·`createPortal`(MyG 동일)·CSS.
+- BroG 리스트 헤더: 제목 한 줄 + 지도·등록 아이콘(`BrogListPage`·`index.css`).
+- 홈: 8칸 반경 목록(`MapPageBody`)·게스트 BroG 상세 공개(`App.tsx` `/restaurants/:id`).
+- 규칙4「이제 그만」: `send_dial.ps1`·git `53c94ee`/`c7039b1` 푸시.
