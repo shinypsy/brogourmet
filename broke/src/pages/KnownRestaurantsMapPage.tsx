@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
@@ -45,6 +45,9 @@ export function KnownRestaurantsMapPage() {
   const [loading, setLoading] = useState(true)
   /** BroG 지도와 동일: 좌표가 구와 어긋나면 반경 모드 */
   const [nearIgnoreDistrict, setNearIgnoreDistrict] = useState(false)
+  const [mapExploreCenter, setMapExploreCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const nearIgnoreDistrictRef = useRef(false)
+  nearIgnoreDistrictRef.current = nearIgnoreDistrict
   const [mapMygSearchQuery, setMapMygSearchQuery] = useState('')
   const [mapPlaceQuery, setMapPlaceQuery] = useState('')
   const [placeSearchBusy, setPlaceSearchBusy] = useState(false)
@@ -84,9 +87,21 @@ export function KnownRestaurantsMapPage() {
     applyLatLng,
   } = useSeoulMapUserLocation(setDistrict, {
     initialGeolocationSetsDistrict: false,
-    onApplyLatLngResolved: (r) => setNearIgnoreDistrict(r.reason !== 'ok'),
+    onApplyLatLngResolved: () => setNearIgnoreDistrict(true),
     onDeviceCoordsWithoutDistrictSync: () => setNearIgnoreDistrict(true),
   })
+
+  const mapUserLat = mapUserCoords?.lat
+  const mapUserLng = mapUserCoords?.lng
+
+  useEffect(() => {
+    setMapExploreCenter(null)
+  }, [district, mapUserLat, mapUserLng])
+
+  const onMapViewSettled = useCallback((lat: number, lng: number) => {
+    if (!nearIgnoreDistrictRef.current) return
+    setMapExploreCenter({ lat, lng })
+  }, [])
 
   const reloadPosts = useCallback(() => {
     setLoading(true)
@@ -164,7 +179,8 @@ export function KnownRestaurantsMapPage() {
       return [...withCoords, ...without]
     }
     const withCoords = postsMatchingPrice.filter((p) => p.latitude != null && p.longitude != null)
-    const { lat, lng } = mapUserCoords!
+    const origin = mapExploreCenter ?? mapUserCoords!
+    const { lat, lng } = origin
     const inRadius = withCoords.filter(
       (p) => haversineMeters(lat, lng, p.latitude!, p.longitude!) <= MAP_NEAR_RADIUS_M,
     )
@@ -173,7 +189,7 @@ export function KnownRestaurantsMapPage() {
         haversineMeters(lat, lng, a.latitude!, a.longitude!) -
         haversineMeters(lat, lng, b.latitude!, b.longitude!),
     )
-  }, [postsMatchingPrice, mapUserCoords, useNearListMode])
+  }, [postsMatchingPrice, mapUserCoords, mapExploreCenter, useNearListMode])
 
   const visiblePosts = useMemo(
     () => sortedForList.filter((p) => knownRestaurantPostMatchesMygMapSearch(p, mapMygSearchQuery)),
@@ -272,6 +288,7 @@ export function KnownRestaurantsMapPage() {
               value={district}
               onChange={(e) => {
                 setNearIgnoreDistrict(false)
+                setMapExploreCenter(null)
                 setDistrict(e.target.value)
               }}
             >
@@ -448,6 +465,7 @@ export function KnownRestaurantsMapPage() {
             locating={geoBusy}
             onMyLocationClick={onMapLocate}
             onPickUserLocationOnMap={onPickUserLocationOnMap}
+            onMapViewSettled={onMapViewSettled}
             autoRefitWhenPinsChange={false}
             getDetailPath={(id) => `/known-restaurants/${id}`}
             mapSpeechBubbles

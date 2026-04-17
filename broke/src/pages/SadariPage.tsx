@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-
 import { ACCESS_TOKEN_KEY } from '../api/auth'
 import { KAKAO_MAP_APP_KEY } from '../api/config'
 import { fetchKnownRestaurantPosts } from '../api/community'
@@ -21,6 +19,7 @@ import type { SadariCandidate } from '../lib/buildSadariCandidates'
 const SHINCHON_STATION_DEMO = { lat: 37.55505, lng: 126.93682 }
 
 type GeoState =
+  | { status: 'idle' }
   | { status: 'pending' }
   | { status: 'ok'; lat: number; lng: number }
   | { status: 'error'; message: string }
@@ -35,7 +34,7 @@ type RawPlaces = {
 }
 
 export function SadariPage() {
-  const [geo, setGeo] = useState<GeoState>({ status: 'pending' })
+  const [geo, setGeo] = useState<GeoState>({ status: 'idle' })
   const [geoRetryToken, setGeoRetryToken] = useState(0)
   const [raw, setRaw] = useState<RawPlaces | null>(null)
   const [loadError, setLoadError] = useState('')
@@ -80,7 +79,12 @@ export function SadariPage() {
     }
   }, [])
 
+  /** 취향을 고른 뒤에만 위치 요청·주변 목록 로드(게임 진입 시 취향 블록만 보이게) */
+  const shouldStartGeo = taste !== null
+
   useEffect(() => {
+    if (!shouldStartGeo) return
+
     let cancelled = false
 
     async function run() {
@@ -106,7 +110,7 @@ export function SadariPage() {
     return () => {
       cancelled = true
     }
-  }, [fetchPlaces, geoRetryToken])
+  }, [shouldStartGeo, fetchPlaces, geoRetryToken])
 
   const candidates: SadariCandidate[] | null = useMemo(() => {
     if (!raw || taste === null) return null
@@ -124,6 +128,7 @@ export function SadariPage() {
     setLoadError('')
     setTaste(null)
     setManualCoordError('')
+    setGeo({ status: 'idle' })
     setGeoRetryToken((t) => t + 1)
   }
 
@@ -248,11 +253,6 @@ export function SadariPage() {
           <p className="eyebrow">Game · 점메추</p>
           <h2 className="game-page__hook game-page__hook--header">점메추천 SADARI 게임~!</h2>
         </div>
-        <div className="brog-screen__header-actions">
-          <Link className="ghost-button" to="/">
-            홈
-          </Link>
-        </div>
       </header>
 
       <div className="game-page__taste-block">
@@ -299,10 +299,10 @@ export function SadariPage() {
         ) : null}
       </div>
 
-      {geo.status === 'pending' ? (
+      {shouldStartGeo && geo.status === 'pending' ? (
         <p className="muted">위치 확인 중… 최대 약 1분까지 여러 번 시도합니다. 실내·Wi-Fi만 켠 경우 더 걸릴 수 있습니다.</p>
       ) : null}
-      {geo.status === 'error' ? (
+      {shouldStartGeo && geo.status === 'error' ? (
         <div className="game-page__geo-fallback">
           <div className="game-page__geo-error">
             <p className="error">{geo.message}</p>
@@ -382,47 +382,52 @@ export function SadariPage() {
         </div>
       ) : null}
 
-      {geo.status === 'ok' ? (
+      {shouldStartGeo && geo.status === 'ok' ? (
         <p className="muted game-page__geo-ok">
           기준 좌표: {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
         </p>
       ) : null}
 
-      {loadingPlaces ? <p>주변 맛집 불러오는 중…</p> : null}
-      {loadError ? <p className="error">{loadError}</p> : null}
+      {shouldStartGeo && loadingPlaces ? <p>주변 맛집 불러오는 중…</p> : null}
+      {shouldStartGeo && loadError ? <p className="error">{loadError}</p> : null}
 
-      {taste === null && geo.status === 'ok' && !loadingPlaces && !loadError ? (
-        <p className="muted game-page__pick-first">위에서 취향을 골라 주세요. 그다음 사다리가 나옵니다.</p>
+      {taste === null ? (
+        <p className="muted game-page__pick-first">취향을 선택하면 주변 지도와 사다리 게임이 표시됩니다.</p>
       ) : null}
 
-      {candidates && !loadingPlaces ? (
-        <LadderGame
-          key={candidates.map((c) => c.key).join('-')}
-          candidates={candidates}
-          onWinnerPinRank={handleWinnerPinRank}
-        />
-      ) : null}
-
-      {geo.status === 'ok' && KAKAO_MAP_APP_KEY ? (
-        <div className="manage-form-map-stack map-layout map-layout--brog brog-screen brog-screen--map game-page__map-stack">
-          <section className="map-page-map-section map-card manage-form-map-section game-page__map-section">
-            <h3 className="map-page-map-section__title">주변 지도</h3>
-            <BrogKakaoMap
-              userCoords={{ lat: geo.lat, lng: geo.lng }}
-              pins={sadariMapPins}
-              locating={mapLocating}
-              onMyLocationClick={() => void handleMapMyLocation()}
-              onPickUserLocationOnMap={onPickUserLocationOnMap}
-              getDetailPath={(id) => `/restaurants/${id}`}
-              winnerPinRank={winnerMapRank}
-              mapSpeechBubbles={Boolean(candidates?.length)}
-              mapAriaLabel="점메추 주변 지도"
-              shellClassName="kakao-map-embed"
-              canvasClassName="kakao-map-container kakao-map-container--below"
-              mapRelayoutKey={sadariMapRelayoutKey}
-              showInteractionHints={false}
+      {shouldStartGeo &&
+      geo.status === 'ok' &&
+      KAKAO_MAP_APP_KEY &&
+      !loadingPlaces &&
+      !loadError ? (
+        <div className="map-layout map-layout--brog brog-screen brog-screen--map game-page__map-stack">
+          {geo.status === 'ok' && KAKAO_MAP_APP_KEY ? (
+            <section className="map-page-map-section map-card">
+              <h3 className="map-page-map-section__title">주변 지도</h3>
+              <BrogKakaoMap
+                userCoords={{ lat: geo.lat, lng: geo.lng }}
+                pins={sadariMapPins}
+                locating={mapLocating}
+                onMyLocationClick={() => void handleMapMyLocation()}
+                onPickUserLocationOnMap={onPickUserLocationOnMap}
+                getDetailPath={(id) => `/restaurants/${id}`}
+                winnerPinRank={winnerMapRank}
+                mapSpeechBubbles={Boolean(candidates?.length)}
+                mapAriaLabel="점메추 주변 지도"
+                shellClassName="kakao-map-embed"
+                canvasClassName="kakao-map-container kakao-map-container--below"
+                mapRelayoutKey={sadariMapRelayoutKey}
+                showInteractionHints={false}
+              />
+            </section>
+          ) : null}
+          {candidates && !loadingPlaces ? (
+            <LadderGame
+              key={candidates.map((c) => c.key).join('-')}
+              candidates={candidates}
+              onWinnerPinRank={handleWinnerPinRank}
             />
-          </section>
+          ) : null}
         </div>
       ) : null}
     </section>

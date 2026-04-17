@@ -4,6 +4,7 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from './api/auth'
 import { AUTH_CHANGE_EVENT, USER_PROFILE_REFRESH_EVENT } from './authEvents'
 import { EventTicker } from './components/EventTicker'
+import { RequireAuth } from './components/RequireAuth'
 import { TestUiAdminBanner } from './components/TestUiAdminBanner'
 import { BROG_ONLY } from './config/features'
 import { QNA_BOARD_NAV } from './lib/communityBoardNav'
@@ -299,38 +300,41 @@ function App() {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/brog" element={<Navigate to="/brog/list" replace />} />
-            <Route path="/brog/list" element={<BrogListPage />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/restaurants/manage/new" element={<RestaurantManagePage />} />
-            <Route path="/restaurants/manage/:id" element={<RestaurantManagePage />} />
+            {/* 공개 BroG 상세 — 홈 8칸·게스트 진입 */}
             <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
-            <Route path="/events/write" element={<EventWritePage />} />
-            {!BROG_ONLY ? (
-              <>
-                <Route path="/free-share" element={<FreeShareBoardPage />} />
-                <Route path="/free-share/map" element={<FreeShareMapPage />} />
-                <Route path="/free-share/write" element={<FreeShareWritePage />} />
-                <Route path="/free-share/:id" element={<FreeSharePostDetailPage />} />
-                <Route path="/qna" element={<FreeShareBoardPage boardVariant="qna" />} />
-                <Route path="/qna/write" element={<FreeShareWritePage boardVariant="qna" />} />
-                <Route path="/qna/:id" element={<FreeSharePostDetailPage boardNav={QNA_BOARD_NAV} />} />
-                <Route path="/known-restaurants" element={<Navigate to="/known-restaurants/list" replace />} />
-                <Route path="/known-restaurants/list" element={<KnownRestaurantsBoardPage />} />
-                <Route path="/known-restaurants/map" element={<KnownRestaurantsMapPage />} />
-                <Route path="/known-restaurants/write" element={<KnownRestaurantsWritePage />} />
-                <Route path="/known-restaurants/:id/edit" element={<KnownRestaurantPostEditPage />} />
-                <Route path="/known-restaurants/:id" element={<KnownRestaurantPostDetailPage />} />
-                <Route path="/payment" element={<PaymentPage />} />
-              </>
-            ) : null}
+            <Route element={<RequireAuth />}>
+              <Route path="/brog" element={<Navigate to="/brog/list" replace />} />
+              <Route path="/brog/list" element={<BrogListPage />} />
+              <Route path="/map" element={<MapPage />} />
+              <Route path="/restaurants/manage/new" element={<RestaurantManagePage />} />
+              <Route path="/restaurants/manage/:id" element={<RestaurantManagePage />} />
+              <Route path="/events/write" element={<EventWritePage />} />
+              {!BROG_ONLY ? (
+                <>
+                  <Route path="/free-share" element={<FreeShareBoardPage />} />
+                  <Route path="/free-share/map" element={<FreeShareMapPage />} />
+                  <Route path="/free-share/write" element={<FreeShareWritePage />} />
+                  <Route path="/free-share/:id" element={<FreeSharePostDetailPage />} />
+                  <Route path="/qna" element={<FreeShareBoardPage boardVariant="qna" />} />
+                  <Route path="/qna/write" element={<FreeShareWritePage boardVariant="qna" />} />
+                  <Route path="/qna/:id" element={<FreeSharePostDetailPage boardNav={QNA_BOARD_NAV} />} />
+                  <Route path="/known-restaurants" element={<Navigate to="/known-restaurants/list" replace />} />
+                  <Route path="/known-restaurants/list" element={<KnownRestaurantsBoardPage />} />
+                  <Route path="/known-restaurants/map" element={<KnownRestaurantsMapPage />} />
+                  <Route path="/known-restaurants/write" element={<KnownRestaurantsWritePage />} />
+                  <Route path="/known-restaurants/:id/edit" element={<KnownRestaurantPostEditPage />} />
+                  <Route path="/known-restaurants/:id" element={<KnownRestaurantPostDetailPage />} />
+                  <Route path="/payment" element={<PaymentPage />} />
+                </>
+              ) : null}
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/me" element={<MyPage />} />
+              <Route path="/game" element={<SadariPage />} />
+              <Route path="/sadari" element={<Navigate to="/game" replace />} />
+            </Route>
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/me" element={<MyPage />} />
-            <Route path="/game" element={<SadariPage />} />
-            <Route path="/sadari" element={<Navigate to="/game" replace />} />
           </Routes>
         </Suspense>
       </main>

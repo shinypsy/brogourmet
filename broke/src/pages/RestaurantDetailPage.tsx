@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
@@ -59,6 +60,8 @@ export function RestaurantDetailPage() {
   const [heroImgFailed, setHeroImgFailed] = useState(false)
   /** 다중 사진일 때 상단 히어로에 보여 줄 이미지 인덱스 */
   const [heroGalleryIndex, setHeroGalleryIndex] = useState(0)
+  /** 히어로 클릭 시 같은 URL을 전체 화면에 표시 */
+  const [heroLightboxOpen, setHeroLightboxOpen] = useState(false)
   const [mygCopyBusy, setMygCopyBusy] = useState(false)
 
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
@@ -127,6 +130,24 @@ export function RestaurantDetailPage() {
     setHeroImgFailed(false)
     setHeroGalleryIndex(0)
   }, [restaurant?.id])
+
+  useEffect(() => {
+    setHeroLightboxOpen(false)
+  }, [heroGalleryIndex, id])
+
+  useEffect(() => {
+    if (!heroLightboxOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHeroLightboxOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [heroLightboxOpen])
 
   async function handleSoftRemove() {
     if (!restaurant) return
@@ -365,6 +386,21 @@ export function RestaurantDetailPage() {
             {heroSrc ? '이미지를 불러올 수 없습니다' : '사진 없음'}
           </div>
         )}
+        {showHeroImg ? (
+          <a
+            href={heroSrc}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="brog-detail__hero-zoom-hit"
+            aria-label="사진 원본 크게 보기"
+            title="클릭하면 크게 보기 · 길게 눌러 새 탭에서 열기"
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+              e.preventDefault()
+              setHeroLightboxOpen(true)
+            }}
+          />
+        ) : null}
         <div className="brog-detail__hero-overlay">
           <p className="brog-detail__eyebrow">BroG</p>
           <h1
@@ -700,6 +736,36 @@ export function RestaurantDetailPage() {
         </section>
 
       </div>
+
+      {heroLightboxOpen && heroSrc
+        ? createPortal(
+            <div
+              className="brog-detail__lightbox"
+              role="dialog"
+              aria-modal="true"
+              aria-label="사진 원본"
+              onClick={() => setHeroLightboxOpen(false)}
+            >
+              <div className="brog-detail__lightbox-inner" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="brog-detail__lightbox-close"
+                  aria-label="닫기"
+                  onClick={() => setHeroLightboxOpen(false)}
+                >
+                  ×
+                </button>
+                <img
+                  src={heroSrc}
+                  alt=""
+                  className="brog-detail__lightbox-img"
+                  referrerPolicy={imgReferrerPolicyForResolvedSrc(heroSrc)}
+                />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

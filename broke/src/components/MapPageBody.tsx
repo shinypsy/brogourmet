@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
@@ -30,7 +30,7 @@ export type MapPageBodyProps = {
   syncDistrictToSearchParams: boolean
   /** 홈: 이미지 그리드 / 지도 페이지: 한 줄 텍스트 */
   listPresentation?: 'textLines' | 'imageGrid'
-  /** 설정 시 목록 API에 `limit` 전달(예: 홈 8건). */
+  /** 설정 시 목록 API에 `limit` 전달(예: 홈 8건). 홈만 쓰며, 구가「전체 보기」이고 좌표·지도 중심이 있으면 반경 목록으로 맞춤. */
   listFetchLimit?: number
   /** true: 지도 깃발에 상호 말풍선 표시(`/map` 등). 홈 지도는 false 유지. */
   mapSpeechBubbles?: boolean
@@ -65,6 +65,10 @@ export function MapPageBody({
   const [listReloadTick, setListReloadTick] = useState(0)
   const [pinBusyId, setPinBusyId] = useState<number | null>(null)
   const [nearIgnoreDistrict, setNearIgnoreDistrict] = useState(false)
+  /** 반경 모드일 때 지도 idle 중심 — 핀 좌표와 다를 수 있음(팬·줌 후 목록 기준) */
+  const [mapExploreCenter, setMapExploreCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const nearIgnoreDistrictRef = useRef(false)
+  nearIgnoreDistrictRef.current = nearIgnoreDistrict
   const [mapBroSearchQuery, setMapBroSearchQuery] = useState('')
   const [mapPlaceQuery, setMapPlaceQuery] = useState('')
   const [placeSearchBusy, setPlaceSearchBusy] = useState(false)
@@ -107,12 +111,33 @@ export function MapPageBody({
     applyLatLng,
   } = useSeoulMapUserLocation(setDistrict, {
     initialGeolocationSetsDistrict: false,
-    onApplyLatLngResolved: (r) => setNearIgnoreDistrict(r.reason !== 'ok'),
+    // ok여도 핀 좌표로 반경 검색해야 함. 구만 쓰면 좌표 적용·장소 검색 후 목록이 안 바뀐 것처럼 보임.
+    onApplyLatLngResolved: () => setNearIgnoreDistrict(true),
     onDeviceCoordsWithoutDistrictSync: () => setNearIgnoreDistrict(true),
   })
 
   const nearLat = mapUserCoords?.lat ?? null
   const nearLng = mapUserCoords?.lng ?? null
+
+  useEffect(() => {
+    setMapExploreCenter(null)
+  }, [district, nearLat, nearLng])
+
+  const onMapViewSettled = useCallback(
+    (lat: number, lng: number) => {
+      /** 홈 8칸·구「전체 보기」일 때는 반경 목록이므로 지도 idle 중심도 목록에 반영 */
+      const allowExploreForHomeGrid =
+        listFetchLimit != null && district === BROG_DISTRICT_ALL
+      if (!nearIgnoreDistrictRef.current && !allowExploreForHomeGrid) return
+      setMapExploreCenter({ lat, lng })
+    },
+    [listFetchLimit, district],
+  )
+
+  const mapExploreKey =
+    mapExploreCenter != null
+      ? `${mapExploreCenter.lat.toFixed(5)},${mapExploreCenter.lng.toFixed(5)}`
+      : ''
 
   const token =
     typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY)?.trim() || null : null
@@ -194,13 +219,23 @@ export function MapPageBody({
       ...(district !== BROG_DISTRICT_ALL ? { district } : {}),
       max_price: maxPrice,
     } as const
+    const nearQueryLat = mapExploreCenter?.lat ?? nearLat
+    const nearQueryLng = mapExploreCenter?.lng ?? nearLng
+    /** `/map` 등: 사용자가 반경 모드로 전환한 뒤. 홈 8칸+전체 보기: 좌표만 있으면 항상 반경(위치·지도 중심에 따름). */
+    const homeAnchoredNearList =
+      listFetchLimit != null &&
+      district === BROG_DISTRICT_ALL &&
+      nearQueryLat != null &&
+      nearQueryLng != null
     const useNearForListApi =
-      nearIgnoreDistrict && nearLat != null && nearLng != null
+      nearQueryLat != null &&
+      nearQueryLng != null &&
+      (nearIgnoreDistrict || homeAnchoredNearList)
     const params = useNearForListApi
       ? {
           ...base,
-          near_lat: nearLat,
-          near_lng: nearLng,
+          near_lat: nearQueryLat,
+          near_lng: nearQueryLng,
           radius_m: MAP_NEAR_RADIUS_M,
           near_ignore_district: true as const,
           ...(listFetchLimit != null ? { limit: listFetchLimit } : {}),
@@ -227,7 +262,7 @@ export function MapPageBody({
     return () => {
       cancelled = true
     }
-  }, [district, maxPrice, nearLat, nearLng, nearIgnoreDistrict, listReloadTick, listFetchLimit])
+  }, [district, maxPrice, nearLat, nearLng, nearIgnoreDistrict, listReloadTick, listFetchLimit, mapExploreKey])
 
   const visibleRestaurants = useMemo(
     () => restaurants.filter((r) => restaurantMatchesBroMapSearch(r, mapBroSearchQuery)),
@@ -314,6 +349,7 @@ export function MapPageBody({
               value={district}
               onChange={(e) => {
                 setNearIgnoreDistrict(false)
+                setMapExploreCenter(null)
                 setDistrict(e.target.value)
               }}
             >
@@ -570,6 +606,7 @@ export function MapPageBody({
             locating={geoBusy}
             onMyLocationClick={onMapLocate}
             onPickUserLocationOnMap={onPickUserLocationOnMap}
+            onMapViewSettled={onMapViewSettled}
             autoRefitWhenPinsChange={false}
             getDetailPath={(id) => `/restaurants/${id}`}
             mapAriaLabel="BroG 위치 지도"

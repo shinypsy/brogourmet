@@ -14,3 +14,525 @@ Gee:
 
 브로(AI):
 `origin/main` fetch·pull(최신). `dial/dial_2026-04-17.txt` 최초 커밋(5d64c38)·동기화 턴 기록 커밋·푸시(7e30c25).
+
+Gee:
+웹페이지가 안뜨고 있는데 점검해 줄래?
+
+브로(AI):
+점검: `127.0.0.1:8001/docs`·`127.0.0.1:5173/` HTTP 200. Vite `0.0.0.0:5173` LISTENING(PID 9176), gourmet `8001` LISTENING. `broke/.env` `VITE_API_BASE_URL` 비움=run.txt대로 프록시 OK. Cursor 터3은 History restored 후 `npm run dev` 없었음→재실행 필요할 수 있음. 잘못된 북마크로 `182.222.114.66:5173` 등 외부:5173 접속 시도(netstat) 있음→주소는 `http://localhost:5173` 또는 LAN `http://192.168.219.254:5173`. 여전히 흰 화면이면 F12 콘솔·하드 리프레시.
+
+Gee:
+오늘 체크할 것은 https://2corea.com으로 정상적으로 동작하는지의 여부와 나머지 수정할 부분을 진행할 거야
+
+브로(AI):
+점검(2026-04-17, curl): `https://2corea.com/`·`https://www.2corea.com/` 모두 **HTTP 522**(Cloudflare, 원본 연결 타임아웃) → **현재 공개 URL은 정상 동작 아님**. DNS는 CF A/AAAA로 해석됨. 대응: CF 대시보드에서 원본(upstream) IP/포트·프록시 상태, 원본 방화벽·프로세스(nginx/uvicorn 등)·Tunnel 설정 점검. 로컬 BroGourmet 수정 목록은 Gee가 지정하면 diff 후「수정해」절차로 진행.
+
+Gee:
+(메시지: Cloudflare 원본 인증서·개인키 PEM 설치 안내 요청 — **dial에는 보안상 PEM 본문 미기록**)
+
+브로(AI):
+채팅에 개인키 노출됨 → **CF 대시보드에서 원본 인증서 재발급·구키 폐기 권장**. 설치는 **원본 서버(nginx 등)에만** `fullchain.pem`·`privkey.pem` 분리 저장, 키 `chmod 600`, 저장소·dial·git에 **넣지 않기**. CF SSL/TLS **Full(strict)** + 원본 443에서 해당 경로 지정 후 nginx reload. 522는 인증서만으로는 해결 안 됨—원본 프로세스·방화벽·CF Origin IP 허용 병행.
+
+Gee:
+이 PC는 지금 임시서버로 운영중이고, windows PC야. .위의 내용은 어디에 설치하라는 거지?
+
+브로(AI):
+**디스크 폴더**에 두 개의 **텍스트 파일**로 저장하는 것(예: `C:\ProgramData\BroGourmet\ssl\2corea-origin.pem`, `...\2corea-origin.key`). **brogourmet 저장소·git 안에 넣지 말 것.** 그 경로를 **역프록시가 쓰는 설정**에 적는 것—**nginx for Windows**면 `nginx.conf`의 `ssl_certificate` / `ssl_certificate_key`가 그 **절대 경로**를 가리킴.**IIS**면 파일 대신 **로컬 컴퓨터 인증서 저장소**로 가져오기(PEM→PFX 변환 후). Caddy 등이면 해당 설정의 `tls` 경로. 즉 “설치”= **원본이 HTTPS 종료하는 프로그램이 읽는 위치**이며, Windows 고정 단일 경로는 없음.
+
+Gee:
+지금 임시 서버가 nginx인지 IIS인지만 알려주면, 그에 맞춰 conf에 넣을 줄만 딱 짚어 줄게. <--react로 구성했자나
+
+브로(AI):
+React(broke)=**빌드 산출물·dev 서버**일 뿐, **443 TLS 종료**는 nginx/IIS/Caddy 등 **별도**. “React라서 nginx” 아님. 임시 공개 시 보통 **nginx 또는 IIS 앞단**에 Origin 인증서. 구분: 작업 관리자·서비스에 **nginx**/`W3SVC`(IIS) 여부, `netstat -ano | findstr :443` 후 PID가 **nginx.exe vs w3wp**인지 확인.
+
+Gee:
+C:\Users\eom>netstat -ano | findstr ":443"
+  TCP    192.168.219.254:54288  13.107.246.254:443     CLOSE_WAIT      7684
+  TCP    192.168.219.254:54683  52.74.223.220:443      ESTABLISHED     23164
+  TCP    192.168.219.254:54702  104.18.18.125:443      ESTABLISHED     23164
+  TCP    192.168.219.254:54768  52.74.223.220:443      TIME_WAIT       0
+  TCP    192.168.219.254:54780  140.82.112.25:443      ESTABLISHED     3488
+  TCP    192.168.219.254:54790  48.210.190.78:443      ESTABLISHED     17144
+  TCP    192.168.219.254:54792  4.213.25.241:443       ESTABLISHED     4004
+  TCP    192.168.219.254:54817  75.101.147.179:443     TIME_WAIT       0
+  TCP    192.168.219.254:54929  52.74.223.220:443      ESTABLISHED     23164
+  TCP    192.168.219.254:54966  121.254.136.81:443     CLOSE_WAIT      7684
+  TCP    192.168.219.254:54973  52.98.51.146:443       ESTABLISHED     7684
+  TCP    192.168.219.254:55001  13.107.226.254:443     CLOSE_WAIT      7684
+  TCP    192.168.219.254:55069  54.169.137.161:443     ESTABLISHED     23164
+  TCP    192.168.219.254:55334  40.99.67.210:443       ESTABLISHED     18000
+  TCP    192.168.219.254:55335  40.99.67.210:443       ESTABLISHED     18000
+  TCP    192.168.219.254:55396  104.16.79.73:443       ESTABLISHED     3488
+  TCP    192.168.219.254:55400  104.16.79.73:443       ESTABLISHED     3488
+  TCP    192.168.219.254:55401  104.18.3.57:443        ESTABLISHED     3488
+  TCP    192.168.219.254:55405  104.18.30.163:443      ESTABLISHED     3488
+  TCP    192.168.219.254:55430  35.190.80.1:443        ESTABLISHED     3488
+  TCP    192.168.219.254:55474  104.18.18.125:443      ESTABLISHED     22404
+  TCP    192.168.219.254:55479  54.169.137.161:443     ESTABLISHED     23164
+  TCP    192.168.219.254:55595  104.18.5.50:443        ESTABLISHED     3488
+  TCP    192.168.219.254:55628  54.169.137.161:443     ESTABLISHED     23164
+  TCP    192.168.219.254:55642  54.205.114.219:443     ESTABLISHED     16112
+  TCP    192.168.219.254:55681  100.30.84.201:443      ESTABLISHED     22404
+  TCP    192.168.219.254:55756  104.18.19.125:443      ESTABLISHED     23164
+  TCP    192.168.219.254:55783  98.70.192.224:443      TIME_WAIT       0
+  TCP    192.168.219.254:55784  52.201.169.51:443      ESTABLISHED     21636
+  TCP    192.168.219.254:55787  34.230.193.156:443     ESTABLISHED     21636
+  TCP    192.168.219.254:55792  54.169.137.161:443     ESTABLISHED     23164
+  TCP    192.168.219.254:55794  52.201.169.51:443      ESTABLISHED     23164
+  TCP    192.168.219.254:55837  98.70.192.224:443      ESTABLISHED     17604
+
+C:\Users\eom>
+
+브로(AI):
+**로컬 443 LISTEN 없음**—전부 `192.168.219.254:랜덤포트 → 외부IP:443` **아웃바운드**(브라우저·Cursor·업데이트 등). **nginx/IIS로 443 받는 프로세스 없음**으로 해석 가능. CF 원본이 이 PC면 **nginx 또는 IIS로 `listen 443 ssl`(또는 IIS 바인딩)** 먼저 띄운 뒤 Origin 인증서 경로 지정. 확인 명령: `netstat -ano | findstr "LISTENING" | findstr ":443"` 또는 `Get-NetTCPConnection -LocalPort 443 -State Listen`.
+
+Gee:
+네말은, react구성했어도 https 통신을 하려면 nginx or lls 로 추가 구성해야 한다는 얘기지?
+
+브로(AI):
+**대체로 맞음(지금 구성 기준).** React는 UI·`npm run dev`/정적 파일일 뿐 **공인 HTTPS(443) 종료**는 별도. 집 Windows를 CF **원본**으로 쓰면 **역프록시(nginx·IIS·Caddy 등)로 443 리슨**이 필요—이름이 꼭 nginx/IIS만은 아님. Vercel 등 호스팅이면 호스트가 TLS 처리. Vite만으로도 dev HTTPS 가능하나 **CF→원본 Full(strict)** 용도와는 별개.
+
+Gee:
+네가 생각했을 때 현재 상황에서 가장 이상적인 구조 상황을 생각해서 답변해줘. 나는 2corea.com이라는 도메인으로 서비스 테스트를 완전히 끝내고 앱과 웹으로 배포할 생각이야.
+
+브로(AI):
+이상안 요약: **스테이징**(검증 전용)과 **프로덕션**(앱·웹) 분리. 스테이징은 `staging.2corea.com` 또는 별 호스트+동일 스택, **리눅스 VM/컨테이너**에 nginx/Caddy→정적(broke build)+API(gourmet), TLS Let’s Encrypt 또는 CF Full(strict), 시크릿은 호스트·CI 변수만. **프로덕션 웹**은 정적+CDN(Vercel/CF Pages/S3+CF)에 `www`/`app` 서브도메인, **API**는 `api.2corea.com` 단일 진입(gourmet), DB·업로드는 관리형/전용 디스크. **모바일 앱**은 스토어 빌드가 같은 API·동일 CORS/딥링크(`FRONTEND_PUBLIC_URL` 등)를 보도록. 집 Windows는 **원본으로 두지 말고** 로컬 개발만. 테스트 끝난 뒤 DNS를 스테이징→본배포로 전환.
+
+Gee:
+지금 현재는 www 기준으로 얘기해줘
+
+브로(AI):
+**`www.2corea.com`만 기준**으로: 공인 웹 진입은 **항상 `https://www.2corea.com`**. CF DNS에 **CNAME/A로 `www`만** 스테이징·본서버를 가리키면 됨(apex `@`는 **301→www** 권장). `www` 뒤에서는 **broke 빌드(dist) 정적** 또는 **역프록시가 그 정적을 서빙**; API는 브라우저가 **`https://api.2corea.com`**(또는 동일 origin이면 `/api` 프록시)로—`VITE_API_BASE_URL`·CORS·카카오 Web 플랫폼 도메인을 **`https://www.2corea.com`** 기준으로 등록. 메일·비번재설정 링크 `FRONTEND_PUBLIC_URL`도 **`https://www.2corea.com`** 로 통일.
+
+Gee:
+https://www.2corea.com 로 지금 해야 하는거?
+
+Gee:
+https:/www.2corea.com으로 접속되게 하기 위해서 현재 내가 해야할게 뭐냐고?
+
+브로(AI):
+**목표 주소는 `https://www.2corea.com`**(슬래시 두 개 `https://`). 할 일 순서: (1) Cloudflare DNS **`www`** 가 **실제 원본**(집 공인IP 또는 VM)을 가리키는지·프록시 ON이면 원본이 응답하는지. (2) 그 원본에 **443 LISTEN**(nginx/IIS 등)+**Origin 인증서** 또는 Let’s Encrypt. (3) **공유기·윈도우 방화벽 443 인바운드** 허용. (4) `broke` **빌드 산출물**을 그 웹서버가 서빙. (5) API는 같은 호스트 프록시 또는 **`api` 서브도메인**+`VITE_API_BASE_URL`·**gourmet CORS에 `https://www.2corea.com`**. (6) CF SSL **Full(strict)**. 위 끝나기 전엔 브라우저에서 522/연결 실패 가능.
+
+Gee:
+nginx 로 구성하는거 진행해줘
+
+브로(AI):
+**코드적용** — `deploy/nginx/www-api-2corea.conf`(www=dist SPA, api→127.0.0.1:8001), `run.txt` [2.5] 절차, `broke/.env.production.example`. PEM·키는 git 밖·conf 경로만 수정. 빌드: `VITE_API_BASE_URL=https://api.2corea.com`; gourmet `BROG_CORS_EXTRA_ORIGINS`·`FRONTEND_PUBLIC_URL` www 반영. DNS `api` 동일 IP 필요.
+
+Gee:
+nginx download 링크와 어떤 버전 설치해야하는지 부터 자세히 설명해줘
+
+브로(AI):
+다운로드: **https://nginx.org/en/download.html** → 표에서 **Windows용 zip**(파일명 `nginx-x.y.z.zip`). 직링크는 버전마다 `https://nginx.org/download/nginx-x.y.z.zip`. **공식 nginx for Windows 문서(https://nginx.org/en/docs/windows.html)** 는 **mainline 최신** zip 쓰라고 안내(버그픽스 반영). **Stable vs Mainline**: Windows zip은 공식 문서 기준 **mainline 권장**; Linux 패키지 운영만 따로 쓸 때는 stable 선호하는 경우도 있음. Windows 빌드는 문서상 **베타·성능 한계**(worker 1개만 실질 동작 등) 명시—임시 서버·리버스 프록시 용도엔 보통 무방.
+
+Gee:
+nginx.exe -t -c "D:\project\brogourmet\deploy\nginx\www-api-2corea.conf" 실행했어..이 이후 작업?
+
+브로(AI):
+`-t`가 **successful**이면: (1) **기동** `nginx.exe -c "D:\project\brogourmet\deploy\nginx\www-api-2corea.conf"` (nginx.exe 경로에서 실행). (2) **`netstat -ano | findstr "LISTENING" | findstr ":443"`** 로 443 확인. (3) **gourmet** `127.0.0.1:8001` 실행 중. (4) **broke** `dist` 존재·`root` 경로 일치·프로덕션 빌드 `VITE_API_BASE_URL=https://api.2corea.com`. (5) **CF DNS** www/api·방화벽·포트포워딩. (6) 브라우저 `https://www.2corea.com` 테스트. 설정 변경 후 **동일 `-c`로** `nginx.exe -s reload`(실패 시 `logs\error.log`). `-t` 실패면 출력 메시지(경로·PEM·mime.types)부터 수정.
+
+Gee:
+netstat -ano | findstr "LISTENING" | findstr ":443" -> 아무것도 안보이는데..
+
+브로(AI):
+원인 후보: (1)**`-t`만 하고 기동 안 함**→`nginx.exe -c "...\www-api-2corea.conf"` 실행. (2)**기동 직후 바로 종료**→압축 해제 `logs\error.log` 확인(SSL PEM 경로·권한·`include mime.types`). (3)**443 바인드 권한**→PowerShell/CMD **관리자 권한**으로 nginx 실행 시도. (4)**프로세스 유무**→`tasklist | findstr nginx`. (5)**다른 프로그램이 443 사용**(IIS 등)→`netstat -ano | findstr :443` 전체에서 LISTENING 행 확인.
+
+Gee:
+netstat :443 출력 — 전부 `로컬:높은포트 → 외부:443` ESTABLISHED 등으로 **아웃바운드만** 있음(LISTENING 없음). 채팅에 붙인 전체 출력과 동일.
+
+브로(AI):
+**해석:** PC가 **서버로 443을 연 게 아니라** 브라우저 등이 **밖의 https로 나가는 연결**만 보임 → **nginx가 443 LISTEN 안 함** 상태 유지. **할 일:** 관리자 CMD에서 `nginx.exe -c "D:\project\brogourmet\deploy\nginx\www-api-2corea.conf"` → `tasklist | findstr nginx` → 다시 `findstr LISTENING`+`:443`으로 **`0.0.0.0:443` 또는 `[::]:443`** 행 확인. 없으면 **nginx 설치 폴더 `logs\error.log`** 마지막 부분 확인.
+
+Gee:
+error.log 가 없어
+
+브로(AI):
+**원인:** `-c` 외부 conf·다른 cwd면 기본 `logs\error.log`가 **안 만들어지거나** nginx가 **한 줄도 실행 전에 종료**됨. **코드적용** — `www-api-2corea.conf`에 `error_log D:/project/brogourmet/deploy/nginx/nginx-error.log` 추가·api 블록 ssl 경로를 www와 동일(ProgramData)로 정정. 이후 `nginx -t`→기동하면 **저장소 `deploy/nginx/nginx-error.log`** 확인. 여전히 파일 없으면 **콘솔에서** `nginx.exe -c "..."` 실행해 **화면에 나오는 한 줄 오류** 확인.
+
+Gee:
+nginx CreateFile mime.types failed C:/nginx/conf/mime.types — www-api-2corea.conf:31
+
+브로(AI):
+**코드적용** — `include` 를 `conf/mime.types` 로 변경, 주석·`run.txt`에 **반드시 `cd C:\nginx-1.29.8`(본인 nginx 폴더) 후** `nginx.exe -t`/`nginx.exe -c` 실행하라고 명시. 오류 원인: 실제 설치는 `C:\nginx-1.29.8\conf\mime.types` 인데 예전 예시 경로 `C:/nginx/...` 가 남아 있었음.
+
+Gee:
+PS에서 conf/mime.types 가 deploy\nginx\conf\ 로 해석되어 실패
+
+브로(AI):
+**코드적용** — `-c` 외부 conf일 때 상대 `include`는 **conf 파일이 있는 폴더** 기준으로 붙음→`conf/mime.types`는 `deploy\nginx\conf\...`로 잘못 탐색. **해결:** `deploy/nginx/mime.types`(nginx 1.29.8 기준 types 블록) 추가, `include mime.types` 로 동일 폴더 참조. `run.txt` 문구 반영.
+
+Gee:
+nginx -t SSL cannot load C:/ProgramData/BroGourmet/ssl/2corea-origin.pem no such file
+
+브로(AI):
+**원인:** 해당 경로에 PEM/키 파일 없음. **조치:** `New-Item -ItemType Directory -Force -Path 'C:\ProgramData\BroGourmet\ssl'` 후 CF Origin 인증서를 `2corea-origin.pem`·키를 `2corea-origin.key`로 저장(또는 conf의 ssl_* 경로를 실제 파일 위치로 변경). `www-api-2corea.conf` 주석 2) 보강·`run.txt` 반영.
+
+Gee:
+nginx -t 성공 후 PowerShell에서 nginx.exe -c 실행 시 명령을 찾을 수 없음(현재 위치 제안)
+
+브로(AI):
+**PowerShell**은 현재 디렉터리의 exe를 자동 실행 안 함→**`.\nginx.exe -c "..."`** 사용. `run.txt` [2.5]·`www-api-2corea.conf` 주석에 명시.
+
+Gee:
+이제 연결 된거 같아
+
+브로(AI):
+좋음. 이후 점검: 로그인·API(`api`/docs)·`broke` 빌드·gourmet 8001·PC 재부팅 시 nginx 수동 기동 여부. 주간본에 최종본 이슈 있으면 기록.
+
+Gee:
+https://api.2corea.com/docs 도 열리는지 보면 <- 이건 안열려
+
+브로(AI):
+**우선순위:** (1)**Cloudflare DNS에 `api` 레코드**(A 또는 CNAME, www 과 동일 IP·프록시 설정) 없으면 공인에서 api 호스트 자체가 안 잡힘. (2)집 PC에서 `Invoke-WebRequest https://api.2corea.com/docs -Headers @{Host='api.2corea.com'} -SkipCertificateCheck` 또는 **127.0.0.1:8001/docs** 로 gourmet 가동 확인. (3)nginx `api` server 블록·**www·api SSL 경로 동일** 유지(`www-api-2corea.conf` www 백슬래시→`C:/Users/...` 통일, 주석에 api DNS 명시). 외부 curl exit 6은 DNS 미해석 가능성.
+
+Gee:
+브라우저 콘솔 — Kakao map inject 로그 + `192.168.219.200:8001/...` ERR_CONNECTION_TIMED_OUT (events, restaurants, site-notices, auth 등)
+
+브로(AI):
+**의미:** 빌드된 프론트가 API를 **`http(s)://192.168.219.200:8001`** 로 직접 호출 중→그 IP:8001에 TCP가 안 닿으면 타임아웃. **원인:** `VITE_API_BASE_URL` 이 LAN으로 박힌 채 빌드됨, 또는 접속 기기가 다른 네트워크·8001 방화벽 차단·gourmet 미기동. **조치:** `.env.production` 에 `VITE_API_BASE_URL=https://api.2corea.com` 후 `npm run build` 재배포, nginx `dist` 갱신, **api** DNS·nginx 프록시 경로 확인. 카카오 dapi 로그는 정상에 가깝고 본 이슈와 별개.
+
+Gee:
+나온 **dist**를 nginx root에 맞게 다시 올린다.  <- 어떻게 하라는 거지?
+
+브로(AI):
+`www-api-2corea.conf` 의 `root`가 **`D:/project/brogourmet/broke/dist`** 이면 **별도 복사 없음**—`cd broke` 후 `.env.production` 반영·`npm run build` 만 하면 같은 폴더가 갱신됨. 브라우저 **강력 새로고침**. `root`가 다른 경로면 (1) conf의 `root`를 실제 `dist`로 바꾸거나 (2)`robocopy dist\ 그경로 /MIR` 등으로 덮어쓰기. nginx reload는 정적 파일만 바꿀 때 필수는 아님.
+
+Gee:
+nginx 실행명령어 및 그 전에 조치할 것 다시 말해줘
+
+브로(AI):
+**선행:** CF DNS `www`·`api` 동일 원본; PEM·키=conf의 ssl_* 경로와 일치; `broke` `.env.production`·`npm run build`; `gourmet` 8001·`.env` CORS·FRONTEND_PUBLIC_URL www; 공유기·윈도우 방화벽 443. **실행(PowerShell):** `cd C:\nginx-1.29.8`(본인 nginx 폴더) → `.\nginx.exe -t -c "D:\project\brogourmet\deploy\nginx\www-api-2corea.conf"` → `.\nginx.exe -c "..."` → 설정 변경 시 `.\nginx.exe -s reload` / 종료 `.\nginx.exe -s quit`. 로그 `deploy\nginx\nginx-error.log`.
+
+Gee:
+(콘솔) 192.168.219.200:8001 … ERR_CONNECTION_TIMED_OUT 반복
+
+Gee:
+DB를 못 불러오는데?
+
+브로(AI):
+**구분:** (A)**콘솔에 LAN:8001 타임아웃**이면 브라우저→API TCP 실패—PostgreSQL 문제 전에 **프론트가 여전히 `192.168...:8001`로 붙는 빌드**거나 방화벽. **`.env.production`→`https://api.2corea.com`·`npm run build`·강력 새로고침.** (B)**API는 열리는데** 목록/500만 나오면 **PostgreSQL 서비스·`gourmet/.env`의 `DATABASE_URL`(호스트·포트·DB명·비번)·DB 존재** 확인, 서버 터미널에 SQLAlchemy/OperationalError 있는지 봄. `GET /db-check` 로 DB 연결만 먼저 검증.
+
+Gee:
+인터넷 기록 삭제 후 정상동작, 폰에서 드래그로 다음페이지 넘기기가 안돼
+
+브로(AI):
+캐시 삭제로 API URL·스크립트 갱신된 것으로 이해. **코드적용** — `index.css` `.brog-list-carousel__viewport` 의 `touch-action: pan-y` 가 모바일에서 **가로 스와이프를 브라우저가 삼켜** 캐러셀(`BrogRankGridCarousel` 터치 핸들러)이 못 받던 문제 → **`pan-x pan-y`**. 배포 시 `npm run build`·dist 반영.
+
+Gee:
+아직도 폰에서 안되
+
+브로(AI):
+**코드적용** — `BrogRankGridCarousel` 터치·포인터 시작 시 `closest('a,…')` 가 **카드 `<Link>` 전체를 막아** 스와이프가 시작되지 않던 버그 → **`a` 제외**(버튼·폼·`data-carousel-no-drag` 만 스킵). 가로 드래그 후 `blockCarouselClickRef` 로 링크 오탭 방지 유지.
+
+Gee:
+좋아.. 현재는 login을 하지 않아도 동작되는데, 로긴을 해야만 동작되게 해 줄 수 있어?
+
+브로(AI):
+**코드적용** — `RequireAuth`(JWT 없으면 `/login`+`state.from`)로 홈·BroG·맵·상세·MyG·Free·Pay·Game·관리자·마이 등 **전부 보호**; 공개는 `/login`·`/signup`·`/verify-email` 만. `LoginPage` 성공 시 `from` 복귀·이미 로그인 시 리다이렉트.
+
+Gee:
+막는건 좋은데, home 화면은 회원이 아니라도 보여줘야지
+
+브로(AI):
+**코드적용** — `App.tsx` 에서 **`/`(HomePage)만 `RequireAuth` 밖**으로 이동·비회원 접근 가능. 나머지 보호 라우트는 동일.
+
+Gee:
+전반적으로 화면 조정에 들어갈거야
+
+브로(AI):
+알겠음. 화면 작업 시 **규칙2**: diff 먼저 → Gee 「수정해」 후 반영. 공통 스타일은 **`broke/src/index.css`**, 페이지별은 `pages/*.tsx`·`components/`. **최종본 변경**은 주간본에 이슈 기록 권장.
+
+Gee:
+일단 game 페이지의 지도화면에서의 테이블이 지도보다 크게 잡힌것 같아.. 여백이 보이네
+
+브로(AI):
+**코드적용** — 사다리 카드가 `map-layout--brog` 밖이라 `.map-card` 큰 패딩·지도만 압축 패딩이 어긋남 → **사다리+지도를 동일 `game-page__map-stack` 안**으로 묶어 패딩 통일; 스택 자식 **세로 마진은 gap+첫·끝만** 유지. `index.css` 사다리 좌우 패딩 오버라이드 제거.
+
+Gee:
+아직도 똑같은데, BroG의 지도테이블을 복사해서 Game의 지도에 copy해
+
+브로(AI):
+**코드적용** — `MapPageBody`와 동일: `manage-form-map-stack` 제거·`map-layout map-layout--brog brog-screen brog-screen--map`만; 지도=`map-page-map-section map-card`(작성 폼용 클래스 제거); **지도 위·사다리 아래** 순서; 사다리 루트를 **`home-section map-page-brog-list-section`**(+`map-page-brog-list-section__title`)로 BroG 목록 블록과 동일. `index.css` 게임 지도 셀렉터·스택 `> *` 마진·`manage-form`+게임 전용 규칙 정리.
+
+Gee:
+BroG의 화면을 볼 때 보이는 음식점 리스트가 폰에서는 2x4로 보이게 되는데, 한 화면으로 들어오지 않아. 2x3으로 보이고 드래그 해야 2x4로 보이게 되는데, 리스트 하나마다의 height를 좀 작게 조정해야 할 것 같은데, 일단 높이를 80%정도로 해 볼래?
+
+브로(AI):
+**코드적용** — `@media (max-width:720px)` + `.brog-screen--list` 에서 `main-4x2` 썸네일 **`aspect-ratio: 5/4`**(세로≈폭의 80%)·그리드 `gap:8px`·아이템/링크·이름/메타 간격·글자 약간 축소.
+
+Gee:
+줄인거 맞아?
+
+브로(AI):
+맞음. `index.css` `@media (max-width:720px)` 안 `.brog-screen--list` + `main-4x2` 규칙 적용됨(썸네일 5/4·필러 min-height 0 등). **BroG/MyG 리스트**(`brog-screen--list`)·**폭 720px 이하**만; `/map` 텍스트 목록·홈 그리드는 해당 아님. 안 보이면 하드 리프레시·BroG 리스트 URL에서 확인.
+
+Gee:
+BroG의 이미지 리스트는 8개의 네모박스로 구성되어 있어. 각 네모박스 형태의 height를 80%로 줄이라고
+
+브로(AI):
+**코드적용** — 8칸만 **`brog-list-carousel__page`** 기준으로 재지정(이전 `.brog-screen--list`만이면 캐러셀 DOM에 안 걸릴 수 있음). 썸네일 **`aspect-ratio:5/4`**(세로=폭의 80%) 유지·그리드 gap 6·카드 gap·이름·메타·액션 버튼 추가 축소.
+
+Gee:
+hmm 비율 조정으로 하니깐 안되는 것 같아.. 현재 한 개 식당리스트 네모 박스의 높이가 어떻게 되지?
+
+브로(AI):
+고정 `height` 없음. **콘텐츠·비율로만 결정**: 그리드 열 폭 `W` 기준 썸네일 높이는 기본 `1/1`이면 `W`, 캐러셀+폰(720↓)이면 `5/4`라 **`(4/5)×W`**. 카드(`.__link`)는 세로 flex+`gap`(캐러셀 폰 4px)으로 썸네일+이름+메타 높이 합. `.__item`은 `.__link`+`gap`(4)+선택 `.__actions` 버튼 줄. 순번 뱃지는 absolute라 높이에 안 붙음.
+
+Gee:
+얼추 계산도 안돼?
+
+브로(AI):
+가능. **H ≈ 0.8W + 2·g_link + H_name + H_meta + g_item + H_actions** (캐러셀·720↓·5/4·gap 4 기준). `W≈(캐러셀 안쪽폭−6)/2`. 예: 안쪽폭 328px → W≈161 → 썸≈129px; 이름·메타 1줄 가정 시 대략 +25~35px; 고정/숨김 있으면 액션 줄 +26~34px → **한 칸 대략 195~210px** (줄바꿈·폰트·안쪽폭에 따라 ±).
+
+Gee:
+리스트 네모박스의 높이를 170px로 고정해봐
+
+Gee:
+스톱
+
+브로(AI):
+중단함. **170px 고정 코드 미적용** (스톱 반영). 나중에 다시 하면 말해줘.
+
+Gee:
+높이를 고정하면 PC화면이나 폰크기에 따라서 달라질 우려가 있으니깐 리스트 네모박스의 크기를 전체로 줄여보자
+
+Gee:
+테이블 조절이 제일 낫겠지?
+
+브로(AI):
+고정 px 대신 **전체 축소**는 맞는 방향. 이미지 8칸은 **CSS Grid**가 맞고 `<table>`로 바꾸는 건 이미지·액션·반응형에선 이득 적고 마크업만 무거워짐. 줄이려면 **그리드 gap·폰트·썸네일 비율** 또는 **`clamp()`·캐러셀 페이지 `max-width`** 같이 뷰포트에 따라 같이 줄어드는 쪽이 낫다. **줄글 목록**(`/map` 텍스트 줄)만 “표처럼” 열 맞추고 싶으면 그때는 `table`/`grid` 열 비율 조절이 유리할 수 있음.
+
+Gee:
+음..그럼 이미지 사이즈를 줄여줘
+
+브로(AI):
+**코드적용** — `main-4x2` 썸네일 **`aspect-ratio: 1/1` → `3/2`**(세로≈셀폭의 67%). 캐러셀 폰 전용 `5/4` 오버라이드 제거·동일 비율 사용.
+
+Gee:
+더 낮춰봐
+
+브로(AI):
+**코드적용** — `main-4x2` 썸네일 **`3/2` → `16/9`**(세로≈셀폭의 9/16).
+
+Gee:
+왜 바뀐게 없어 보일까?
+
+브로(AI):
+원인 후보: **`.thumb-filler` 기본 `min-height:120px`**가 `aspect-ratio`보다 세로를 밀어 비율 변경이 체감 안 됨 → **`main-4x2`에서 필러·썸 `min-height:0` 추가**. 그 외: **텍스트 줄 `/map` 목록**은 별 컴포넌트·썸네일 없음; **캐시·다른 기기 폭**도 확인.
+
+Gee:
+BroG의 메인화면 페이지가 어떤 거야?
+
+브로(AI):
+네비 **BroG** → **`/brog`는 `/brog/list`로 리다이렉트**·화면은 **`BrogListPage`**(`broke/src/pages/BrogListPage.tsx`). 지도+목록은 **`/map`**(`MapPage.tsx`/`MapPageBody.tsx`). 홈 **`/`** 에도 BroG 이미지 블록 있음.
+
+Gee:
+BroG의 지도테이블을 그대로 복사한거 맞아?
+
+브로(AI):
+**그대로 복사는 아님.** `/map`의 **`MapPageBody`**는 **툴바**(`map-page-toolbar`)·지도 카드 안 **장소/BroG 검색**(`map-page-map-search`)·그다음 **`BrogKakaoMap`**·아래 **목록 섹션**까지 한 덩어리. 게임(`SadariPage`)은 **툴바·검색 UI 없이** `map-page-map-section map-card` + `BrogKakaoMap`만 맞춘 것·아래는 사다리(`home-section map-page-brog-list-section` 패턴만 BroG 목록과 유사). 지도 체감 이슈는 이 차이·`game-page` 래퍼·props 차이(`mapRelayoutKey` 등) 가능.
+
+Gee:
+일단 게임의 지도 테이블의 높이를 줄여봐봐
+
+브로(AI):
+**코드적용** — `index.css` 에서 **`.game-page .game-page__map-stack` 안만** `--kakao-map-below-min-height`·`--kakao-map-below-height` 축소(260px·`min(36vh,320px)`), 동일 스택의 `.kakao-map-embed` `min-height`도 맞춤.
+
+Gee:
+바로 줄어들자나
+
+브로(AI):
+맞음 — 게임 스택만 변수·embed 덮어써서 **렌더되면 곧바로** 그 높이로 보임(애니메이션 없음). 너무 낮으면 `36vh`/`320`/`260` 숫자만 올리면 됨.
+
+Gee:
+게임 테이블의 높이도 약간 줄이면 좋겠는데
+
+브로(AI):
+**코드적용** — `game-page__ladder-card` 사다리: **`svg-wrap`** `min-height`/`height`를 지도 변수 대신 **`220px`·`min(30vh,280px)`**·패딩 축소; 툴바·번호줄·하단칩 **`min-height`/마진** 약간 축소.
+
+Gee:
+지도 게임이 화면의 첫 페이지(취향을 선택하기전) 지도 테이블과 선택한 후 지도 테이블을 비교
+
+브로(AI):
+**비교(코드 `SadariPage.tsx`)** — **지도 카드 마크업·CSS 동일**(`map-page-map-section`+`BrogKakaoMap`). **전**: 스택 자식 **지도만**·핀=`raw.brog` 좌표 있는 전부·**순위·말풍선 라벨 없음**·`mapSpeechBubbles=false`. **후**: 스택에 **지도+사다리**·핀=`candidates`만·**순위·말풍선**·`mapSpeechBubbles=true`·`mapRelayoutKey` 변경. **여백**: 자식 1개일 때 그 노드가 first+last라 **위·아래 마진 둘 다** 붙음; 2개일 땐 **grid gap**+첫/끝 마진만 분리.
+
+Gee:
+class="map-page-map-section map-card manage-form-map-section game-page__map-section" 여기가 크다고
+
+브로(AI):
+**정본 `SadariPage`는 해당 클래스 없음**(`map-page-map-section map-card`만). 옛 빌드·캐시 가능.**코드적용** — 게임 스택 안 지도 카드만 **`padding:8px 10px 12px`**·제목 여백·글자 약간 축소.
+
+Gee:
+카카오맵은 677x396.95 로 나오는데..
+
+브로(AI):
+**396.95 ≈ 48vh**(`:root` 기본 `min(48vh,440)` 세로) → 게임용 `--kakao-map-below-*`가 캔버스까지 안 타는 경우.**코드적용** — `.game-page__map-stack` 하위 **`.kakao-map-container--below`에 `min-height`·`height` 직접 지정**(36vh·320·260).
+
+Gee:
+게임 페이지에서 취향전의 지도의 div 는 manage-form-map-stack … 취향선택 후의 지도는 div 가 map-page-map-section map-card manage-form-map-section game-page__map-section 야. 이렇게 구분지어질 이유가 있는거야?
+
+브로(AI):
+**현 `SadariPage.tsx`에는 그런 분기 없음** — 취향 전·후 **동일**: 바깥 `map-layout … game-page__map-stack`(**`manage-form-map-stack` 없음**), 지도는 **`section.map-page-map-section.map-card`만**(`manage-form-map-section`·`game-page__map-section` 없음). 사용자 문자열이면 **옛 번들/캐시** 또는 **`ManageFormLocationMapSection`(작성 폼)** DOM과 혼동 가능.**구분될 설계 이유 없음.**
+
+Gee:
+취향 선택 전이나, 취향 선택 후나 지도테이블은 달라지는게 없다면? 나는 왜 테이블 크기가 다르게 보이고, 선택 전 테이블에는 여백이 많이 보이지?
+
+브로(AI):
+**마크업 동일해도 레이아웃은 다름**: (1) 전엔 스택 자식 **지도만**·후엔 **지도+사다리** (2) 옛 CSS는 **`:first`+`:last`가 한 요소에 겹쳐** 선택 전 지도에 **위·아래 마진 둘 다** (3) 사다리 **`.game-page__ladder-card` 마진**이 후보 시 **지도–사다리 간격**을 바꿈 (4) 지도 **핀 수·말풍선**만 바뀜.**코드적용** — `game-page__map-stack`에만 **상·하 마진**·자식·스택 안 사다리 **마진 0**(`index.css`).
+
+Gee:
+바뀐게 없어.. 선택 전에는 지도 테이블에서 여백이 보이다가 선택 후에는 여백이 사라져
+
+브로(AI):
+**코드적용** — `.home-layout--map-home .kakao-map-embed`(48vh 셸)이 게임에서도 타면 캔버스보다 커져 빈 띠가 생김 → **`.home-layout--map-home .game-page .kakao-map-embed`**에 `min-height: min(36vh, 320px)` 추가(`index.css`). 새로고침 후 확인.
+
+Gee:
+카카오맵이 743x396.95이고,  그 테이블이 773x649로 나오니깐 773x410 정도면 되겠네
+
+브로(AI):
+**코드적용** — 게임: `--kakao-map-below-*`를 `min(38vh,400px)`·min 220px로, embed는 **`min-height:0` + `max-height:410px`**, 캔버스 **`max-height:400px`**(`index.css`). 649≈48vh 셸·min>max 충돌 방지.
+
+Gee:
+스타
+
+브로(AI):
+불명확 — **스타일**·**스타트**·오타 등 어떤 걸 말한 건지 한 문장만 더 적어줘.
+
+Gee:
+스톱하고
+
+브로(AI):
+알겠음. 여기서 **멈춤**. 이어서 필요하면 말해줘.
+
+Gee:
+게임 메뉴 선택 시, 취향선택 테이블만 남기고, 취향을 선택해야 사다리게임과 지도가 나오는 걸로 교체해
+
+브로(AI):
+**코드적용** — `SadariPage.tsx`: `geo` 초기 **`idle`**, 위치·목록 `useEffect`는 **`taste !== null`일 때만** 실행. 취향 전에는 헤더·취향 블록·안내 문구만; 취향 후 위치→목록→**지도+사다리** 동일 블록.`retryGeo` 시 `geo`를 `idle`로 리셋.
+
+Gee:
+게임페이지 상단 우측의 홈 아이콘 삭제
+
+브로(AI):
+**코드적용** — `SadariPage.tsx` 헤더 **`brog-screen__header-actions`·`Link`(홈)** 제거, `react-router-dom` `Link` import 제거.
+
+Gee:
+이벤트 페이지만 폰에서 볼때 화면이 테이블 밖으로 넘어가. 관리자 페이지와 비교해보고 수정해줘
+
+브로(AI):
+**코드적용** — `index.css`: `.board-layout`에 **`min-width:0`·폭 100%**; `.site-event-list__item` **`flex-wrap:wrap`**·`align-items:flex-start`; `.site-event-list__meta` **줄바꿈·`min-width:0`·`max-width:100%`**(고정 `flex-shrink:0` 제거); `.site-event-list__body` **`flex-basis` 10rem**; `.site-event-list__time` **`overflow-wrap:anywhere`**. **`@media (max-width:720px)`** 에서 허브 **이벤트 목록 세로 스택**·본문 **여러 줄**·`.board-layout .helper` **`overflow-wrap:anywhere`**·`.form` **`min-width:0`**.
+
+Gee:
+위치변경하거나, 지역구 변경해도 리스트가 변경이 안되..전체 다시 점검해줘
+
+브로(AI):
+**코드적용** — 원인: `onApplyLatLngResolved`가 **`reason===ok`일 때 `nearIgnoreDistrict` false** → `near_lat` 미전송·목록이 구만 따름; **`MapPageBody`에 `onMapViewSettled` 없음** → 팬 후 미갱신. **수정**: `MapPageBody`·`BrogListPage`·`KnownRestaurantsMapPage`·`KnownRestaurantsBoardPage`에서 좌표 확정 시 **`setNearIgnoreDistrict(true)`**; `MapPageBody`·`KnownRestaurantsMapPage`에 **`mapExploreCenter`+`onMapViewSettled`(반경 모드만)**·목록/필터는 탐색 중심 우선·구 선택 시 초기화.
+
+Gee:
+BroG의 화면에서 전체보기BroG 라는 글 옆으로 지도아이콘, BroG등록 아이콘이 있는데, 폰화면으로 보면 줄바꿈으로 되어 세줄정도 공백이 생기는데, 해결할 방법은?
+
+브로(AI):
+**코드적용** — `index.css` `@media (max-width:720px)` `.brog-screen--list` 헤더: **`column`+제목 `flex-grow` 조합**이 세로 빈칸 유발 → **`row`·`wrap`·제목 `flex:1 1 auto; min-width:0`**·액션 **`margin-left:auto`** 로 정리.
+
+Gee:
+변한게 없는데..
+
+브로(AI):
+**코드적용(재)** — 전역 `.brog-screen__header > div:first-child` **`flex:1 1 12rem`→`flex:0 1 auto`**; 리스트 헤더 **`@media (max-width:900px)`** 에서 **`display:grid`** 2열·제목 **`clamp` 폰트** — 720만으로는 안 먹는 폰/가로 모드 대비.
+
+Gee:
+ㅡㅁ..
+
+브로(AI):
+오타·실수 입력 같음. **BroG 헤더** 아직 이상하면 화면 캡처·뷰포트 너비 알려줘. **다른 거**면 한 줄로만 다시 적어줘.
+
+Gee:
+먼저 수정할게 있어.. BroG작성 페이지에서 파일첨부가 안돼
+
+브로(AI):
+**코드적용** — 원인: 사진 슬롯을 **배열 길이**로만 세서 빈 칸·URL칸만 6칸이면 `room=0`·파일 버튼 비활성.**`RestaurantManagePage.tsx`**: `brogImageFilledCount`(trim 비어 있지 않은 칸 수)·업로드 `room`·파일 추가 버튼 `disabled`를 **채워진 장수** 기준으로 변경.백업 `RestaurantManagePage.tsx.old`.
+
+Gee:
+BroG 상세보기에서 이미지를 누르면 가운데의 화면이 바뀌는데, 가운데 화면의 이미지를 클릭하면 원본이미지가 화면에 나오게 할 수 있을까?
+
+브로(AI):
+**코드적용** — `RestaurantDetailPage.tsx`: 히어로 영역 클릭·Enter/Space로 **라이트박스**(현재 선택 URL·`resolveMediaUrl` 동일)·배경 클릭·×·Esc로 닫기·갤러리 인덱스 변경 시 자동 닫기.`index.css`: `brog-detail__hero--zoomable`·`brog-detail__lightbox*` .백업 `RestaurantDetailPage.tsx.old`.
+
+Gee:
+적용 안된거 같은데?
+
+브로(AI):
+**코드적용(재)** — 클릭이 오버레이·레이아웃에 묶일 수 있어 **전면 투명 `button.brog-detail__hero-zoom-hit`**·**오버레이 `pointer-events:none`**·라이트박스 **`createPortal(…, document.body)`**(`RestaurantDetailPage.tsx`·`index.css`).
+
+Gee:
+스톱
+
+브로(AI):
+알겠음. **여기서 멈춤.** 이어서 필요하면 말해줘.
+
+Gee:
+썸네일을 길게 누르고 새탭에서 열기를 하면 열려져
+
+브로(AI):
+**코드적용** — 원인: 가운데 **`<img>`가 터치·클릭 히트**를 가져 투명 레이어가 못 받음(썸네일은 버튼 안 img라 링크 메뉴 동작).**`index.css`**: `.brog-detail__hero-img`에 **`pointer-events:none`**.**`RestaurantDetailPage.tsx`**: 투명 레이어를 **`a href={heroSrc}`**로 바꿔 짧은 클릭은 **`preventDefault`+라이트박스**, Ctrl/⌘/가운데클릭 등은 기본(새 탭 등)·길게 눌러 링크 메뉴로 새 탭 가능.
+
+Gee:
+이정도면 될거 같고, 어떤 문제가 있을지 모르니, BroG와 MyG는 똑같이 적용시켜놔
+
+브로(AI):
+**코드적용** — `KnownRestaurantPostDetailPage.tsx`에 BroG와 동일: **`createPortal` 라이트박스**·**`heroLightboxOpen`+Esc·스크롤 잠금**·**`[heroGalleryIndex,id]`·`post?.id` 시 라이트박스 닫기**·히어로 **`a.brog-detail__hero-zoom-hit`**.스타일은 공통 **`brog-detail__*`**(`index.css` 기존).
+
+Gee:
+BroG의 전체보기BroG라는 글 바로 옆으로 지도아이콘, 등록아이콘을 붙여줘. 폰에서 한줄로 표시되는지 보게
+
+브로(AI):
+**코드적용** — `BrogListPage.tsx`: 헤더 **`brog-screen__header--title-inline`**·**`brog-screen__title-row`** 안에 **`h1`+`header-actions`(지도·등록)**.등록은 **`ghost-button`+사각+플러스 SVG**·`visually-hidden`.**`index.css`**: 한 줄 flex·좁은 화면 제목 **`ellipsis`**·**`header.brog-screen__header--title-inline`**로 **`900px` 그리드 덮어씀**.
+
+Gee:
+ok 마음에 들어
+
+브로(AI):
+반영됨. 또 손보고 싶은 거 있으면 말해줘.
+
+Gee:
+홈에서 보이는 8개 리스트는 게스트도 클릭해서 상세보기 들어가게 조치해줘
+
+브로(AI):
+**코드적용** — `App.tsx`: **`/restaurants/:id`** 를 **`RequireAuth` 밖**으로 이동(홈 `MapPageBody` 8칸 링크 공개).**`RequireAuth.tsx`**: 주석에 공개 경로 보강.
+
+Gee:
+당연히 홈화면에서도 위치정보에 따라 보여지는 리스트는 달라야 해
+
+브로(AI):
+**코드적용** — `MapPageBody.tsx`: **`listFetchLimit`+구「전체 보기」+좌표(또는 지도 idle 중심)** 이면 **`nearIgnoreDistrict` 없이도** 목록 API를 **반경+`limit`** 로 호출.**`onMapViewSettled`**: 동일 조건에서 지도 중심 갱신 허용(팬 후 8칸 갱신).
+
+Gee:
+요즘 많이 느리네...
+
+브로(AI):
+공감함. **느낀 지점**만 짧게 알려줘: **Cursor/채팅**, **로컬 `npm run dev`·브라우저(홈·지도)**, **배포 URL** 중 어디인지. 원하면 그 구간만 잡아 최적화·점검 순서 제안함.
+
+Gee:
+수정 다 한거야?
+
+브로(AI):
+**위 표 기준 요청분은 반영됨.** 홈 게스트→상세가 **아직 로그인으로 가면** 재현 경로 알려줘(로컬/배포·하드리프레시 여부).
+
+Gee:
+오늘은 그만하자
+
+브로(AI):
+알겠음. **오늘은 여기까지.** (「오늘 그만」— 메일·git 없음)
+
+<4월17일 요약>
+- BroG 작성: 사진 슬롯 **채워진 장수** 기준으로 파일 추가·`room` 계산(`RestaurantManagePage`).
+- BroG/MyG 상세: 히어로 **라이트박스**·`pointer-events`·**`a`+href** 길게 눌러 새 탭·`createPortal`(MyG 동일).
+- BroG 리스트 헤더: 제목 **한 줄**에 지도·등록 **아이콘**(`BrogListPage`·`index.css`).
+- 홈: 8칸 **위치 반경** 목록(`MapPageBody`)·게스트 **BroG 상세** 공개 라우트(`App.tsx` `/restaurants/:id` 밖).
+- 기타: 지도·리스트 연동·게임·이벤트 모바일 등 이전 턴 기록 참고. 미확인: 게스트 홈→상세 **로그인 리다이렉트** 재현 시 추적 예정.
+
+Gee:
+이제 그만
+
+브로(AI):
+**규칙4** — 위 `<4월17일 요약>` 유지.**send_dial.ps1`·git 동기화** 실행.

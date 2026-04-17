@@ -184,8 +184,8 @@ export function LadderGame({ candidates, onWinnerPinRank }: Props) {
   const winner = winnerIdx != null ? candidates[winnerIdx] : null
 
   return (
-    <section className="map-page-map-section map-card game-page__ladder-card">
-      <h3 className="map-page-map-section__title">사다리 게임</h3>
+    <section className="home-section map-page-brog-list-section game-page__ladder-card" aria-label="사다리 게임">
+      <h3 className="map-page-brog-list-section__title">사다리 게임</h3>
 
       <div className="ladder-game">
         <div className="ladder-game__toolbar">

@@ -289,7 +289,8 @@ export function RestaurantManagePage() {
       setError(assumeAdminUi() ? '테스트 UI: 이미지 업로드는 로그인 후 가능합니다.' : '로그인이 필요합니다.')
       return
     }
-    const room = MAX_BROG_IMAGES - imageUrls.length
+    const filled = imageUrls.filter((u) => u.trim()).length
+    const room = MAX_BROG_IMAGES - filled
     if (room <= 0) {
       setError(`사진은 최대 ${MAX_BROG_IMAGES}장까지 등록할 수 있습니다.`)
       return
@@ -483,6 +484,9 @@ export function RestaurantManagePage() {
 
   const canCopyToMyG = Boolean(id) && !BROG_ONLY && Boolean(token) && manageAclRow != null && !loadedIsDeleted
 
+  /** 빈 URL 슬롯(필수칸·URL 추가칸)은 길이만 늘리므로, 업로드 한도는 “채워진 장수” 기준. */
+  const brogImageFilledCount = imageUrls.filter((u) => u.trim()).length
+
   const manageDetailPath = id ? `/restaurants/manage/${id}` : '/restaurants/manage/new'
 
   return (
@@ -646,7 +650,7 @@ export function RestaurantManagePage() {
                     className="brog-manage-icon-btn"
                     title="파일에서 사진 추가"
                     aria-label="파일에서 사진 추가"
-                    disabled={brogImageBusy || imageUrls.length >= MAX_BROG_IMAGES}
+                    disabled={brogImageBusy || brogImageFilledCount >= MAX_BROG_IMAGES}
                     onClick={() => brogImageInputRef.current?.click()}
                   >
                     {brogImageBusy ? (

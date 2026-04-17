@@ -128,7 +128,8 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
       const target = e.target as HTMLElement
-      if (target.closest('a, button, input, select, textarea, [data-carousel-no-drag]')) return
+      // 카드 전체가 <Link>(a)로 감싸져 있음 — a 를 제외해야 폰에서 스와이프 시작 가능. 탭은 touchend·클릭 차단으로 구분.
+      if (target.closest('button, input, select, textarea, [data-carousel-no-drag]')) return
       startX = e.touches[0].clientX
       startY = e.touches[0].clientY
       active = true
@@ -257,7 +258,7 @@ export function BrogRankGridCarousel<T>(props: BrogRankGridCarouselProps<T>) {
     if (e.pointerType === 'touch') return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const t = e.target as HTMLElement
-    if (t.closest('a, button, input, select, textarea, [data-carousel-no-drag]')) return
+    if (t.closest('button, input, select, textarea, [data-carousel-no-drag]')) return
 
     carouselDragRef.current = {
       pointerId: e.pointerId,

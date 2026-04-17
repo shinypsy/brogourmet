@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, login } from '../api/auth'
 import { API_BASE_URL } from '../api/config'
@@ -8,6 +8,7 @@ import { notifyAuthChange } from '../authEvents'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +24,21 @@ export function LoginPage() {
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
 
+  /** 이미 로그인된 상태에서 /login 접근 시 */
+  useEffect(() => {
+    if (!localStorage.getItem(ACCESS_TOKEN_KEY)) return
+    const from = (location.state as { from?: string } | null)?.from
+    const safeFrom =
+      typeof from === 'string' &&
+      from.startsWith('/') &&
+      !from.startsWith('/login') &&
+      !from.startsWith('/signup') &&
+      !from.startsWith('/verify-email')
+        ? from
+        : '/'
+    navigate(safeFrom, { replace: true })
+  }, [location.state, navigate])
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
@@ -34,7 +50,20 @@ export function LoginPage() {
       notifyAuthChange()
       try {
         const me = await fetchMe(result.access_token)
-        navigate(me.email_verified_at ? '/' : '/me', { replace: true })
+        const from = (location.state as { from?: string } | null)?.from
+        const safeFrom =
+          typeof from === 'string' &&
+          from.startsWith('/') &&
+          !from.startsWith('/login') &&
+          !from.startsWith('/signup') &&
+          !from.startsWith('/verify-email')
+            ? from
+            : null
+        if (safeFrom) {
+          navigate(safeFrom, { replace: true })
+        } else {
+          navigate(me.email_verified_at ? '/' : '/me', { replace: true })
+        }
       } catch {
         navigate('/me', { replace: true })
       }

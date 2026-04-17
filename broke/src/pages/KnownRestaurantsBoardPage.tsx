@@ -101,7 +101,7 @@ export function KnownRestaurantsBoardPage() {
   } = useSeoulMapUserLocation(setDistrictForGeo, {
     initialGeolocationSetsDistrict: false,
     enableInitialGeolocation: false,
-    onApplyLatLngResolved: (r) => setNearIgnoreDistrict(r.reason !== 'ok'),
+    onApplyLatLngResolved: () => setNearIgnoreDistrict(true),
     onDeviceCoordsWithoutDistrictSync: () => setNearIgnoreDistrict(true),
   })
 

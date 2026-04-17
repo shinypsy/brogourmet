@@ -64,7 +64,7 @@ export function BrogListPage() {
   } = useSeoulMapUserLocation(setDistrict, {
     initialGeolocationSetsDistrict: false,
     enableInitialGeolocation: false,
-    onApplyLatLngResolved: (r) => setNearIgnoreDistrict(r.reason !== 'ok'),
+    onApplyLatLngResolved: () => setNearIgnoreDistrict(true),
     onDeviceCoordsWithoutDistrictSync: () => setNearIgnoreDistrict(true),
   })
 
@@ -236,38 +236,61 @@ export function BrogListPage() {
 
   return (
     <div className="brog-screen brog-screen--list">
-      <header className="brog-screen__header">
+      <header className="brog-screen__header brog-screen__header--title-inline">
         <div>
           <p className="eyebrow">BroG · 리스트</p>
-          <h1 className="brog-screen__title">{pageTitle}</h1>
-        </div>
-        <div className="brog-screen__header-actions">
-          <Link
-            className="ghost-button free-share-header-map-link"
-            to={`/map?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`}
-            aria-label="BroG 지도"
-            title="BroG 지도"
-          >
-            <svg
-              className="free-share-header-map-link__icon"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M12 21s-8-4.5-8-11a8 8 0 0 1 16 0c0 6.5-8 11-8 11z" />
-              <circle cx="12" cy="10" r="2.5" />
-            </svg>
-            <span className="visually-hidden">지도</span>
-          </Link>
-          <Link className="brog-screen__cta" to="/restaurants/manage/new">
-            BroG 등록
-          </Link>
+          <div className="brog-screen__title-row">
+            <h1 className="brog-screen__title">{pageTitle}</h1>
+            <div className="brog-screen__header-actions">
+              <Link
+                className="ghost-button free-share-header-map-link"
+                to={`/map?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}`}
+                aria-label="BroG 지도"
+                title="BroG 지도"
+              >
+                <svg
+                  className="free-share-header-map-link__icon"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M12 21s-8-4.5-8-11a8 8 0 0 1 16 0c0 6.5-8 11-8 11z" />
+                  <circle cx="12" cy="10" r="2.5" />
+                </svg>
+                <span className="visually-hidden">지도</span>
+              </Link>
+              <Link
+                className="ghost-button free-share-header-map-link"
+                to="/restaurants/manage/new"
+                aria-label="BroG 등록"
+                title="BroG 등록"
+              >
+                <svg
+                  className="free-share-header-map-link__icon"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <line x1="12" y1="9" x2="12" y2="15" />
+                  <line x1="9" y1="12" x2="15" y2="12" />
+                </svg>
+                <span className="visually-hidden">BroG 등록</span>
+              </Link>
+            </div>
+          </div>
         </div>
       </header>
 

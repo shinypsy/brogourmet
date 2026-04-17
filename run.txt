@@ -46,6 +46,15 @@ BroGourmet run.txt
   기본: http://localhost:5173
 
 ================================================================================
+[2.5] nginx (Windows 임시 서버 — www + api)
+================================================================================
+  예시 설정: deploy\nginx\www-api-2corea.conf
+  - PEM/키는 git 밖 두고, **`www-api-2corea.conf` 의 `ssl_certificate` / `ssl_certificate_key` 경로와 파일명이 실제와 일치**해야 함(없으면 nginx -t 실패). conf 의 `root`(broke `dist`)도 PC에 맞게. mime.types 는 `deploy\nginx\mime.types` 동봉.
+  - broke 프로덕션 빌드: **반드시** `VITE_API_BASE_URL=https://api.2corea.com` (공개 `www`에서 **LAN IP:8001** 을 박으면 외부·다른 기기에서 `ERR_CONNECTION_TIMED_OUT`). **Cloudflare DNS에 `api` A/CNAME** 이 www 과 같은 원본을 가리켜야 `https://api.2corea.com/docs` 가 열림.
+  - gourmet .env: BROG_CORS_EXTRA_ORIGINS=https://www.2corea.com , FRONTEND_PUBLIC_URL=https://www.2corea.com
+  - 검사·기동: **PowerShell**에서는 현재 폴더 실행이 `.\nginx.exe` 형태여야 함(`nginx.exe` 단독은 PATH만 검색). 예: `cd C:\nginx-1.29.8` 후 `.\nginx.exe -t -c (저장소)\deploy\nginx\www-api-2corea.conf` → 성공 시 `.\nginx.exe -c ...` → netstat LISTEN :443.
+
+================================================================================
 [3] 자주 쓰는 경로·파일
 ================================================================================
   dial\dial_YYYY-MM-dd.txt — KST 당일 일일 로그(Gee 원문 전체·브로는 단답 우선; 의견·최종그림 주요 답은 브로 전문). 맨 끝에만 추가. 규칙4·send_dial 첨부 기본 대상(미설정 시 KST 오늘 날짜 파일명).

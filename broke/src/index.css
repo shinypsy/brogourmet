@@ -977,6 +977,32 @@ input {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* 이벤트 작성(/events/write): 목록 행·안내 문구가 폰에서 카드 밖으로 넘치던 현상 — 허브·관리자와 동일하게 줄바꿈·세로 스택 */
+  .app-route-hub .site-event-list__item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-route-hub .site-event-list__body {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    flex: 1 1 auto;
+  }
+
+  .app-route-hub .site-event-list__actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .app-route-hub .board-layout .helper {
+    overflow-wrap: anywhere;
+  }
+
+  .app-route-hub .board-layout .form {
+    min-width: 0;
+  }
+
   .app-route-hub .admin-table--single-line-rows tbody td {
     white-space: nowrap;
   }
@@ -2693,7 +2719,7 @@ button.compact-link.danger-text {
   padding: 0;
 }
 
-/* 메인 홈 전용: 4열 × 2행(8건), 정사각 썸네일 */
+/* 메인 홈·리스트: 4열×2행(또는 폰 2열×4행), 썸네일 16:9 */
 .map-page-brog-image-grid--main-4x2 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
@@ -2719,8 +2745,18 @@ button.compact-link.danger-text {
   min-width: 0;
 }
 
+/* 4×2·2×4 그리드: 썸네일 세로를 더 낮춤(16:9 ≈ 셀폭 대비 높이 56%) */
 .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__thumb {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+}
+
+/*
+ * 빈 칸 필러 기본 `min-height: 120px`가 썸네일 안에서 최소 높이를 밀어
+ * `aspect-ratio`만 바꿔도 화면이 거의 안 바뀌는 현상 방지.
+ */
+.map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__thumb-filler {
+  min-height: 0;
 }
 
 .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__name {
@@ -2882,6 +2918,16 @@ button.compact-link.danger-text {
   min-height: min(48vh, 440px);
 }
 
+/*
+ * 점메추 `/game`: 홈 공통 embed min-height(48vh)가 크게 잡히면 셸(~649px)·캔버스(~397px) 불일치.
+ * 게임 embed는 min 0 + max 410px로 셸만 제한, 캔버스는 스택 변수·max-height 400px로 맞춤.
+ */
+.home-layout--map-home .game-page .kakao-map-embed {
+  /* 48vh급 min이 남으면 min>max 충돌로 max-height가 무시될 수 있음 → min은 0으로 두고 max로 셸만 제한 */
+  min-height: 0;
+  max-height: 410px;
+}
+
 .home-layout--map-home .map-page-map-section {
   min-width: 0;
 }
@@ -2914,11 +2960,6 @@ button.compact-link.danger-text {
 
 .manage-form-map-stack.map-layout--brog.brog-screen--map .kakao-map-embed {
   min-height: min(48vh, 440px);
-}
-
-/* 점메추: BroG 작성 `ManageFormLocationMapSection`과 동일 map-stack */
-.game-page__map-stack.manage-form-map-stack {
-  margin-top: 0;
 }
 
 .manage-form-map-section__coord-status {
@@ -3151,6 +3192,9 @@ button.compact-link.danger-text {
 .board-layout {
   display: grid;
   gap: 16px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .board-form-card {
@@ -3182,8 +3226,8 @@ button.compact-link.danger-text {
 .site-event-list__item {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 10px 14px;
   min-width: 0;
   padding: 10px 12px;
@@ -3194,8 +3238,10 @@ button.compact-link.danger-text {
 
 .site-event-list__meta {
   display: flex;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 8px;
   margin-bottom: 0;
@@ -3226,11 +3272,13 @@ button.compact-link.danger-text {
 .site-event-list__time {
   font-size: 0.82rem;
   color: var(--text-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .site-event-list__body {
   margin: 0;
-  flex: 1 1 auto;
+  flex: 1 1 10rem;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -3905,7 +3953,8 @@ ul.brog-rank-grid {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  touch-action: pan-y;
+  /* pan-y 만 두면 모바일 브라우저가 가로 스와이프를 먹어 캐러셀 다음 페이지가 안 됨 — JS 축 판별과 병행해 pan-x 허용 */
+  touch-action: pan-x pan-y;
   cursor: grab;
   user-select: none;
 }
@@ -4024,10 +4073,42 @@ ul.brog-rank-grid.brog-rank-grid--paged {
     min-width: 0;
   }
 
-  .brog-screen--list .brog-list-carousel__page .map-page-brog-image-grid.map-page-brog-image-grid--main-4x2 {
+  .brog-list-carousel__page .map-page-brog-image-grid.map-page-brog-image-grid--main-4x2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     max-width: 100%;
     margin-inline: auto;
+    gap: 6px;
+  }
+
+  .brog-list-carousel__page .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__item {
+    gap: 4px;
+  }
+
+  .brog-list-carousel__page .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__link {
+    gap: 4px;
+    border-radius: 12px;
+  }
+
+  .brog-list-carousel__page .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__name {
+    font-size: 0.7rem;
+    line-height: 1.2;
+    padding: 0 4px;
+  }
+
+  .brog-list-carousel__page .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__meta {
+    font-size: 0.58rem;
+    line-height: 1.25;
+    padding: 0 4px 4px;
+  }
+
+  .brog-list-carousel__page .map-page-brog-image-grid--main-4x2 .map-page-brog-image-grid__actions {
+    gap: 3px;
+    padding: 0;
+  }
+
+  .brog-list-carousel__page .map-page-brog-image-grid--main-4x2 .map-page-brog-lines__action-btn {
+    padding: 4px 6px;
+    font-size: 0.65rem;
   }
 }
 
@@ -4320,7 +4401,9 @@ ul.brog-rank-grid.brog-rank-grid--paged {
 
 .brog-screen__header > div:first-child {
   min-width: 0;
-  flex: 1 1 12rem;
+  /* flex-grow: 1 이 세로(column)·줄바꿈 조합에서 빈 공간을 먹는 경우가 있어 0으로 둠 — `space-between`으로 액션 정렬 */
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .brog-screen__title {
@@ -4343,6 +4426,34 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   justify-content: flex-end;
   flex-shrink: 0;
   max-width: 100%;
+}
+
+/* BroG 리스트: 제목 옆에 지도·등록 아이콘 한 줄 (`900px` 그리드 헤더보다 특이도 높게) */
+.brog-screen--list .brog-screen__header.brog-screen__header--title-inline {
+  display: block;
+}
+
+.brog-screen--list .brog-screen__header--title-inline .brog-screen__title-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 6px;
+}
+
+.brog-screen--list .brog-screen__header--title-inline .brog-screen__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.brog-screen--list .brog-screen__header--title-inline .brog-screen__header-actions {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .brog-screen__cta {
@@ -4386,22 +4497,57 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   font-size: 0.88rem;
 }
 
-/* BroG/MyG 리스트: 헤더·안내 문단 모바일 — 툴바는 위 `.map-layout--brog.brog-screen--map` 공통 규칙과 동일 */
+/*
+ * BroG/MyG 리스트 헤더: 좁은 화면·가로 모드까지 — flex 줄바꿈 시 제목 칸이 세로로 늘어나 빈 줄처럼 보이던 현상 → grid 2열 고정.
+ */
+@media (max-width: 900px) {
+  .brog-screen--list .brog-screen__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+    align-items: start;
+  }
+
+  .brog-screen--list .brog-screen__header > div:first-child {
+    min-width: 0;
+  }
+
+  .brog-screen--list .brog-screen__header-actions {
+    justify-self: end;
+    align-self: start;
+    flex-wrap: nowrap;
+    margin-left: 0;
+  }
+
+  .brog-screen--list .brog-screen__title {
+    font-size: clamp(1.15rem, 4.2vw, 1.5rem);
+    line-height: 1.2;
+  }
+
+  /* BroG 리스트 전용: 2열 그리드 대신 제목+아이콘 한 줄 */
+  .brog-screen--list .brog-screen__header.brog-screen__header--title-inline {
+    display: block;
+  }
+
+  .brog-screen--list .brog-screen__header--title-inline .brog-screen__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brog-screen--list .brog-screen__header--title-inline .brog-screen__header-actions {
+    justify-self: unset;
+    align-self: unset;
+  }
+}
+
+/* BroG/MyG 리스트: 안내 문단 모바일 — 툴바는 위 `.map-layout--brog.brog-screen--map` 공통 규칙과 동일 */
 @media (max-width: 720px) {
   .brog-screen--list {
     min-width: 0;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-  }
-
-  .brog-screen--list .brog-screen__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .brog-screen--list .brog-screen__header-actions {
-    justify-content: flex-start;
   }
 
   .brog-list-toolbar__notes {
@@ -4591,6 +4737,8 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   object-fit: contain;
   object-position: center;
   display: block;
+  /* 히어로 위 투명 링크/버튼이 클릭·터치를 받도록 — 썸네일만 img 직접 히트되는 것과 맞춤 */
+  pointer-events: none;
 }
 
 .brog-detail__hero-placeholder {
@@ -4601,6 +4749,90 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   color: var(--text-muted);
   background: #1a2233;
   font-weight: 600;
+}
+
+/* 히어로: 투명 전면 링크가 클릭·길게 눌러 새 탭(href)을 받고, 텍스트 오버레이는 pointer-events:none */
+.brog-detail__hero-zoom-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 0;
+  text-decoration: none;
+  color: transparent;
+}
+
+.brog-detail__hero-zoom-hit:focus-visible {
+  outline: 2px solid var(--gold, #d4af37);
+  outline-offset: -4px;
+}
+
+.brog-detail__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  box-sizing: border-box;
+  background: rgba(8, 10, 18, 0.92);
+  cursor: zoom-out;
+}
+
+.brog-detail__lightbox-inner {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  cursor: default;
+}
+
+.brog-detail__lightbox-img {
+  display: block;
+  max-width: min(96vw, 1400px);
+  max-height: min(88vh, 1200px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+}
+
+.brog-detail__lightbox-close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  font-size: 1.75rem;
+  line-height: 1;
+  font-weight: 600;
+  color: #f5f0e6;
+  background: rgba(24, 30, 48, 0.92);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.brog-detail__lightbox-close:hover {
+  background: rgba(36, 44, 68, 0.98);
+  color: var(--gold-soft, #e8d5a3);
+}
+
+.brog-detail__lightbox-close:focus-visible {
+  outline: 2px solid var(--gold, #d4af37);
+  outline-offset: 2px;
 }
 
 .brog-detail__gallery {
@@ -4696,9 +4928,11 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 2;
   padding: 18px 16px 22px;
   background: linear-gradient(transparent, rgba(30, 20, 24, 0.78));
   color: #fff;
+  pointer-events: none;
 }
 
 .brog-detail__eyebrow {
@@ -5896,16 +6130,41 @@ form.brog-detail__comment-form {
   color: var(--gold-soft);
 }
 
-.home-layout--map-home .game-page .game-page__map-section.map-page-map-section {
+/* 점메추 게임: 지도 블록만 세로 축소(/map·홈과 동일 변수명, 이 스택 안에서만 덮어씀) */
+.home-layout--map-home .game-page .game-page__map-stack {
+  --kakao-map-below-min-height: 220px;
+  /* Gee 측정: 맵 ~397px — 테이블(셸) ~410 목표에 맞춤 */
+  --kakao-map-below-height: min(38vh, 400px);
+}
+
+.home-layout--map-home .game-page .game-page__map-stack.map-layout--brog .map-page-map-section {
   min-width: 0;
   width: 100%;
   max-width: 100%;
 }
 
-.home-layout--map-home .game-page .game-page__map-section .kakao-map-embed {
-  min-height: min(48vh, 440px);
+/* 게임 지도 카드만 패딩 추가 축소(현재 TSX는 `manage-form-map-section`·`game-page__map-section` 미사용 — DevTools에 남아 있으면 빌드·캐시 갱신) */
+.home-layout--map-home .game-page .game-page__map-stack.map-layout--brog > .map-page-map-section.map-card {
+  padding: 8px 10px 12px;
+}
+
+.home-layout--map-home .game-page .game-page__map-stack.map-layout--brog > .map-page-map-section .map-page-map-section__title {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+}
+
+.home-layout--map-home .game-page .game-page__map-stack.map-layout--brog .map-page-map-section .kakao-map-embed {
+  min-height: 0;
+  max-height: 410px;
   width: 100%;
   min-width: 0;
+}
+
+/* 변수 상속이 끊기면 기본 48vh가 적용됨 — 게임 지도 캔버스에 높이 직접 지정(677×~397 ≈ 48vh 체감) */
+.home-layout--map-home .game-page .game-page__map-stack .kakao-map-container.kakao-map-container--below {
+  min-height: 220px;
+  height: min(38vh, 400px);
+  max-height: 400px;
 }
 
 .game-page__geo-error {
@@ -5921,27 +6180,31 @@ form.brog-detail__comment-form {
   margin: 0 0 12px;
 }
 
-.game-page__map-section {
-  margin: 18px 0 20px;
-}
-
 .game-page__ladder-card {
   margin: 18px 0 20px;
 }
 
-/* 사다리 차트 가로 — 카드(map-card) 좌우 패딩을 줄여 SVG·번호줄을 최대한 넓힘 */
-.game-page__ladder-card.map-page-map-section.map-card {
-  padding-left: 10px;
-  padding-right: 10px;
+/*
+ * 점메추 map-stack: 자식 1개(지도만)일 때 `:first`+`:last`가 같은 노드에 마진을 겹쳐
+ * 선택 전에만 아래 여백이 커 보이던 문제 → 세로 여백은 스택에만 두고 자식·사다리 카드 마진은 0.
+ */
+.game-page__map-stack.map-layout.map-layout--brog.brog-screen--map {
+  width: 100%;
+  min-width: 0;
+  margin-top: 18px;
+  margin-bottom: 20px;
 }
 
-.game-page__ladder-card .map-page-map-section__title,
-.game-page__ladder-card .map-page-map-section__hint {
-  padding-left: 6px;
-  padding-right: 6px;
+.game-page__map-stack.map-layout--brog > * {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
-.game-page__ladder-card .map-page-map-section__title {
+.game-page__map-stack.map-layout--brog > .game-page__ladder-card {
+  margin: 0;
+}
+
+.game-page__ladder-card .map-page-brog-list-section__title {
   margin-top: 0;
 }
 
@@ -6108,11 +6371,31 @@ form.brog-detail__comment-form {
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  min-height: var(--kakao-map-below-min-height);
-  height: var(--kakao-map-below-height);
+  /* 지도와 달리 사다리 차트만 약간 낮게(게임 지도는 `--kakao-map-below-*` 스택 값) */
+  min-height: 220px;
+  height: min(30vh, 280px);
   box-sizing: border-box;
   /* 가로 패딩 제거 → 상·하단 줄과 SVG 세로선 % 동일선상 */
-  padding: 6px 0;
+  padding: 4px 0;
+}
+
+.home-layout--map-home .game-page .game-page__ladder-card .ladder-game__toolbar {
+  margin-bottom: 10px;
+}
+
+.home-layout--map-home .game-page .game-page__ladder-card .ladder-game__column-strip {
+  min-height: 38px;
+  margin-bottom: 4px;
+}
+
+.home-layout--map-home .game-page .game-page__ladder-card .ladder-game__column-strip--bottom {
+  margin-top: 8px;
+  min-height: 44px;
+}
+
+.home-layout--map-home .game-page .game-page__ladder-card .ladder-game__slot--under-col {
+  min-height: 38px;
+  padding: 6px 3px;
 }
 
 .ladder-game__svg {
