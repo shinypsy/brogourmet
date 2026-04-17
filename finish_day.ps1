@@ -1,5 +1,6 @@
-# 규칙4: 그날 작업 git 동기화 후 당일 일일 dial 메일 발송 (send_dial.ps1 → KST dial_YYYY-MM-dd.txt)
-# 사용: 당일 dial 맨 끝에 `<N월N일 요약>` 작성 저장한 뒤  .\finish_day.ps1
+# 규칙4 마감 — 한 번에 끝: git 동기화 후 당일 일일 dial 메일(send_dial.ps1, KST dial_YYYY-MM-dd.txt).
+# 사용 순서: (1) 일일 dial 맨 끝 `<N월N일 요약>` + 필요 시 주간 dial_MM_wN.txt `<mm-dd 요약>` 저장
+#            (2) 이 스크립트만 실행 — 같은 날 send_dial·push 를 따로 반복하지 말 것(중복 방지).
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot

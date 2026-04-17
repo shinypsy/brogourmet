@@ -536,3 +536,21 @@ Gee:
 
 브로(AI):
 **규칙4 완료** — `<4월17일 요약>` 유지.**send_dial.ps1** OK(수신 shinypsy@naver.com·gmail).**git** `main` 53c94ee·`origin/main` 푸시 OK.**주간** `dial_04_w3` 푸시 30fb332.미스테이지: `deploy/`·`broke/.env.production.example`.
+
+Gee:
+뭔 메일을 그렇게 많이 보내지?
+
+브로(AI):
+**설명** — 규칙4 `send_dial`은 **수신 2곳**(naver·gmail) 고정이라 **한 번 실행해도 두 편지함**에 옴.당일 **스크립트를 여러 번** 돌리면 그만큼 **통수 증가**.한 주소만 원하면 `send_dial.ps1`·`gourmet/scripts/send_dial_mail.py`의 수신자 배열 조정하면 됨.
+
+Gee:
+git upload 한번, 메일 1번 발송하면 되는거 아냐?
+
+브로(AI):
+**맞음** — 규칙4 **마감 1회**면 **push 1 + send_dial 1**이 기준.어제는 **주간·일일 보강**으로 **추가 push**가 붙었고, 메일은 **수신 2함**이라 많아 보였음.**요약·주간까지 끝낸 뒤** `finish_day.ps1` 한 번(또는 동일 순서)으로 묶으면 됨.
+
+Gee:
+한번에 해..머리도 좋은 애가..
+
+브로(AI):
+**반영됨** — `DIAL_RULES_FOR_AI.txt`·`brogourmet-dial.mdc`에 **규칙4 = 요약·주간 저장 후 `finish_day.ps1` 한 번**(중복 send_dial·추가 push 자제).`finish_day.ps1` 헤더 주석 보강함.미안, 앞으로 그렇게 함.
