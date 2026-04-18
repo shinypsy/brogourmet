@@ -245,3 +245,6 @@ Gee: 이제 그만
 
 Gee: 바뀐 내용이 많으니깐.. git 동기화 부터 진행해줘
 브로(AI): `git pull --rebase origin main`로 원격 선행분 반영. dial·`send_dial_mail.py`는 add/add·양쪽 수정 충돌 → upstream(원격)본 유지로 해소. `임시서버.txt`만 리베이스된 커밋에 포함되어 `git push origin main` 완료(ebe0b54).
+
+Gee: 지금 동작되고 있는 서버와 별개로 여기서 화면 수정하고 확인하려면 어디로 접속해야 하지?
+브로(AI): `broke`에서 `npm run dev` 후 브라우저 **`http://localhost:5173`**. API는 같은 PC에서 `gourmet` venv로 `uvicorn … --port 8001`; `broke/.env`의 `VITE_API_BASE_URL`을 **비우면** Vite가 **`127.0.0.1:8001`로 프록시**(run.txt [1][2]). 폰/LAN이면 해당 IP:5173 + gourmet CORS·`BROG_CORS_EXTRA_ORIGINS` 참고.
