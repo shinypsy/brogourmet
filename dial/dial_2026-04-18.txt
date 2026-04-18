@@ -1,4 +1,4 @@
-BroGourmet dial_2026-04-18.txt
+﻿BroGourmet dial_2026-04-18.txt
 KST 2026-04-18 — 일일 대화. 규칙·확정 목록은 월 스냅샷(예: 4월 dial_0411.txt) 참고. 맨 끝에만 Gee:/브로(AI): 추가.
 
 --- 본문 ---
@@ -242,3 +242,6 @@ Gee: 이제 그만
 - SPON 서버·리스트/상세·모바일 CSS·상세 윤곽 통일(`SponsorPostDetailPage`·`index.css`).
 - 서울 25구·닉네임 PATCH·CORS(`bro.2corea.com`) 안내·`.env.example`·DB 점검 안내.
 - Gee 「이제 그만」으로 세션 마감.
+
+Gee: 바뀐 내용이 많으니깐.. git 동기화 부터 진행해줘
+브로(AI): `git pull --rebase origin main`로 원격 선행분 반영. dial·`send_dial_mail.py`는 add/add·양쪽 수정 충돌 → upstream(원격)본 유지로 해소. `임시서버.txt`만 리베이스된 커밋에 포함되어 `git push origin main` 완료(ebe0b54).
