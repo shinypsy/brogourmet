@@ -248,3 +248,6 @@ Gee: 바뀐 내용이 많으니깐.. git 동기화 부터 진행해줘
 
 Gee: 지금 동작되고 있는 서버와 별개로 여기서 화면 수정하고 확인하려면 어디로 접속해야 하지?
 브로(AI): `broke`에서 `npm run dev` 후 브라우저 **`http://localhost:5173`**. API는 같은 PC에서 `gourmet` venv로 `uvicorn … --port 8001`; `broke/.env`의 `VITE_API_BASE_URL`을 **비우면** Vite가 **`127.0.0.1:8001`로 프록시**(run.txt [1][2]). 폰/LAN이면 해당 IP:5173 + gourmet CORS·`BROG_CORS_EXTRA_ORIGINS` 참고.
+
+Gee: 프론트만 보는것은 의미가 없을라나?
+브로(AI): **아님.** 레이아웃·CSS·탭/내비·로딩/에러 문구·클라만으로 되는 UI는 프론트만으로 충분히 검증 가능. **한계**는 로그인·목록·결제·지도 연동처럼 API/DB·CORS·실데이터가 필요한 흐름—그때는 로컬 gourmet 또는 `VITE_API_BASE_URL`로 운영 API를 쓰는 **하이브리드**로 범위를 나누면 됨.
