@@ -5,7 +5,10 @@ export type PaymentIntent = {
   amount_krw: number
   description: string | null
   status: string
+  intent_kind?: string
   created_at: string
+  merchant_order_id?: string | null
+  paid_at?: string | null
 }
 
 export async function fetchMyPayments(token: string): Promise<PaymentIntent[]> {
@@ -16,7 +19,11 @@ export async function fetchMyPayments(token: string): Promise<PaymentIntent[]> {
 
 export async function createPaymentIntent(
   token: string,
-  body: { amount_krw: number; description?: string | null },
+  body: {
+    amount_krw: number
+    description?: string | null
+    intent_kind?: 'merchant' | 'point_charge'
+  },
 ): Promise<PaymentIntent> {
   return requestJson<PaymentIntent>('/payments/intents', {
     method: 'POST',

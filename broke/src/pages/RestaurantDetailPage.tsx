@@ -339,7 +339,7 @@ export function RestaurantDetailPage() {
       <div className="brog-detail brog-detail--error card">
         <h1>1단계에서 아직 공개하지 않는 구의 BroG입니다</h1>
         <p className="description">
-          현재 앱은 마포·용산·서대문·영등포·종로·중구 6개 구만 선택할 수 있습니다. 2단계에서 서울 전 구로 확장되면 다시 확인할 수 있습니다.
+          현재 서비스 구역에 포함되지 않은 구의 BroG입니다. 지역은 서울 25개 자치구 중에서 선택할 수 있습니다.
         </p>
         <Link className="compact-link brog-detail__error-list-link" to={getBrogListNavigatePath()}>
           BroG 리스트

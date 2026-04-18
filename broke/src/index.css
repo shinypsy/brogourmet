@@ -645,6 +645,40 @@ input {
   min-width: 0;
 }
 
+.form.brog-manage-form .brog-manage-form__name-field--block {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.form.brog-manage-form .brog-manage-form__faq-attach-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.form.brog-manage-form .brog-manage-form__faq-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(147, 197, 253, 0.22);
+  background: rgba(12, 16, 28, 0.45);
+  font-size: 0.9rem;
+}
+
+.form.brog-manage-form .brog-manage-form__photos-block--faq {
+  margin-top: 2px;
+}
+
+.free-share-detail__faq-attach {
+  margin-top: 4px;
+}
+
 .form.brog-manage-form .brog-manage-form__district-field {
   display: grid;
   gap: 8px;
@@ -2138,6 +2172,19 @@ button.compact-link.danger-text {
   border-radius: 8px;
 }
 
+/* BroG 리스트 툴바: 가격 칸을 SPON 등에서 상호명 입력으로 바꿀 때 동일 치수 */
+.map-layout--brog.brog-screen--map .map-page-toolbar .price-filter input[type='text'] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--gold-dim);
+  background: rgba(12, 16, 28, 0.92);
+  color: var(--text);
+}
+
 .map-layout--brog.brog-screen--map .map-page__coord-edit.home-hub__coord-edit {
   margin-top: 0;
   padding-top: 0;
@@ -2316,6 +2363,15 @@ button.compact-link.danger-text {
   }
 
   .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .price-filter select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 4px 5px;
+    font-size: 0.7rem;
+  }
+
+  .map-layout--brog.brog-screen--map .map-page-toolbar.map-card .price-filter input[type='text'] {
     width: 100%;
     min-width: 0;
     max-width: 100%;
@@ -3197,6 +3253,61 @@ button.compact-link.danger-text {
   max-width: 100%;
 }
 
+.payment-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 4px;
+}
+
+.payment-mode-tabs__btn {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 151, 173, 0.45);
+  background: rgba(18, 22, 36, 0.55);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.payment-mode-tabs__btn:hover {
+  border-color: rgba(212, 175, 55, 0.35);
+  color: var(--text-heading);
+}
+
+.payment-mode-tabs__btn.is-active {
+  border-color: rgba(212, 175, 55, 0.55);
+  color: var(--gold-soft);
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.payment-page__header {
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+.payment-page .payment-mode-tabs {
+  margin-bottom: 10px;
+}
+
+.payment-page .payment-mode-tabs__btn {
+  font-size: 1rem;
+  padding: 12px 18px;
+}
+
+.payment-page__active-label {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--gold-soft);
+}
+
 .board-form-card {
   margin-top: 0;
 }
@@ -3350,17 +3461,82 @@ button.compact-link.danger-text {
   flex-shrink: 0;
 }
 
+/* 무료나눔·Q&A 목록 검색 툴바 — map-card 기본 패딩·분류 블록 여백 축소, 한 줄 느낌 */
+/* FAQ · Q&A 보드 상단 전환 */
+.free-share-board-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.free-share-board-subnav__link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.free-share-board-subnav__link:hover {
+  color: var(--cream);
+}
+
+.free-share-board-subnav__link--active {
+  color: var(--gold-soft);
+  pointer-events: none;
+}
+
+.free-share-board-subnav__sep {
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.free-share-detail__nav--active {
+  font-weight: 700;
+  color: var(--gold-soft);
+}
+
+.free-share-board-toolbar.map-card.map-page-toolbar {
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.free-share-board-toolbar .map-page-toolbar__filters-row {
+  margin-bottom: 0;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.free-share-board-toolbar .price-filter {
+  margin-bottom: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.free-share-board-toolbar .price-filter select {
+  width: auto;
+  min-width: 7.5rem;
+  max-width: min(13rem, 46vw);
+  padding: 7px 10px;
+  border-radius: 10px;
+}
+
 /* 무료나눔 목록 툴바 */
 .free-share-board-toolbar__row {
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px 12px;
+  align-items: center;
+  gap: 8px 10px;
 }
 
 .free-share-board-toolbar__input {
-  min-width: 140px;
-  max-width: 220px;
-  padding: 9px 11px;
+  min-width: 120px;
+  max-width: 200px;
+  padding: 7px 10px;
   border-radius: 10px;
   border: 1px solid var(--gold-dim);
   background: rgba(12, 16, 28, 0.85);
@@ -3370,12 +3546,14 @@ button.compact-link.danger-text {
 }
 
 .free-share-board-toolbar__input--num {
-  max-width: 120px;
-  min-width: 100px;
+  max-width: 110px;
+  min-width: 88px;
 }
 
 .free-share-board-toolbar__confirm {
   flex-shrink: 0;
+  padding: 7px 12px;
+  font-size: 0.88rem;
 }
 
 /* 무료나눔 상세 */
@@ -4620,6 +4798,29 @@ ul.brog-rank-grid.brog-rank-grid--paged {
   font-weight: 700;
   color: #fecaca;
   font-size: 1rem;
+}
+
+.my-page__nickname-form {
+  margin: 0;
+}
+
+.my-page__nickname-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 28rem;
+}
+
+.my-page__nickname-row input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font-size: 0.95rem;
 }
 
 .my-page__password-change {
@@ -6919,4 +7120,736 @@ form.brog-detail__comment-form {
   border-color: rgba(240, 120, 120, 0.65);
   background: rgba(120, 40, 40, 0.55);
   color: #fff;
+}
+
+/* ---- 게임 허브 (/game) — 사다리 / 친구찾기 탭 ---- */
+.game-hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0 4px;
+  width: 100%;
+  max-width: 52rem;
+  box-sizing: border-box;
+}
+
+.game-hub-tabs__btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(20, 25, 40, 0.75);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.game-hub-tabs__btn:hover {
+  border-color: rgba(212, 175, 55, 0.35);
+  color: var(--text);
+}
+
+.game-hub-tabs__btn--active {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: rgba(212, 175, 55, 0.14);
+  color: var(--cream);
+}
+
+.friend-finder {
+  max-width: 52rem;
+}
+
+.friend-finder__head {
+  margin-bottom: 1.25rem;
+}
+
+.friend-finder__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  color: var(--text-heading);
+}
+
+.friend-finder__lead {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.friend-finder__panel {
+  margin-bottom: 1.25rem;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--navy-card);
+}
+
+.friend-finder__sub {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  color: var(--text-heading);
+}
+
+.friend-finder__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.friend-finder__primary {
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--cream);
+}
+
+.friend-finder__one-peer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.friend-finder__action-half {
+  margin: 0;
+  min-width: 0;
+}
+
+.friend-finder__one-peer-note {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+/* 친구찾기 지도: 점메추용 `game-page__map-stack`·map-card 없이 동일 크기(결과 화면 기준) */
+.friend-finder__map-block-title {
+  margin: 14px 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.friend-finder__map-block-hint {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.friend-finder__map {
+  margin: 0;
+  min-height: 0;
+}
+
+.friend-finder .friend-finder__map .kakao-map-embed {
+  min-height: 0;
+  max-height: none;
+}
+
+.friend-finder .friend-finder__map .kakao-map-container.kakao-map-container--below {
+  min-height: 220px;
+  height: 340px;
+  max-height: 340px;
+}
+
+.friend-finder__peers {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.friend-finder__nick {
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.friend-finder__question {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+}
+
+.friend-finder__pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.friend-finder__pick {
+  flex: 1 1 140px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--cream);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.friend-finder__pick:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.2);
+}
+
+.friend-finder__pick:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.friend-finder__verdict {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f0b0b0;
+}
+
+.friend-finder__verdict--ok {
+  color: #a8e6a8;
+}
+
+.friend-finder__dist {
+  margin: 0 0 12px;
+  padding-left: 1.1rem;
+}
+
+.friend-finder--guest {
+  padding-top: 8px;
+}
+
+
+.brog-map-speech-bubble--pick-only {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.brog-map-pick-bubble-anchor {
+  pointer-events: none;
+}
+
+/* —— SPON 스폰서 샘플 허브 (4행·1열 + 캐러셀 · 검색·좌표) —— */
+.sponsor-hub__header .brog-screen__title {
+  margin-bottom: 6px;
+}
+
+.sponsor-hub__lead {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.95rem;
+}
+
+.sponsor-hub__disclaimer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  font-size: 0.88rem;
+  color: var(--text-muted, #9aa6bc);
+}
+
+/* SPON: BroG 리스트와 동일 `map-page-toolbar` — 툴바 아래 보조 줄 */
+.sponsor-hub__toolbar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sponsor-hub__toolbar-foot-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.sponsor-hub__toolbar-foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.sponsor-hub__toolbar-msg {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.sponsor-hub__list .brog-list-carousel {
+  padding-left: 20px;
+  padding-right: 20px;
+  max-width: 100%;
+}
+
+/* SPON: 한 슬라이드 4건 = 4행·1열. 모바일(≤720)은 BroG 리스트와 동일 브레이크포인트에서
+ * 한 줄이 «가로 2칸 식당 2곳» 높이에 맞춰 «스폰 1곳」(썸 50% = 한 칸 폭의 16:9 ≈ BroG 썸 한 장) */
+ul.sponsor-strip-page {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  width: 100%;
+  min-height: 0;
+}
+
+.sponsor-strip-card {
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 192px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.sponsor-strip-card__visual {
+  flex: 0 0 34%;
+  max-width: 200px;
+  min-width: 88px;
+  background: rgba(0, 0, 0, 0.35);
+  min-height: 0;
+  align-self: stretch;
+}
+
+.sponsor-strip-card__img {
+  width: 100%;
+  height: 100%;
+  min-height: 192px;
+  object-fit: cover;
+  display: block;
+}
+
+.sponsor-strip-card__img--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 192px;
+  height: 100%;
+  color: var(--text-muted, #9aa6bc);
+  font-size: 0.85rem;
+}
+
+.sponsor-strip-card__body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+.sponsor-strip-card__title {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  color: var(--cream);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sponsor-strip-card__excerpt {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(245, 240, 230, 0.82);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sponsor-strip-card__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+  /* PC와 동일: 스폰서 배지·한 줄 요약 노출. 높이는 배지+제목+요약+링크에 맞춤 약간 상향 */
+  .sponsor-hub__list ul.sponsor-strip-page {
+    gap: 4px;
+  }
+
+  .sponsor-hub__list .sponsor-strip-card {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 0;
+    /* 좌측 accent 테두리(인라인 스타일 border-left)가 잘리지 않도록 */
+    box-sizing: border-box;
+    height: clamp(9.5rem, 42vw, 11.25rem);
+    min-height: clamp(9.5rem, 42vw, 11.25rem);
+    max-height: clamp(9.5rem, 42vw, 11.25rem);
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__visual {
+    flex: 0 0 clamp(7rem, 44vw, 9.7rem);
+    width: clamp(7rem, 44vw, 9.7rem);
+    max-width: none;
+    min-width: 0;
+    height: 100%;
+    align-self: stretch;
+    aspect-ratio: unset;
+    border-radius: 0;
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__img,
+  .sponsor-hub__list .sponsor-strip-card__img--empty {
+    min-height: 0 !important;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__img--empty {
+    aspect-ratio: unset;
+    font-size: 0.7rem;
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__body {
+    padding: 4px 6px 5px 5px;
+    gap: 3px;
+    justify-content: flex-start;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sponsor-hub__list .sponsor-hub__badge--inline {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 2px 7px;
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(212, 168, 75, 0.65);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__excerpt {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0;
+    font-size: 0.64rem;
+    line-height: 1.3;
+    color: rgba(245, 240, 230, 0.88);
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__title {
+    font-size: 0.72rem;
+    line-height: 1.2;
+    -webkit-line-clamp: 1;
+  }
+
+  .sponsor-hub__list .sponsor-strip-card__links {
+    font-size: 0.6rem;
+    gap: 6px;
+    margin-top: 2px;
+    flex-wrap: nowrap;
+  }
+}
+
+/* SPON 상세: 헤더·갤러리·본문 세로 간격·가독 폭 — 블록 윤곽(반경·테두리·그림자) 공통 토큰 */
+article.sponsor-detail.brog-screen {
+  --sd-chassis-r: 16px;
+  --sd-chassis-bd: 1px solid var(--gold-dim);
+  --sd-chassis-sh: var(--shadow);
+  --sd-chassis-pad-x: clamp(18px, 3vw, 28px);
+  --sd-chassis-pad-y: clamp(18px, 3vw, 26px);
+  --sd-chassis-max: 56rem;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sponsor-detail__coords-meta {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  border-radius: calc(var(--sd-chassis-r) - 4px);
+  background: rgba(8, 12, 22, 0.45);
+  border: var(--sd-chassis-bd);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.sponsor-detail__gallery-wrap {
+  width: 100%;
+  max-width: var(--sd-chassis-max);
+  margin-inline: auto;
+  box-sizing: border-box;
+  padding: var(--sd-chassis-pad-y) var(--sd-chassis-pad-x);
+  border-radius: var(--sd-chassis-r);
+  border: var(--sd-chassis-bd);
+  box-shadow: var(--sd-chassis-sh);
+  background: var(--navy-card);
+}
+
+.sponsor-detail__gallery--strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: clamp(12px, 2.5vw, 18px);
+  width: 100%;
+  margin-inline: 0;
+  box-sizing: border-box;
+}
+
+.sponsor-detail__gallery-item {
+  border-radius: calc(var(--sd-chassis-r) - 4px);
+  overflow: hidden;
+  display: block;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  box-shadow: none;
+}
+
+.sponsor-detail__gallery-item img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  display: block;
+}
+
+.sponsor-detail__magazine--stack {
+  grid-template-columns: 1fr;
+  width: 100%;
+  max-width: var(--sd-chassis-max);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+.sponsor-hub__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a1428;
+  background: linear-gradient(135deg, #f0d78c, #d4a84b);
+  border: 1px solid rgba(212, 168, 75, 0.55);
+}
+
+.sponsor-hub__badge--inline {
+  vertical-align: middle;
+}
+
+.sponsor-hub__cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sponsor-band {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.sponsor-magazine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 0;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .sponsor-magazine {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sponsor-magazine__visual {
+  min-height: 180px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.sponsor-magazine__img {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.sponsor-magazine__img--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #9aa6bc);
+  font-size: 0.9rem;
+  min-height: 200px;
+}
+
+.sponsor-magazine__copy {
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.sponsor-magazine__title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  color: var(--cream);
+}
+
+.sponsor-magazine__excerpt {
+  margin: 0;
+  line-height: 1.55;
+  color: rgba(245, 240, 230, 0.88);
+  font-size: 0.95rem;
+}
+
+.sponsor-magazine__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.sponsor-magazine__cta {
+  padding-inline: 16px;
+}
+
+.sponsor-magazine__out {
+  border-color: rgba(245, 240, 230, 0.35);
+  color: var(--cream);
+}
+
+.sponsor-detail__head {
+  width: 100%;
+  max-width: var(--sd-chassis-max);
+  margin-inline: auto;
+  box-sizing: border-box;
+  padding: var(--sd-chassis-pad-y) var(--sd-chassis-pad-x);
+  border-radius: var(--sd-chassis-r);
+  margin-bottom: 0;
+  border: var(--sd-chassis-bd);
+  box-shadow: var(--sd-chassis-sh);
+}
+
+article.sponsor-detail .brog-screen__title {
+  margin: 0 0 0.4em;
+  line-height: 1.2;
+}
+
+.sponsor-detail__head .eyebrow {
+  margin-bottom: 10px;
+}
+
+.sponsor-detail__excerpt {
+  margin: 0 0 14px;
+  max-width: 52rem;
+  color: rgba(245, 240, 230, 0.92);
+  line-height: 1.55;
+  font-size: clamp(0.92rem, 1.6vw, 1.02rem);
+}
+
+.sponsor-detail__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(245, 240, 230, 0.1);
+}
+
+.sponsor-detail__magazine {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 800px) {
+  .sponsor-detail__magazine {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sponsor-detail__figure {
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sponsor-detail__hero {
+  width: 100%;
+  display: block;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.sponsor-detail__body.map-card {
+  padding: var(--sd-chassis-pad-y) var(--sd-chassis-pad-x) clamp(22px, 3.5vw, 32px);
+  border-radius: var(--sd-chassis-r);
+  border: var(--sd-chassis-bd);
+  box-shadow: var(--sd-chassis-sh);
+  box-sizing: border-box;
+}
+
+.sponsor-detail__prose {
+  line-height: 1.68;
+  color: var(--cream);
+  max-width: 62ch;
+  margin: 0 auto;
+  font-size: clamp(0.92rem, 1.5vw, 1rem);
+}
+
+.sponsor-detail__prose p {
+  margin: 0 0 0.85rem;
+}
+
+.sponsor-detail__prose p:last-child {
+  margin-bottom: 0;
+}
+
+.sponsor-write-form .sponsor-write-form__color {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.sponsor-write-form__color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.sponsor-write-form__color-row input[type='color'] {
+  width: 48px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sponsor-write-form__color-text {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.main-nav-item--spon {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 0.82rem;
+  color: #f0d78c;
+  text-shadow: 0 0 12px rgba(240, 215, 140, 0.25);
+}
+
+.main-nav-item--spon:hover {
+  color: #ffe8a8;
 }

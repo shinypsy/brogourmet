@@ -204,3 +204,20 @@ def ensure_community_post_super_admin_delete(user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="글 삭제는 최종 관리자만 할 수 있습니다.",
         )
+
+
+def can_write_faq_post(user: User) -> bool:
+    """FAQ 글 신규 작성: 최종 관리자 또는 담당 구가 지정된 지역 담당자."""
+    if user.role == SUPER_ADMIN:
+        return True
+    if user.role == REGIONAL_MANAGER and user.managed_district_id is not None:
+        return True
+    return False
+
+
+def ensure_can_write_faq_post(user: User) -> None:
+    if not can_write_faq_post(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="FAQ 글은 최종 관리자 또는 지역 담당자(담당 구 지정)만 작성할 수 있습니다.",
+        )

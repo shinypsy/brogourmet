@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
@@ -18,8 +18,13 @@ import {
   canDeleteCommunityPost,
   canEditCommunityPost,
   canModerateCommunityPost,
+  canWriteFaqPost,
 } from '../lib/roles'
-import { FREE_SHARE_BOARD_NAV, type CommunityBoardNav } from '../lib/communityBoardNav'
+import {
+  communityNavForFreeSharePost,
+  FREE_SHARE_BOARD_NAV,
+  type CommunityBoardNav,
+} from '../lib/communityBoardNav'
 import {
   FREE_SHARE_CATEGORY_LABELS,
   FREE_SHARE_CATEGORY_VALUES,
@@ -54,8 +59,7 @@ function sharePlaceApiFields(lat: number | null, lng: number | null, label: stri
   }
 }
 
-export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoardNav } = {}) {
-  const nav = boardNav ?? FREE_SHARE_BOARD_NAV
+export function FreeSharePostDetailPage({ boardNav: boardNavProp }: { boardNav?: CommunityBoardNav } = {}) {
   const { id } = useParams()
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -83,6 +87,11 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
   const [commentsBusy, setCommentsBusy] = useState(false)
 
   const numericId = id ? Number(id) : NaN
+
+  const nav = useMemo(
+    () => boardNavProp ?? (post ? communityNavForFreeSharePost(post.share_category) : FREE_SHARE_BOARD_NAV),
+    [boardNavProp, post],
+  )
 
   const reloadComments = useCallback(async () => {
     if (!Number.isFinite(numericId)) return
@@ -138,7 +147,10 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
   const canEdit = Boolean(post && canEditCommunityPost(user, post.author_id, post.district))
   const canDelete = Boolean(post && canDeleteCommunityPost(user))
   const answerThread = Boolean(nav.answerThread)
-  const canPostAnswer = Boolean(post && user && canModerateCommunityPost(user, post.district))
+  const postCategory = post ? normalizeFreeShareCategory(post.share_category) : null
+  const isFaqPost = postCategory === 'faq'
+  const staffOnlyComments = Boolean(answerThread || isFaqPost)
+  const canModerateAnswer = Boolean(post && user && canModerateCommunityPost(user, post.district))
 
   const canRemoveComment = (c: FreeShareComment) =>
     Boolean(
@@ -158,6 +170,12 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
       if (prev.length >= FREE_SHARE_MAX_IMAGES) return prev
       return [...prev, '']
     })
+  }
+
+  function removeEditImageAt(index: number) {
+    const urls = normalizeFreeShareImageUrls(editSlots)
+    const next = urls.filter((_, i) => i !== index)
+    setEditSlots(freeShareUrlFormRows(next))
   }
 
   function openEdit() {
@@ -211,14 +229,17 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
     setBusy(true)
     setSaveError('')
     try {
+      const faqLocked = normalizeFreeShareCategory(post.share_category) === 'faq'
       const updated = await updateFreeSharePost(token, post.id, {
         title: title.trim(),
         body: body.trim(),
-        district: resolvedDistrict,
+        district: faqLocked ? null : resolvedDistrict,
         image_urls: urls,
         share_completed: next,
-        share_category: shareCategory,
-        ...sharePlaceApiFields(shareLat, shareLng, sharePlaceLabel),
+        share_category: faqLocked ? 'faq' : shareCategory,
+        ...(faqLocked
+          ? sharePlaceApiFields(null, null, '')
+          : sharePlaceApiFields(shareLat, shareLng, sharePlaceLabel)),
       })
       setPost(updated)
       const g = galleryFromPost(updated)
@@ -249,14 +270,17 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
     setSaveError('')
     setBusy(true)
     try {
+      const faqLocked = normalizeFreeShareCategory(post.share_category) === 'faq'
       const updated = await updateFreeSharePost(token, post.id, {
         title: title.trim(),
         body: body.trim(),
-        district: resolvedDistrict,
+        district: faqLocked ? null : resolvedDistrict,
         image_urls: urls,
         share_completed: shareCompleted,
-        share_category: shareCategory,
-        ...sharePlaceApiFields(shareLat, shareLng, sharePlaceLabel),
+        share_category: faqLocked ? 'faq' : shareCategory,
+        ...(faqLocked
+          ? sharePlaceApiFields(null, null, '')
+          : sharePlaceApiFields(shareLat, shareLng, sharePlaceLabel)),
       })
       setPost(updated)
       const g = galleryFromPost(updated)
@@ -360,8 +384,24 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
         <p className="eyebrow">Community · {nav.boardName}</p>
         <p className="helper free-share-detail__nav">
           <Link to={nav.listPath}>목록</Link>
-          {' · '}
-          <Link to={nav.writePath}>새 글</Link>
+          {nav.placeBasePath === '/qna' && (
+            <>
+              {' · '}
+              <Link className={isFaqPost ? 'free-share-detail__nav--active' : undefined} to="/qna?tab=faq">
+                FAQ
+              </Link>
+              {' · '}
+              <Link className={postCategory === 'qa' ? 'free-share-detail__nav--active' : undefined} to="/qna?tab=qna">
+                Q&A
+              </Link>
+            </>
+          )}
+          {(nav.boardName !== 'FAQ' || canWriteFaqPost(user)) && (
+            <>
+              {' · '}
+              <Link to={nav.writePath}>새 글</Link>
+            </>
+          )}
         </p>
 
         {!editing && galleryUrls.length > 0 ? (
@@ -398,14 +438,16 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
           <>
             <h1 className="free-share-detail__title">{post.title}</h1>
             <p className="post-body free-share-detail__body">{post.body}</p>
-            <FreeSharePlacePicker
-              mode="view"
-              latitude={post.share_latitude ?? null}
-              longitude={post.share_longitude ?? null}
-              placeLabel={post.share_place_label ?? ''}
-              detailPostId={post.id}
-              boardBasePath={nav.placeBasePath}
-            />
+            {!isFaqPost ? (
+              <FreeSharePlacePicker
+                mode="view"
+                latitude={post.share_latitude ?? null}
+                longitude={post.share_longitude ?? null}
+                placeLabel={post.share_place_label ?? ''}
+                detailPostId={post.id}
+                boardBasePath={nav.placeBasePath}
+              />
+            ) : null}
           </>
         ) : (
           <form className="form free-share-detail__edit-form" onSubmit={handleSave}>
@@ -414,33 +456,37 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
               <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required />
             </label>
             <label>
-              내용
-              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} maxLength={8000} required />
+              {isFaqPost ? '본문' : '내용'}
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={isFaqPost ? 10 : 8} maxLength={8000} required />
             </label>
-            <label>
-              분류
-              <select value={shareCategory} onChange={(e) => setShareCategory(e.target.value as FreeShareCategoryValue)}>
-                {FREE_SHARE_CATEGORY_VALUES.map((v) => (
-                  <option key={v} value={v}>
-                    {FREE_SHARE_CATEGORY_LABELS[v]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <FreeSharePlacePicker
-              mode="edit"
-              latitude={shareLat}
-              longitude={shareLng}
-              placeLabel={sharePlaceLabel}
-              detailPostId={post.id}
-              boardBasePath={nav.placeBasePath}
-              onPlaceChange={(la, ln, lb) => {
-                setShareLat(la)
-                setShareLng(ln)
-                setSharePlaceLabel(lb)
-              }}
-              onDistrictResolved={setResolvedDistrict}
-            />
+            {!isFaqPost ? (
+              <label>
+                분류
+                <select value={shareCategory} onChange={(e) => setShareCategory(e.target.value as FreeShareCategoryValue)}>
+                  {FREE_SHARE_CATEGORY_VALUES.map((v) => (
+                    <option key={v} value={v}>
+                      {FREE_SHARE_CATEGORY_LABELS[v]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {!isFaqPost ? (
+              <FreeSharePlacePicker
+                mode="edit"
+                latitude={shareLat}
+                longitude={shareLng}
+                placeLabel={sharePlaceLabel}
+                detailPostId={post.id}
+                boardBasePath={nav.placeBasePath}
+                onPlaceChange={(la, ln, lb) => {
+                  setShareLat(la)
+                  setShareLng(ln)
+                  setSharePlaceLabel(lb)
+                }}
+                onDistrictResolved={setResolvedDistrict}
+              />
+            ) : null}
             <p className="free-share-detail__upload-row">
               <input
                 ref={fileRef}
@@ -461,33 +507,51 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
                 이미지 전부 비우기
               </button>
             </p>
-            <fieldset className="free-share-images-fieldset">
-              <legend>이미지 URL (링크 클릭 시 새 탭 · 줄당 최대 500자 · 최대 {FREE_SHARE_MAX_IMAGES}줄)</legend>
-              {editSlots.map((slot, i) => (
-                <label key={i} className="free-share-images-fieldset__url">
-                  링크 {i + 1}
-                  <input
-                    value={slot}
-                    onChange={(e) => setEditSlot(i, e.target.value)}
-                    placeholder="https://… 또는 /uploads/…"
-                    maxLength={500}
-                  />
-                </label>
-              ))}
-              <p className="free-share-images-fieldset__add-wrap">
-                <button
-                  type="button"
-                  className="compact-link"
-                  disabled={editSlots.length >= FREE_SHARE_MAX_IMAGES}
-                  onClick={addEditLinkRow}
-                >
-                  링크 줄 추가
-                </button>
-                {editSlots.length >= FREE_SHARE_MAX_IMAGES ? (
-                  <span className="upload-hint"> 최대 {FREE_SHARE_MAX_IMAGES}줄입니다.</span>
-                ) : null}
-              </p>
-            </fieldset>
+            {isFaqPost ? (
+              normalizeFreeShareImageUrls(editSlots).length > 0 ? (
+                <div className="brog-manage-form__photos-block brog-manage-form__photos-block--faq free-share-detail__faq-attach">
+                  <span className="brog-manage-form__photos-label">첨부 이미지</span>
+                  <ul className="brog-manage-form__faq-attach-list">
+                    {normalizeFreeShareImageUrls(editSlots).map((_, i) => (
+                      <li key={`faq-edit-att-${i}`} className="brog-manage-form__faq-attach-row">
+                        <span>첨부 {i + 1}</span>
+                        <button type="button" className="compact-link" onClick={() => removeEditImageAt(i)}>
+                          삭제
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null
+            ) : (
+              <fieldset className="free-share-images-fieldset">
+                <legend>이미지 URL (링크 클릭 시 새 탭 · 줄당 최대 500자 · 최대 {FREE_SHARE_MAX_IMAGES}줄)</legend>
+                {editSlots.map((slot, i) => (
+                  <label key={i} className="free-share-images-fieldset__url">
+                    링크 {i + 1}
+                    <input
+                      value={slot}
+                      onChange={(e) => setEditSlot(i, e.target.value)}
+                      placeholder="https://… 또는 /uploads/…"
+                      maxLength={500}
+                    />
+                  </label>
+                ))}
+                <p className="free-share-images-fieldset__add-wrap">
+                  <button
+                    type="button"
+                    className="compact-link"
+                    disabled={editSlots.length >= FREE_SHARE_MAX_IMAGES}
+                    onClick={addEditLinkRow}
+                  >
+                    링크 줄 추가
+                  </button>
+                  {editSlots.length >= FREE_SHARE_MAX_IMAGES ? (
+                    <span className="upload-hint"> 최대 {FREE_SHARE_MAX_IMAGES}줄입니다.</span>
+                  ) : null}
+                </p>
+              </fieldset>
+            )}
             <p className="free-share-detail__form-actions">
               <button type="submit" disabled={busy}>
                 {busy ? '저장 중…' : '저장'}
@@ -551,13 +615,21 @@ export function FreeSharePostDetailPage({ boardNav }: { boardNav?: CommunityBoar
               </li>
             ))}
           </ul>
-          {answerThread && !token ? (
-            <p className="helper">답변 등록은 로그인한 최종 관리자 또는 해당 구 지역 담당자만 할 수 있습니다.</p>
+          {staffOnlyComments && !token ? (
+            <p className="helper">
+              {answerThread
+                ? '답변 등록은 로그인한 최종 관리자 또는 해당 구 지역 담당자만 할 수 있습니다.'
+                : 'FAQ 댓글 등록은 로그인한 최종 관리자 또는 해당 구 지역 담당자만 할 수 있습니다.'}
+            </p>
           ) : null}
-          {answerThread && token && !canPostAnswer ? (
-            <p className="helper">답변은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다.</p>
+          {staffOnlyComments && token && !canModerateAnswer ? (
+            <p className="helper">
+              {answerThread
+                ? '답변은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다.'
+                : 'FAQ 댓글은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다.'}
+            </p>
           ) : null}
-          {token && (!answerThread || canPostAnswer) ? (
+          {token && (!staffOnlyComments || canModerateAnswer) ? (
             <form className="free-share-comments__form" onSubmit={(e) => void handleCommentSubmit(e)}>
               <label className="free-share-comments__label">
                 {answerThread ? '답변 작성' : '댓글 작성'}

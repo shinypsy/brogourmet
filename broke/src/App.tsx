@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, type User } from './api/auth'
 import { AUTH_CHANGE_EVENT, USER_PROFILE_REFRESH_EVENT } from './authEvents'
@@ -7,7 +7,6 @@ import { EventTicker } from './components/EventTicker'
 import { RequireAuth } from './components/RequireAuth'
 import { TestUiAdminBanner } from './components/TestUiAdminBanner'
 import { BROG_ONLY } from './config/features'
-import { QNA_BOARD_NAV } from './lib/communityBoardNav'
 import { canWriteSiteEvents, isSuperAdmin } from './lib/roles'
 import { HomePage } from './pages/HomePage'
 
@@ -29,6 +28,16 @@ const FreeShareWritePage = lazy(() =>
 )
 const FreeSharePostDetailPage = lazy(() =>
   import('./pages/FreeSharePostDetailPage').then((m) => ({ default: m.FreeSharePostDetailPage })),
+)
+const QnaHubPage = lazy(() => import('./pages/QnaHubPage').then((m) => ({ default: m.QnaHubPage })))
+const SponsorListPage = lazy(() =>
+  import('./pages/SponsorListPage').then((m) => ({ default: m.SponsorListPage })),
+)
+const SponsorPostDetailPage = lazy(() =>
+  import('./pages/SponsorPostDetailPage').then((m) => ({ default: m.SponsorPostDetailPage })),
+)
+const SponsorWritePage = lazy(() =>
+  import('./pages/SponsorWritePage').then((m) => ({ default: m.SponsorWritePage })),
 )
 const FreeShareMapPage = lazy(() =>
   import('./pages/FreeShareMapPage').then((m) => ({ default: m.FreeShareMapPage })),
@@ -54,7 +63,7 @@ const KnownRestaurantPostEditPage = lazy(() =>
 )
 const PaymentPage = lazy(() => import('./pages/PaymentPage').then((m) => ({ default: m.PaymentPage })))
 const EventWritePage = lazy(() => import('./pages/EventWritePage').then((m) => ({ default: m.EventWritePage })))
-const SadariPage = lazy(() => import('./pages/SadariPage').then((m) => ({ default: m.SadariPage })))
+const GameHubPage = lazy(() => import('./pages/GameHubPage').then((m) => ({ default: m.GameHubPage })))
 const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })))
 const VerifyEmailPage = lazy(() =>
   import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })),
@@ -67,17 +76,23 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default:
 const prefetch = {
   brogList: () => void import('./pages/BrogListPage'),
   map: () => void import('./pages/MapPage'),
-  game: () => void import('./pages/SadariPage'),
+  game: () => void import('./pages/GameHubPage'),
   mygList: () => void import('./pages/KnownRestaurantsBoardPage'),
   mygMap: () => void import('./pages/KnownRestaurantsMapPage'),
   freeShare: () => void import('./pages/FreeShareBoardPage'),
   freeShareMap: () => void import('./pages/FreeShareMapPage'),
-  qna: () => void import('./pages/FreeShareBoardPage'),
+  qna: () => void import('./pages/QnaHubPage'),
   payment: () => void import('./pages/PaymentPage'),
   eventWrite: () => void import('./pages/EventWritePage'),
   login: () => void import('./pages/LoginPage'),
   admin: () => void import('./pages/AdminPage'),
+  sponsor: () => void import('./pages/SponsorListPage'),
 } as const
+
+function LegacyFaqPostRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/qna/${id ?? ''}`} replace />
+}
 
 function RouteFallback() {
   return <p className="route-fallback">불러오는 중…</p>
@@ -183,6 +198,18 @@ function App() {
                 MyG
               </Link>
             ) : null}
+            {!BROG_ONLY ? (
+              <Link
+                className="main-nav-item main-nav-item--spon"
+                to="/sponsor"
+                onMouseEnter={prefetch.sponsor}
+                onFocus={prefetch.sponsor}
+                title="SPON 스폰서"
+                aria-label="SPON 스폰서"
+              >
+                SPON
+              </Link>
+            ) : null}
             <Link className="main-nav-item" to="/game" onMouseEnter={prefetch.game} onFocus={prefetch.game}>
               Game
             </Link>
@@ -215,8 +242,8 @@ function App() {
                   to="/qna"
                   onMouseEnter={prefetch.qna}
                   onFocus={prefetch.qna}
-                  title="Q&A 게시판"
-                  aria-label="Q&A 게시판"
+                  title="Q&A (FAQ · 질문)"
+                  aria-label="Q&A (FAQ · 질문)"
                 >
                   <span className="main-nav-item__qna-inner">
                     <svg
@@ -302,6 +329,12 @@ function App() {
             <Route path="/" element={<HomePage />} />
             {/* 공개 BroG 상세 — 홈 8칸·게스트 진입 */}
             <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
+            {!BROG_ONLY ? (
+              <>
+                <Route path="/sponsor" element={<SponsorListPage />} />
+                <Route path="/sponsor/view/:id" element={<SponsorPostDetailPage />} />
+              </>
+            ) : null}
             <Route element={<RequireAuth />}>
               <Route path="/brog" element={<Navigate to="/brog/list" replace />} />
               <Route path="/brog/list" element={<BrogListPage />} />
@@ -315,9 +348,12 @@ function App() {
                   <Route path="/free-share/map" element={<FreeShareMapPage />} />
                   <Route path="/free-share/write" element={<FreeShareWritePage />} />
                   <Route path="/free-share/:id" element={<FreeSharePostDetailPage />} />
-                  <Route path="/qna" element={<FreeShareBoardPage boardVariant="qna" />} />
-                  <Route path="/qna/write" element={<FreeShareWritePage boardVariant="qna" />} />
-                  <Route path="/qna/:id" element={<FreeSharePostDetailPage boardNav={QNA_BOARD_NAV} />} />
+                  <Route path="/faq" element={<Navigate to="/qna?tab=faq" replace />} />
+                  <Route path="/faq/write" element={<Navigate to="/qna/write?variant=faq" replace />} />
+                  <Route path="/faq/:id" element={<LegacyFaqPostRedirect />} />
+                  <Route path="/qna/write" element={<FreeShareWritePage />} />
+                  <Route path="/qna/:id" element={<FreeSharePostDetailPage />} />
+                  <Route path="/qna" element={<QnaHubPage />} />
                   <Route path="/known-restaurants" element={<Navigate to="/known-restaurants/list" replace />} />
                   <Route path="/known-restaurants/list" element={<KnownRestaurantsBoardPage />} />
                   <Route path="/known-restaurants/map" element={<KnownRestaurantsMapPage />} />
@@ -325,11 +361,12 @@ function App() {
                   <Route path="/known-restaurants/:id/edit" element={<KnownRestaurantPostEditPage />} />
                   <Route path="/known-restaurants/:id" element={<KnownRestaurantPostDetailPage />} />
                   <Route path="/payment" element={<PaymentPage />} />
+                  <Route path="/sponsor/write" element={<SponsorWritePage />} />
                 </>
               ) : null}
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/me" element={<MyPage />} />
-              <Route path="/game" element={<SadariPage />} />
+              <Route path="/game" element={<GameHubPage />} />
               <Route path="/sadari" element={<Navigate to="/game" replace />} />
             </Route>
             <Route path="/signup" element={<SignupPage />} />

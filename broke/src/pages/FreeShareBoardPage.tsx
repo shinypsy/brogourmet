@@ -12,10 +12,11 @@ import {
   type FreeShareCategoryValue,
 } from '../lib/freeShareCategory'
 import { formatFreeShareListDate, formatFreeShareListPlace } from '../lib/freeShareListPlace'
+import { canWriteFaqPost } from '../lib/roles'
 
 const FREE_LIST_PAGE_SIZE = 10
 
-type SearchMode = 'all' | 'nickname' | 'mine' | 'listno'
+type SearchMode = 'all' | 'nickname' | 'mine' | 'listno' | 'title'
 
 type FreeShareListRow = { post: FreeSharePost; listNo: number }
 
@@ -32,6 +33,7 @@ function buildRows(
   categoryKey: 'all' | FreeShareCategoryValue,
   mode: SearchMode,
   nicknameApplied: string,
+  titleApplied: string,
   listNoMaxApplied: number | null,
   userId: number | null,
 ): FreeShareListRow[] {
@@ -53,6 +55,11 @@ function buildRows(
     const sub = ranked.filter((r) => r.post.author_nickname.toLowerCase().includes(q))
     ranked = sub.map((r, i) => ({ ...r, listNo: sub.length - i }))
   }
+  if (mode === 'title' && titleApplied.trim()) {
+    const q = titleApplied.trim().toLowerCase()
+    const sub = ranked.filter((r) => r.post.title.toLowerCase().includes(q))
+    ranked = sub.map((r, i) => ({ ...r, listNo: sub.length - i }))
+  }
   if (mode === 'mine') {
     if (userId == null) {
       return []
@@ -68,7 +75,7 @@ function buildRows(
   return ranked
 }
 
-export type FreeShareBoardVariant = 'free' | 'qna'
+export type FreeShareBoardVariant = 'free' | 'qna' | 'faq'
 
 export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: FreeShareBoardVariant } = {}) {
   const [posts, setPosts] = useState<FreeSharePost[]>([])
@@ -80,6 +87,8 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
   const [searchMode, setSearchMode] = useState<SearchMode>('all')
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [nicknameApplied, setNicknameApplied] = useState('')
+  const [titleDraft, setTitleDraft] = useState('')
+  const [titleApplied, setTitleApplied] = useState('')
   const [listNoDraft, setListNoDraft] = useState('')
   const [listNoApplied, setListNoApplied] = useState<number | null>(null)
 
@@ -122,6 +131,16 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
     return () => window.removeEventListener(AUTH_CHANGE_EVENT, onAuth)
   }, [reload])
 
+  useEffect(() => {
+    setSearchMode('all')
+    setNicknameApplied('')
+    setNicknameDraft('')
+    setTitleApplied('')
+    setTitleDraft('')
+    setListNoApplied(null)
+    setListNoDraft('')
+  }, [boardVariant])
+
   const listNoMaxApplied = listNoApplied
 
   const boardPosts = useMemo(() => {
@@ -129,43 +148,86 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
     if (boardVariant === 'qna') {
       return mapped.filter((p) => normalizeFreeShareCategory(p.share_category) === 'qa')
     }
-    return mapped.filter((p) => normalizeFreeShareCategory(p.share_category) !== 'qa')
+    if (boardVariant === 'faq') {
+      return mapped.filter((p) => normalizeFreeShareCategory(p.share_category) === 'faq')
+    }
+    return mapped.filter((p) => {
+      const c = normalizeFreeShareCategory(p.share_category)
+      return c !== 'qa' && c !== 'faq'
+    })
   }, [posts, boardVariant])
 
   const filteredRows = useMemo(
-    () => buildRows(boardPosts, categoryKey, searchMode, nicknameApplied, listNoMaxApplied, user?.id ?? null),
-    [boardPosts, categoryKey, searchMode, nicknameApplied, listNoMaxApplied, user?.id],
+    () =>
+      buildRows(
+        boardPosts,
+        categoryKey,
+        searchMode,
+        nicknameApplied,
+        titleApplied,
+        listNoMaxApplied,
+        user?.id ?? null,
+      ),
+    [boardPosts, categoryKey, searchMode, nicknameApplied, titleApplied, listNoMaxApplied, user?.id],
   )
 
   const carouselResetKey = useMemo(
     () =>
-      `${categoryKey}-${searchMode}-${nicknameApplied}-${listNoMaxApplied ?? ''}-${boardPosts.map((p) => p.id).join('-')}`,
-    [categoryKey, searchMode, nicknameApplied, listNoMaxApplied, boardPosts],
+      `${categoryKey}-${searchMode}-${nicknameApplied}-${titleApplied}-${listNoMaxApplied ?? ''}-${boardPosts.map((p) => p.id).join('-')}`,
+    [categoryKey, searchMode, nicknameApplied, titleApplied, listNoMaxApplied, boardPosts],
   )
 
   const isQna = boardVariant === 'qna'
-  const listBasePath = isQna ? '/qna' : '/free-share'
-  const writePath = isQna ? '/qna/write' : '/free-share/write'
-  const placeHeader = isQna ? '장소' : '나눔장소'
+  const isFaq = boardVariant === 'faq'
+  const listBasePath = isQna || isFaq ? '/qna' : '/free-share'
+  const writePath = isFaq ? '/qna/write?variant=faq' : isQna ? '/qna/write?variant=qna' : '/free-share/write'
+  const placeHeader = isQna || isFaq ? '장소' : '나눔장소'
+  const showWriteCta = !isFaq || canWriteFaqPost(user)
 
   function onSearchModeChange(next: SearchMode) {
     setSearchMode(next)
     if (next === 'all') {
       setNicknameApplied('')
+      setTitleApplied('')
       setListNoApplied(null)
       setNicknameDraft('')
+      setTitleDraft('')
       setListNoDraft('')
     }
     if (next === 'mine') {
       setNicknameApplied('')
+      setTitleApplied('')
       setListNoApplied(null)
       setNicknameDraft('')
+      setTitleDraft('')
       setListNoDraft('')
+    }
+    if (next === 'nickname') {
+      setTitleApplied('')
+      setTitleDraft('')
+      setListNoApplied(null)
+      setListNoDraft('')
+    }
+    if (next === 'title') {
+      setNicknameApplied('')
+      setNicknameDraft('')
+      setListNoApplied(null)
+      setListNoDraft('')
+    }
+    if (next === 'listno') {
+      setNicknameApplied('')
+      setNicknameDraft('')
+      setTitleApplied('')
+      setTitleDraft('')
     }
   }
 
   function applyNicknameSearch() {
     setNicknameApplied(nicknameDraft.trim())
+  }
+
+  function applyTitleSearch() {
+    setTitleApplied(titleDraft.trim())
   }
 
   function applyListNoSearch() {
@@ -177,7 +239,8 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
     setListNoApplied(n)
   }
 
-  const showNicknameField = searchMode === 'nickname'
+  const showNicknameField = searchMode === 'nickname' && !isFaq
+  const showTitleField = searchMode === 'title' && isFaq
   const showListNoField = searchMode === 'listno'
 
   const mineNeedsLogin = searchMode === 'mine' && !user
@@ -187,11 +250,13 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
     <div className="brog-screen brog-screen--list">
       <header className="brog-screen__header">
         <div>
-          <p className="eyebrow">{isQna ? 'Community · Q&A' : 'Community · 무료나눔'}</p>
-          <h1 className="brog-screen__title">{isQna ? 'Q&A' : '무료나눔'}</h1>
+          <p className="eyebrow">
+            {isFaq ? 'Community · FAQ' : isQna ? 'Community · Q&A' : 'Community · 무료나눔'}
+          </p>
+          <h1 className="brog-screen__title">{isFaq ? 'FAQ' : isQna ? 'Q&A' : '무료나눔'}</h1>
         </div>
         <div className="brog-screen__header-actions">
-          {!isQna ? (
+          {!isQna && !isFaq ? (
             <Link
               className="ghost-button free-share-header-map-link"
               to="/free-share/map"
@@ -216,16 +281,18 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
               <span className="visually-hidden">지도</span>
             </Link>
           ) : null}
-          <Link className="brog-screen__cta" to={writePath}>
-            작성
-          </Link>
+          {showWriteCta ? (
+            <Link className="brog-screen__cta" to={writePath}>
+              작성
+            </Link>
+          ) : null}
         </div>
       </header>
 
-      <section className="brog-list-body" aria-label={isQna ? 'Q&A 목록' : '무료나눔 목록'}>
+      <section className="brog-list-body" aria-label={isFaq ? 'FAQ 목록' : isQna ? 'Q&A 목록' : '무료나눔 목록'}>
         <div className="map-page-toolbar map-card free-share-board-toolbar">
           <div className="map-page-toolbar__filters-row free-share-board-toolbar__row">
-            {!isQna ? (
+            {!isQna && !isFaq ? (
               <label className="price-filter map-page-toolbar__filter">
                 분류
                 <select
@@ -249,11 +316,36 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
               검색
               <select value={searchMode} onChange={(e) => onSearchModeChange(e.target.value as SearchMode)}>
                 <option value="all">전체보기</option>
-                <option value="mine">내 글</option>
-                <option value="nickname">닉네임</option>
-                <option value="listno">리스트 번호</option>
+                {isFaq ? (
+                  <>
+                    <option value="title">제목</option>
+                    <option value="listno">리스트 번호</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="mine">내 글</option>
+                    <option value="nickname">닉네임</option>
+                    <option value="listno">리스트 번호</option>
+                  </>
+                )}
               </select>
             </label>
+            {showTitleField ? (
+              <>
+                <input
+                  className="free-share-board-toolbar__input"
+                  type="search"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  placeholder="제목 일부"
+                  maxLength={200}
+                  aria-label="제목 검색어"
+                />
+                <button type="button" className="ghost-button free-share-board-toolbar__confirm" onClick={applyTitleSearch}>
+                  확인
+                </button>
+              </>
+            ) : null}
             {showNicknameField ? (
               <>
                 <input
@@ -293,8 +385,9 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
         {!isLoading && !error ? (
           <p className="brog-list-body__count" role="status">
             <strong>{filteredRows.length}</strong>건
-            {!isQna && categoryKey !== 'all' ? ` · ${FREE_SHARE_CATEGORY_LABELS[categoryKey]}` : ''}
+            {!isQna && !isFaq && categoryKey !== 'all' ? ` · ${FREE_SHARE_CATEGORY_LABELS[categoryKey]}` : ''}
             {searchMode === 'nickname' && nicknameApplied ? ` · 닉네임 "${nicknameApplied}"` : ''}
+            {searchMode === 'title' && titleApplied ? ` · 제목 "${titleApplied}"` : ''}
             {searchMode === 'listno' && listNoApplied != null ? ` · 번호 ≤ ${listNoApplied}` : ''}
             {searchMode === 'mine' ? ' · 내 글' : ''}
             {carouselPage.pageCount > 1 ? (
@@ -322,7 +415,7 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
         {!isLoading && !mineNeedsLogin && filteredRows.length > 0 && !error ? (
           <section
             className="home-section map-page-brog-list-section"
-            aria-label={isQna ? 'Q&A 목록' : '무료나눔 목록'}
+            aria-label={isFaq ? 'FAQ 목록' : isQna ? 'Q&A 목록' : '무료나눔 목록'}
           >
             <h3 className="map-page-brog-list-section__title">목록</h3>
             <div className="free-share-list-board">
@@ -380,10 +473,12 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
                             <span className="map-page-brog-lines__cell map-page-brog-lines__cell--status">
                               {row.post.share_completed ? (
                                 <span className="map-page-brog-lines__tag map-page-brog-lines__tag--event">
-                                  {isQna ? '해결' : '나눔완료'}
+                                  {isFaq ? '종료' : isQna ? '해결' : '나눔완료'}
                                 </span>
                               ) : (
-                                <span className="map-page-brog-lines__tag">{isQna ? '미해결' : '진행중'}</span>
+                                <span className="map-page-brog-lines__tag">
+                                  {isFaq ? '게시' : isQna ? '미해결' : '진행중'}
+                                </span>
                               )}
                             </span>
                           </div>
@@ -392,7 +487,7 @@ export function FreeShareBoardPage({ boardVariant = 'free' }: { boardVariant?: F
                     })}
                   </ul>
                 )}
-                ariaLabel={`${isQna ? 'Q&A' : '무료나눔'} 목록, ${FREE_LIST_PAGE_SIZE}건씩`}
+                ariaLabel={`${isFaq ? 'FAQ' : isQna ? 'Q&A' : '무료나눔'} 목록, ${FREE_LIST_PAGE_SIZE}건씩`}
                 onPaginationInfo={onCarouselPagination}
                 carouselStepAriaUnit="건"
               />

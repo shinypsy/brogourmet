@@ -246,7 +246,6 @@ export function SadariPage() {
   )
 
   return (
-    <div className="home-layout home-layout--hub home-layout--map-home app-route-hub">
     <section className="page game-page">
       <header className="brog-screen__header game-page__screen-header" aria-label="점메추 게임">
         <div>
@@ -431,6 +430,5 @@ export function SadariPage() {
         </div>
       ) : null}
     </section>
-    </div>
   )
 }

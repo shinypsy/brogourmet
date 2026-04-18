@@ -9,7 +9,6 @@ import {
   uploadCommunityImage,
   type KnownRestaurantPost,
 } from '../api/community'
-import { KAKAO_REST_API_KEY } from '../api/config'
 import { createRestaurantFromMyGPost } from '../api/restaurants'
 import { notifyUserProfileRefresh } from '../authEvents'
 import { fetchDistricts, type District } from '../api/districts'
@@ -27,7 +26,7 @@ import {
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
-import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
+import { runManageFormKakaoPlaceSearch } from '../lib/manageFormKakaoPlaceSearch'
 import { assumeAdminUi, canDeleteKnownRestaurantPost, canEditCommunityPost } from '../lib/roles'
 import { BROG_DISTRICT_ALL } from '../lib/deployStage1'
 import { BrogCategoryPickerIcon } from '../lib/brogCategoryPickerIcons'
@@ -197,30 +196,11 @@ export function KnownRestaurantPostEditPage() {
   }, [onMapPickUserLocation])
 
   const handleManagePlaceSearch = useCallback(async () => {
-    const q = managePlaceQuery.trim()
-    if (!q) {
-      setManagePlaceHint('검색할 지명을 입력해 주세요.')
-      return
-    }
-    if (!KAKAO_REST_API_KEY.trim()) {
-      setManagePlaceHint('지명 검색에는 broke/.env 의 VITE_KAKAO_REST_API_KEY 가 필요합니다.')
-      return
-    }
-    setManagePlaceBusy(true)
-    setManagePlaceHint('')
-    try {
-      const p = await fetchKakaoKeywordFirstPlace(q)
-      if (!p) {
-        setManagePlaceHint('일치하는 장소를 찾지 못했습니다.')
-        return
-      }
-      await onMapPickUserLocation(p.lat, p.lng)
-      setManagePlaceHint(`「${p.placeName}」 위치로 맞췄습니다.`)
-    } catch (e) {
-      setManagePlaceHint(e instanceof Error ? e.message : '장소 검색에 실패했습니다.')
-    } finally {
-      setManagePlaceBusy(false)
-    }
+    await runManageFormKakaoPlaceSearch(managePlaceQuery, {
+      setBusy: setManagePlaceBusy,
+      setHint: setManagePlaceHint,
+      onResolvedLatLng: onMapPickUserLocation,
+    })
   }, [managePlaceQuery, onMapPickUserLocation])
 
   async function handleMygImagesChange(event: ChangeEvent<HTMLInputElement>) {

@@ -4,6 +4,7 @@ import logging
 import os
 
 from sqlalchemy import func, inspect, text
+from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, engine
 from app.models.free_share_post import FreeSharePost
@@ -250,6 +251,46 @@ def ensure_user_points_balance_column() -> None:
         logger.debug("ensure_user_points_balance_column skipped: %s", exc)
 
 
+def ensure_payment_intent_intent_kind_column() -> None:
+    """payment_intents.intent_kind — merchant | point_charge."""
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS intent_kind VARCHAR(32) "
+                    "NOT NULL DEFAULT 'merchant'"
+                ),
+            )
+        logger.info("payment_intents.intent_kind column ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_payment_intent_intent_kind_column skipped: %s", exc)
+
+
+def ensure_payment_intent_kcp_columns() -> None:
+    """KCP 연동: 주문번호·결제완료 시각·PG 메타(JSON). 기존 DB ALTER."""
+    dialect = engine.dialect.name
+    paid_type = "TIMESTAMPTZ" if dialect == "postgresql" else "TEXT"
+    extra_type = "JSON" if dialect == "postgresql" else "TEXT"
+    statements = [
+        "ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS merchant_order_id VARCHAR(70)",
+        f"ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS paid_at {paid_type}",
+        f"ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS pg_extra {extra_type}",
+    ]
+    try:
+        with engine.begin() as conn:
+            for sql in statements:
+                conn.execute(text(sql))
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_intents_merchant_order_id "
+                    "ON payment_intents (merchant_order_id) WHERE merchant_order_id IS NOT NULL"
+                )
+            )
+        logger.info("payment_intents KCP columns ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_payment_intent_kcp_columns skipped: %s", exc)
+
+
 def ensure_user_password_change_columns() -> None:
     """Myinfo 비밀번호 변경용 이메일 인증코드."""
     dialect = engine.dialect.name
@@ -262,3 +303,46 @@ def ensure_user_password_change_columns() -> None:
         for sql in statements:
             conn.execute(text(sql))
     logger.info("users password_change_* columns ensured.")
+
+
+def ensure_user_presence_game_columns() -> None:
+    """친구찾기 테스트: 접속 시각·게임용 위도/경도."""
+    dialect = engine.dialect.name
+    ts_type = "TIMESTAMPTZ" if dialect == "postgresql" else "TEXT"
+    lat_type = "DOUBLE PRECISION" if dialect == "postgresql" else "REAL"
+    statements = [
+        f"ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at {ts_type}",
+        f"ALTER TABLE users ADD COLUMN IF NOT EXISTS game_lat {lat_type}",
+        f"ALTER TABLE users ADD COLUMN IF NOT EXISTS game_lng {lat_type}",
+    ]
+    try:
+        with engine.begin() as conn:
+            for sql in statements:
+                conn.execute(text(sql))
+        logger.info("users last_seen_at / game_lat / game_lng columns ensured.")
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ensure_user_presence_game_columns skipped: %s", exc)
+
+
+def ensure_seoul_25_district_rows() -> None:
+    """기존 DB에 구 행이 6개 등으로만 있을 때, 서울 25개 자치구 중 빠진 이름을 `districts`에 추가."""
+    from app.core.deploy_stage1 import DEFAULT_STAGE1_DISTRICTS
+    from app.models.district import District
+
+    db: Session = SessionLocal()
+    try:
+        existing = {d.name for d in db.query(District).all()}
+        added = False
+        for idx, name in enumerate(DEFAULT_STAGE1_DISTRICTS, start=1):
+            if name in existing:
+                continue
+            db.add(District(name=name, active=True, sort_order=idx))
+            added = True
+        if added:
+            db.commit()
+            logger.info("districts: added missing rows (Seoul 25구 확장).")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ensure_seoul_25_district_rows skipped: %s", exc)
+        db.rollback()
+    finally:
+        db.close()

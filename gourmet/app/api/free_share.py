@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.roles import SUPER_ADMIN
 from app.deps import (
     can_moderate_community_post_district,
+    ensure_can_write_faq_post,
     ensure_community_post_author_or_moderation,
     ensure_community_post_super_admin_delete,
     get_current_user,
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/free-share", tags=["free-share"])
 
 def _category_read(
     post: FreeSharePost,
-) -> Literal["food", "appliance", "furniture", "books", "other", "qa"]:
+) -> Literal["food", "appliance", "furniture", "books", "other", "qa", "faq"]:
     raw = (getattr(post, "share_category", None) or "other").strip().lower()
     if raw == "food":
         return "food"
@@ -40,6 +41,8 @@ def _category_read(
         return "books"
     if raw == "qa":
         return "qa"
+    if raw == "faq":
+        return "faq"
     if raw == "other":
         return "other"
     return "other"
@@ -140,6 +143,8 @@ def create_post(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if payload.share_category == "faq":
+        ensure_can_write_faq_post(current_user)
     urls = list(payload.image_urls)[:BOARD_WRITE_MAX_IMAGES]
     post = FreeSharePost(
         author_id=current_user.id,
@@ -184,6 +189,15 @@ def update_post(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
     ensure_community_post_author_or_moderation(current_user, post.author_id, post.district, db)
+
+    raw_existing = (getattr(post, "share_category", None) or "other").strip().lower()
+    if raw_existing == "faq" and payload.share_category != "faq":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="FAQ 글의 분류를 다른 값으로 바꿀 수 없습니다.",
+        )
+    if payload.share_category == "faq" and raw_existing != "faq":
+        ensure_can_write_faq_post(current_user)
 
     urls = list(payload.image_urls)[:BOARD_WRITE_MAX_IMAGES]
     post.title = payload.title
@@ -249,12 +263,14 @@ def create_comment(
 ):
     post = _post_or_404(db, post_id)
     raw_cat = (getattr(post, "share_category", None) or "other").strip().lower()
-    if raw_cat == "qa":
+    if raw_cat in ("qa", "faq"):
         if not can_moderate_community_post_district(current_user, post.district, db):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Q&A 답변은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다.",
+            detail = (
+                "Q&A 답변은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다."
+                if raw_cat == "qa"
+                else "FAQ 댓글은 최종 관리자 또는 해당 구 지역 담당자만 등록할 수 있습니다."
             )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
     c = FreeShareComment(
         post_id=post_id,
         user_id=current_user.id,

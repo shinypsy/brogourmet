@@ -1,0 +1,244 @@
+BroGourmet dial_2026-04-18.txt
+KST 2026-04-18 — 일일 대화. 규칙·확정 목록은 월 스냅샷(예: 4월 dial_0411.txt) 참고. 맨 끝에만 Gee:/브로(AI): 추가.
+
+--- 본문 ---
+
+Gee: 하이 브로
+브로(AI): 안녕 Gee. 오늘도 같이 가자.
+
+Gee: 오늘은 결제페이지를 완성해 볼까 하는데..
+브로(AI): `broke/src/pages/PaymentPage.tsx`는 이미 로그인 시 금액·설명으로 `POST /payments/intents` 목업 생성, `GET /payments/me` 내역 표시까지 동작. PG(토스 등) 실승인은 미연동이라 오늘 목표를 (1) UI·카피·내비·장바구니/주문 맥락까지 “제품 결제 흐름”처럼 다듬기 vs (2) 토스/포트원 SDK+서버 웹훅까지 포함한 “진짜 결제”로 나누면 좋음. 원하는 쪽 말해 주면 그 범위로 diff 제시 후 Gee가 「수정해」하면 반영.
+
+Gee: 2번으로 가기 위해서는 사업자등록이 필요해지는 건가?
+브로(AI): 법률 자문 아님. 요지만: (1) 개발·샌드박스/테스트 키로 연동·웹훅 검증은 PG마다 다르지만 종종 사업자 없이도 시작 가능. (2) 실제 고객 돈을 받는 라이브 가맹점 심사·계약 단계에서는 국내 PG가 대개 사업자·정산 계좌·대표자 정보 등 가맹점 식별을 요구하는 경우가 많음(개인/소상공 형태는 PG·상품별 조건 상이). 최종은 선택한 PG(토스페이먼츠·포트원 경유 포함) 가맹점 가입 안내를 기준으로 보면 됨.
+
+Gee: 카카오페이가 쉽지 않을까 하는데..
+브로(AI): “쉽다”는 체감은 보통 **고객 UX**(카카오 앱에 익숙함) 쪽이고, **가맹점 연동 난이도**가 자동으로 낮아지진 않음. 쇼핑몰에서 흔한 **카카오페이(간편결제)** 는 종종 **PG 계약 한 번에 카드·카카오페이 등 묶음**으로 켜는 형태라, PG·가맹점 심사는 이전 턴과 같은 축임. 카카오페이 **직접 가맹점/결제 API** 루트도 있으나 문서·상품·자격은 카카오페이 가맹점 안내가 기준. 정리: “PG 하나 잡고 간편결제 옵션 포함”이면 토스 vs 카카오 중 **어느 쪽이 더 쉽다**기보다 **선택한 PG/SDK**가 개발 난이도를 좌우하는 편.
+
+Gee: PG 업체를 예로 들어줄래?
+브로(AI): 국내에서 흔히 말하는 **PG(결제대행)** 예시만 나열(추천·등급 아님). **토스페이먼츠**, **KG이니시스**, **나이스페이**, **NHN KCP**, **KSNET**, **이지페이(KICC)**, **다우데이타**, **헥토파이낸셜** 등. **카드사 직가맹**은 별도 축. **PortOne(구 아임포트)** 는 여러 PG/결제수단을 한 SDK·대시보드로 묶는 **허브(집계)** 에 가깝고, 맨 아래 정산·계약은 연결된 PG/수단 쪽 조건을 탐. BroGourmet에서 하나 고르면 그사 개발자 문서·가맹점 가입 절차 기준으로 설계하면 됨.
+
+Gee: nhn kcp 연동으로 검토줄래?
+브로(AI): (검토 요약·코드 변경 없음) 저장소에 KCP 문자열·모듈 없음. 현재 `PaymentIntent`는 amount·description·status(pending)만—PG 주문번호·승인번호·원문 로그·멱등·paid_at 등 확장 필요. NHN KCP 표준결제 흐름(developer.kcp.co.kr 기준): (1) 모바일 등 일부는 거래등록 REST 후 PayUrl로 결제창, PC는 `kcp_spay_hub.js` 등으로 결제창 호출 (2) 인증 결과가 가맹점으로 돌아오면 **반드시 서버에서 승인 API**로 마무리—클라만 믿지 않음 (3) `kcp_cert_info`·개인키 등 **비밀은 gourmet 서버만**, broke는 공개 가능한 파라미터만. 테스트/운영 URL·site_cd 분리. 가상계좌·에스크로 등 상품별 추가 엔드포인트·웹훅 문서 확인. 대안: PortOne으로 KCP 채널 쓰면 연동 표면은 줄고 수수료·대시보드는 PortOne 쪽. 구현 시 diff→Gee「수정해」 절차.
+
+Gee: 진행해
+브로(AI): **코드적용** — KCP 모바일 골격: `gourmet/app/services/kcp.py`(거래등록·승인 HTTP·encoding URL), `app/api/payments_kcp.py`(`POST /payments/kcp/register`, `POST /payments/kcp/return`), `PaymentIntent`에 `merchant_order_id`·`paid_at`·`pg_extra`, `db_migrate.ensure_payment_intent_kcp_columns`, `main` 라우터·마이그레이션 호출, `schema.sql`·`sql/payment_intents_kcp_columns.sql`, `.env.example` KCP 변수, `broke` `api/kcpPayments.ts`·`PaymentPage` KCP UI·쿼리스트링 배너. 원본 백업 `app/models/payment_intent.py.old`. PC용 `kcp_spay_hub.js` 미포함(문서상 별도). 실연동은 KCP 테스트 키·공개 `BROG_KCP_RETURN_URL` 필요; 거래등록 Content-Type이 현장과 다르면 KCP 문서에 맞춰 조정.
+
+Gee: gourmet venv에서 한 번 uvicorn 띄워서 /payments/kcp/register 503(미설정)·설정 후 201 흐름만 보면 돼. <- 무슨 말인지 이해 못했어
+브로(AI): 직전 턴은 “이 PC에서 FastAPI가 안 깔려 있어서 내가 서버를 대신 실행해 검증은 못 했다”는 뜻이었고, **Gee가 로컬에서 할 수 있는 짧은 확인 절차**를 한 줄로 적은 것. 풀이: (1) `gourmet` 폴더에서 가상환경(venv) 켜고 `uvicorn`으로 API 서버 실행. (2) 로그인해서 받은 JWT로 `POST /payments/kcp/register` 호출. (3) KCP 환경변수를 **안 넣었을 때** 응답 코드가 **503**(“아직 KCP 설정 안 됨”)인지 보고, `KCP_SITE_CD`·`BROG_KCP_RETURN_URL` 등을 넣은 뒤에는 **201**(거래등록까지 성공)으로 바뀌는지 보라는 **수동 스모크 테스트** 안내. 꼭 해야 하는 건 아님.
+
+Gee: 의도 생성과 KCP거래등록이 무슨 의미인지?
+브로(AI): **의도 생성** = `POST /payments/intents` — 우리 DB에만 “이 금액 결제하려고 함” 레코드(`PaymentIntent`, 상태 `pending`)를 남기는 **내부 목업/준비 단계**, PG와 통신 없음. **KCP 거래등록** = `POST /payments/kcp/register` — NHN KCP 결제 서버에 주문번호·금액 등을 **미리 등록**하고 `PayUrl` 등을 받아 **실제 결제창으로 넘어갈 수 있게** 하는 PG 쪽 1단계(모바일 필수). 이후 고객이 결제창에서 인증하면 `Ret_URL`로 돌아와 서버가 **승인 API**로 끝맺음. 정리: 의도=우리 쪽 메모, 거래등록=KCP에 걸 올리기.
+
+Gee: OK..현재 의도생성도 했고, KCP등록도 해봤어. [Brogourmet Map] waitForMapConstructor: Map 생성자 확인됨, 프레임 0
+BrogKakaoMap-3ktELyIa.js:6 [Brogourmet Map] inject: 완료 dapi 직접
+BrogKakaoMap-3ktELyIa.js:6 [Brogourmet Map] ensureKakaoMapsReady: 호출, 키 afec…(길이 32) origin= https://www.2corea.com
+BrogKakaoMap-3ktELyIa.js:6 [Brogourmet Map] reconcile: 기존 스크립트 https://dapi.kakao.com/v2/maps/sdk.js?appkey=afec1f4f4ab17b863c6840efa8434b5e&autoload=false Object
+BrogKakaoMap-3ktELyIa.js:6 [Brogourmet Map] ensureKakaoMapsReady: 즉시 완료
+jsx-runtime-BVAO72w6.js:3  POST https://api.2corea.com/payments/kcp/register 503 (Service Unavailable)
+Tn @ jsx-runtime-BVAO72w6.js:3
+c @ PaymentPage-m3_h7Aqd.js:1
+L @ PaymentPage-m3_h7Aqd.js:1
+yd @ index-AduDwiKG.js:9
+(익명) @ index-AduDwiKG.js:9
+gn @ index-AduDwiKG.js:9
+wd @ index-AduDwiKG.js:9
+up @ index-AduDwiKG.js:10
+cp @ index-AduDwiKG.js:10이 오류 이해하기
+브로(AI): **503**은 브라우저/네트워크 결함이 아니라 `gourmet`가 `load_kcp_settings()`에서 **KCP 환경 미충족**일 때 의도적으로 내는 코드(`payments_kcp.py`). 조건: **`KCP_SITE_CD` 비어 있음** 또는 **`BROG_KCP_RETURN_URL` 비어 있음** → 거래등록 진입 전에 막음. 응답 JSON `detail`에 “KCP 미설정…” 문구 있음. **api.2corea.com** 배포 환경에 두 변수 넣고 프로세스 재시작하면 503→201(또는 KCP/검증 오류 시 4xx/5xx)로 바뀜. `BROG_KCP_RETURN_URL` 예: `https://api.2corea.com/payments/kcp/return`. 위쪽 **Brogourmet Map** 로그는 카카오맵 초기화 로그로 **결제 503과 무관**.
+
+Gee: 지금 진행내용을 이해하자면, 가맹점이 결제한 듯한 처리과정이라고 생각되고, 일반 유저는 매월구독 결제를 자동으로 진행해야 하는데, 이에 대한 방법은?
+브로(AI): **오해 바로잡기** — 지금 구현은 “가맹점이 대신 결제”가 아니라 **일반 유저(결제자)** 가 PG 창에서 카드 등으로 낼 **1회 결제**를 열기 위한 **가맹점(서비스 운영자) 입장의 PG 연동** 흐름(거래등록→인증→서버 승인)임. 돈은 **유저→(PG)→정산은 가맹점 계약** 축. **월 구독 자동결제**는 별도 상품: (1) PG·가맹 계약에 **빌링키/정기결제(자동이체)** 포함 — 최초 1회 유저 동의·인증으로 **빌링키(또는 동등 토큰)** 를 서버에 안전 저장(평문 카드번호 저장 금지). (2) `gourmet`에 **구독 테이블**(user_id, 플랜, next_charge_at, billing_key_ref, status) + 만료·해지·결제실패 재시도 정책. (3) **매월 스케줄**(cron/워커/클라우드 스케줄러)에서 PG **재승인 API** 호출 — 성공 시 갱신·실패 시 알림·유예 후 중단. (4) 금액·주기 변경·영수증·세금계산서·약관·해지 버튼은 정책·UI 별도. KCP는 문서·상품에 **정기/빌링** 루트가 있으니 가맹점 메뉴와 맞춰 선택; 미지원 시 다른 PG 상품 또는 PortOne 등으로 채널 분리 검토. 현재 BroGourmet 코드는 **정기 과금 미구현**.
+
+Gee: Pay 페이지 내에 User와 가맹점으로 구분해서 페이지를 호출하고, User에는 매월구독페이지 , 가맹점에는 지금과 같은 이벤트 요청의 결제 페이지로 구성했으면 하는데
+브로(AI): **코드적용** — `PaymentPage`: 상단 탭 `?tab=user`(일반 회원·매월 구독 안내·플레이스홀더) / `?tab=merchant`(기존 의도·KCP·내역). `index.css`에 `.payment-mode-tabs` 스타일. 구독 API·백엔드 미구현(UI 구획만).
+
+Gee: 화면이 바뀐게 없는데?
+브로(AI): 원인 후보: (1) **운영에 새 broke 빌드 미배포**면 예전 JS라 탭 없음 → `npm run build` 후 www 배포·캐시 강새로고침. (2) 이전 기본이 `tab=user`라 구독 안내만 보여 달라진 게 약했을 수 있음 → **코드적용**: 기본 탭을 **가맹점**(파라미터 없음=`merchant`), 탭을 카드 맨 위·`현재: …` 라벨·`.payment-page` 스타일로 강조.
+
+Gee: 일반회원 결제에 포인트 충전을 만들어 주고, 1만원 단위로 결제가 가능해야 하고, 1만원당 10000point를 생성해주는 로직을 반영해줘
+브로(AI): **코드적용** — `payment_intents.intent_kind`(merchant|point_charge), `db_migrate`+`schema.sql`+`sql/payment_intents_intent_kind.sql`. `PaymentIntentCreate`/KCP register에서 `point_charge` 시 금액 1만원 단위 검증. KCP 승인 성공 시 `point_charge` 이면 `users.points_balance += amount_krw`(원=P 1:1). 리다이렉트 `&tab=user`. `broke` 일반회원 탭: 충전 금액 셀렉트·의도·KCP·내역·`fetchMe`/`notifyUserProfileRefresh`. 가맹 탭 내역은 `intent_kind!==point_charge` 필터.
+
+Gee: 백단 파워쉘이 멈췄어..리부팅 하고 돌아올게
+브로(AI): 알겠어 Gee. 돌아오면 gourmet 다시 띄울 때 `gourmet` venv에서 uvicorn이면 그대로. Postgres도 같이 켜져 있는지만 확인해 줘.
+
+Gee: (uvicorn traceback) … File "…\schemas\payment.py", line 13, in PaymentIntentCreate … NameError: name 'PaymentIntentCreate' is not defined
+브로(AI): **코드적용** — `app/schemas/payment.py` 파일 맨 위에 `from __future__ import annotations` 추가. `model_validator` 반환 타입 `PaymentIntentCreate` 가 클래스 본문 실행 시점에 아직 바인딩되지 않아 발생한 오류.
+
+Gee: 실제 결제되는 것까지 확인하기에는 아직 무리인가?
+브로(AI): **코드만** 보면 “승인까지 한 번 끝까지”는 **불가능한 수준은 아님** — 다만 **무리냐**는 **KCP 테스트 키·인증서·공개 `BROG_KCP_RETURN_URL`·배포된 broke/gourmet** 가 한 세트로 맞느냐에 달림. 없으면 503·승인 전 단계에서 멈춤. 있으면 **테스트 카드로 실제와 동일한 PG 통신**까지는 보통 가능(상점 테스트 정책 따름). **라이브 실결제**는 가맹 심사·운영 키·취소·정산까지 포함해 한 단계 더 무거움. 거래등록 요청 형식(JSON 등)이 현장과 다르면 디버깅 공수 추가.
+
+Gee: 결제가 완료되지 않은 APP을 만들어보는게 좋아? 아니면 결제까지 완벽히 끝내놓고 APP으로 하는게 좋아?
+브로(AI): 정답 하나는 없음. **앱이 매출·유료 전환이 핵심**이면 웹에서 **테스트 PG로 결제·환불 흐름 한 번 끝**내고 앱에 붙이는 편이 리스크 적음(스토어 심사·딥링크·WebView). **앱이 지도·탐색 UX 검증이 목적**이면 결제 없이 또는 “준비 중”으로 앱 먼저 가능. **완벽 후에만 앱**은 일정이 길어질 수 있고, **결제 없이 앱만**은 나중에 결제 붙일 때 URL·세션·리다이렉트 한 번 더 손볼 수 있음. BroGourmet은 웹·API가 이미 있으니 **중간: 웹에서 결제(테스트) 검증 → 앱은 동일 API 재사용**이 균형 좋음.
+
+Gee: 난 제일 중요한 테스트가 BroG와 MyG의 DB 분리이거든..
+브로(AI): 우선순위로 타당함. `최종본_규칙.txt`도 BroG=서버 공개 DB·MyG=개인(앱은 로컬 SQLite 방향)·양방향 동기화 없음으로 이미 정리됨. **현재 gourmet 코드**는 `DATABASE_URL` **단일 엔진**이고, 분리는 주로 **업로드 경로**(`BROG_UPLOAD_DIR` / `MYG_UPLOAD_DIR`)·API 경계 수준. “DB 분리 테스트”를 Gee가 말하는 그대로 하려면 (1) **스키마/테이블·권한**으로 BroG용 vs MyG용을 코드에서 절대 섞지 않게 강제하는지, (2) **물리 DB 두 개**+연결 두 개인지, (3) **앱 로컬 DB + BroG는 읽기 전용 API**인지 범위를 한 줄로만 정해 주면 그에 맞는 검증 체크리스트를 짤 수 있음. 결제보다 먼저 잡아도 됨 — 잘못 섞이면 데이터·프라이버시 이슈가 PG보다 치명적일 수 있음.
+
+Gee: 현재 버전에서 APP으로 만들기 전에 검토해야 할 내용있는지 점검해줘
+브로(AI): **전문(앱 전 점검 요약)** — 저장소에 Capacitor 설정 없음=웹 래핑 전 단계. (1) `최종본_규칙.txt` 정합: BroG 온라인만·MyG 앱은 로컬·웹 MyG는 서버 DB → 앱에서 MyG 기능 범위를 “서버 그대로” vs “로컬 전환” 중 어느 단계까지 출시할지 결정. (2) API·CORS: `main.py` 허용 Origin은 localhost/LAN Vite 포트+`BROG_CORS_EXTRA_ORIGINS`; 앱 WebView/capacitor scheme·스토어 빌드 origin은 **별도 허용 목록** 필요. (3) `VITE_API_BASE_URL`/프록시: dev는 `/__gourmet_api__` 프록시; **앱 번들에는 프록시 없음** → 공개 HTTPS API 확정·이미지·업로드 URL이 앱에서 열리는지. (4) 인증: `localStorage` JWT(`http.ts` 등); WebView는 동작하나 **보안·토큰 저장소(네이티브 키체인)**·만료·갱신 정책 검토. (5) 카카오 지도: 웹 SDK·키·Referer; 앱 WebView/네이티브 정책·도메인 등록. (6) 결제 KCP: 리턴 URL·외부 브라우저/인앱·딥링크; PG가 WebView만으로 막는지 사전 확인. (7) 카메라·파일·푸시: Capacitor 플러그인·권한 문구. (8) TLS/ATS·혼합 콘텐츠. (9) BroG/MyG 데이터 경계·`from-brog` 복사 이미지 정책과 앱 로컬 MyG 설계 충돌 없는지. (10) 스토어 심사: 계정 삭제·개인정보 처리방침 URL 등. 코드 변경 없이 점검 목록만 제시.
+
+Gee: 현재 사용중인 API_key를 (나 자신의 것) 그대로 앱으로 배포하면 문제가 생기나? 유료화가 적용된다던지, 개인정보가 위험해 진다던지
+브로(AI): **전문** — 앱에 넣는 `VITE_*` 류는 **빌드에 박히면 사실상 공개**라 “나만의 비밀”이 아님(추출 가능). **유료화**: 플랫폼(카카오 등) 정책·상품별 과금·쿼터가 있을 뿐 “앱이라서 자동 유료”는 아님; 다만 **남이 키를 가져다 쓰면** 호출량·과금·한도 소진 리스크. **개인정보**: 키 문자열 자체가 이용자 PI는 아님; 위험은 **키 도용으로 허용된 API가 남용**되거나, **클라이언트에 넣으면 안 되는 비밀**(서버 전용·PG·DB·JWT 시크릿)을 실수로 넣었을 때. broke 기준: **지도용 JavaScript 키**는 클라이언트 용도로 쓰되 카카오 콘솔에서 **플랫폼(웹 도메인·앱 패키지) 제한**을 맞추고, **REST 키는 브라우저/앱에 두면 유출 시 API 남용**에 취약하니 가능하면 **백엔드 프록시**로 숨기는 편이 안전. 배포 전 카카오 개발자 문서의 **키 종류·과금·쿼터**만 확인하면 됨.
+
+Gee: 네말은 Vite key값은 백단에 설정하고, front인 앱에는 놓지 않으면 내 key를 써도 무방한 것처럼 들리는데
+브로(AI): **오해 정정(전문)** — `VITE_` 로 쓰는 값은 Vite 규칙상 **프론트 번들에 주입**되는 게 전제라 “백단에만 두고 프론트·앱에는 절대 안 실린다”가 아님. 내가 말한 건 **REST 키처럼 서버에서만 써야 하는 종류**는 `VITE_` 에 넣지 말고 **gourmet 환경변수 + API 라우트**로만 쓰라는 뜻. **카카오 지도 JavaScript 키**는 브라우저/WebView에서 SDK 띄울 때 보통 **클라이언트에 필요**하고, 그건 “비밀”이 아니라 **콘솔에서 도메인·패키지로 묶인 공개 식별자**에 가깝게 다루는 쪽(남용·도용은 플랫폼 제한·모니터링으로 완화). 정리: **백으로 옮길 수 있는 것만 옮기고**, 지도 JS 키처럼 **클라이언트에 남는 것은 “무방한 비밀”이 아니라 “노출 전제 + 제한·감시”**로 이해하면 됨.
+
+Gee: 현재 www.2corea.com으로 접속해서 확인하고 있는데, brogourmet 은 bro.2corea.com으로만 서비스하고, www.2corea.com은 별도의 홈페이지로 활용할 생각이야. 그렇게 정리하려면 내가 해야할 작업은?
+브로(AI): **전문(할 일 체크리스트)** — (1)**DNS(Cloudflare 등)**: `bro` A/CNAME을 **원본 IP**(www·api와 같거나 별도)로 추가. `api`는 그대로 두는 편이 일반적. (2)**TLS**: Origin 인증서가 **`bro.2corea.com` SAN/와일드카드** 포함인지 확인(없으면 PEM 재발급·nginx ssl_* 갱신). (3)**nginx**(`deploy/nginx/www-api-2corea.conf` 류): `server_name bro.2corea.com` 블록 신설·`root`를 **broke `dist`**로; `www.2corea.com` 블록은 **별도 홈 `root`**(정적 HTML 또는 다른 빌드)로 변경. `nginx -t` 후 reload. (4)**gourmet `.env`**: `BROG_CORS_EXTRA_ORIGINS`에 **`https://bro.2corea.com`**(쉼표로 www 제거 또는 전환기간 병행), **`FRONTEND_PUBLIC_URL=https://bro.2corea.com`** — 메일 인증 링크·`payments_kcp` 프론트 리다이렉트 등에 사용됨. uvicorn 재시작. (5)**broke**: `VITE_API_BASE_URL`은 **`https://api.2corea.com`** 유지 가능; **재빌드·`dist`를 bro용으로 배포**(www 폴더에는 새 홈만). (6)**카카오 개발자 콘솔**: Web 플랫폼에 **`https://bro.2corea.com`** 등록·www는 제거 또는 랜딩만 쓰면 지도 키는 bro만. (7)**선택**: 예전 북마크용 **`https://www.2corea.com/…` → `https://bro.2corea.com/…` 301** 또는 www 루트에 “서비스는 bro로” 안내 링크. 저장소 문서·`run.txt` 예시 문구는 나중에 Gee 「수정해」 시 정합.
+
+Gee: diff가 뭐야?
+브로(AI): **diff** = 파일(또는 여러 파일)의 **변경 전·후 차이**를 한눈에 보여 주는 표현. 보통 `-` 빨간 줄(삭제)·`+` 초록 줄(추가) 형태. Git에서는 `git diff` 로 로컬 변경을 볼 수 있음. **dial 규칙2**: 브로가 코드를 바꾸기 **전에** 이런 diff를 먼저 보여 주고, Gee가 **「수정해」**라고 한 뒤에만 실제 파일에 반영하는 절차.
+
+Gee: diff 보여줘
+브로(AI): **예시** — `git diff gourmet/app/schemas/payment.py` 출력으로 형식 안내(저장소 기준 미커밋 변경). **전체**는 `git status`/`git diff --stat`에 13 tracked 파일+untracked 다수; 큰 덩어리는 `PaymentPage.tsx` 등. 로컬에서 전체 보려면 `cd brogourmet` 후 `git diff` 또는 파일 지정 `git diff -- 경로`.
+
+Gee: 키 이름(필수) brogourmet / JavaScript SDK 도메인 localhost:5173, bro.2corea.com, api.2corea.com, 127.0.0.1:5173 / 카카오 로그인 리다이렉트 URI http://192.168.0.47:5173 — 이렇게 수정하면 되는거야? 리다이렉트 URL은 저게 설정이 맞는건가?
+브로(AI): **전문** — (1)**JavaScript SDK 도메인**: 지도 JS가 **브라우저에서 실행되는 페이지 origin**만 등록하면 됨 → localhost·127.0.0.1·`https://bro.2corea.com` 적절. **`https://api.2corea.com`은 불필요**(지도 SDK는 broke가 뜨는 호스트에서 로드됨, API 서브도메인이 아님). (2)**카카오 로그인 Redirect URI**: **카카오 계정 로그인(OAuth)** 쓸 때만 의미 있음. 현재 BroGourmet 로그인은 **이메일/비번(gourmet `/auth/login`)** 위주라 이 URI는 **지도·키워드 검색 동작과 무관**할 가능성 큼. 나중에 카카오 로그인 붙이면 **실제 콜백 전체 URL**(스킴+호스트+경로, 예 `https://bro.2corea.com/...`)을 카카오 문서대로 추가. `http://192.168.0.47:5173`만 있으면 **운영 HTTPS·bro 도메인**과는 안 맞음—LAN 개발용으로만 타당. (3)**REST 키**(키워드 검색 `KakaoAK`): **JavaScript 키 도메인 설정과 별도** 키/제한이 콘솔에 있으면 그쪽도 확인.
+
+Gee: 카카오와 Cloudflare는 수정했어
+브로(AI): **반영됨(인지)** — 다음으로 **nginx `bro`/`www` root·gourmet `BROG_CORS_EXTRA_ORIGINS`·`FRONTEND_PUBLIC_URL`·broke `dist` 배포**만 서버와 맞으면 끝. 브라우저에서 `https://bro.2corea.com`·지도·API 한 번씩 확인해 보면 됨.
+
+Gee: nginx — bro.2corea.com이 broke dist를 보게 했는지, www는 새 홈 root인지, api는 gourmet로 프록시되는지 <- key값을 새로 받아야 하는건가?
+브로(AI): **아님(일반적으로)** — nginx는 **경로·호스트 분기만** 바꿈. **카카오 JS/REST 키 문자열**은 그대로 두고 콘솔에 **도메인만** `bro` 등 추가한 상태면 재발급 불필요. **gourmet** `JWT_SECRET`·`DATABASE_URL` 등도 서브도메인 때문에 자동으로 바뀌지 않음. **바뀔 수 있는 것**: TLS용 **Origin 인증서**를 `bro` 포함해서 새로 냈으면 **PEM/키 파일만** 교체(nginx `ssl_*` 경로). CF **Full(strict)** 이면 원본 인증서가 호스트를 커버해야 함—그건 “API 키”가 아님.
+
+Gee: 정상적으로 접속은 되는거 같은데, 네가 이상없는지 체크해줘
+브로(AI): **원격 점검(브로 쪽에서 실행한 결과)** — `https://bro.2corea.com/` HEAD **200**. `https://api.2corea.com/openapi.json` **200**·`/docs` 문서 로드됨. `GET https://api.2corea.com/restaurants?…` **200**·본문 수신. **`www.2corea.com`**: 이 환경 DNS `Resolve-DnsName`은 **이름 없음(NXDOMAIN 계열)**; 외부 fetch는 **503** 한 번 관측—**www용 DNS 레코드(A/CNAME)·원본 응답**을 Gee 쪽에서 한 번 더 확인 권장. 브라우저에서 bro 로그인·지도·결제까지는 Gee가 직접 확인.
+
+Gee: 내가 향후 게임으로 써야겠다고 기록해 놓으라고 했던게 뭐였지?
+브로(AI): **`broke/FUTURE_GAME_IDEAS.md`** — 제목「향후 게임 메뉴 아이디어」. 본문 핵심: **좌표 거리 게임(예정)** — 홈 위도·경도 UX를 게임으로 확장, 나/상대 각각 좌표 입력 후 **Haversine 등으로 거리(km)** 표시, 후속으로 구간 문구·점수 등; 배치는 추후 **`/game` 허브 등**에 전용 화면. 구현 전 메모용 명시.
+
+Gee: 구현 가능한건지 생각해줘. 일단 회원은 자기 위치가 표시되. 여기 회원기리 친구맺길를 하면 게임란에서 친구찾기로 반경 5km(예시) 이내의 친구가 보이게 되. 근데.. 친구가 2명이상이 접속해 있다면 닉네임만 보여주고 누가 더 가까운 곳에 있을까요? 라고 하면서 내가 선택할 수 있게 하고, 선택한 후 정답인지 아닌지 지도에 표시하면서 실거리를 보여주는거야
+브로(AI): **전문(구현 가능성)** — **기술적으로 구현 가능**. 현재 `users` 모델에는 **위치 컬럼 없음**·**친구 관계·접속 상태 API 없음** → 추가 설계 필요. 필요한 층: (1)**내 위치** — 주기적 업데이트(lat,lng,시각)·위치 공유·친구 거리 게임 **옵트인** 동의(개인정보). (2)**친구** — 요청/수락 테이블·차단·양방향만 거리 조회. (3)**접속** — 정의 필요(예: 최근 N분 내 하트비트 또는 WebSocket); “온라인”만 5km 후보에 포함. (4)**쿼리** — Haversine/PostGIS로 “나 기준 친구 거리” 정렬, 5km 필터. (5)**게임 라운드** — 서버가 정답(더 가까운 user_id) 보관, 클라는 닉네임만 받고 선택 후 채점·**실거리·정오답**·지도 마커(친구 위치는 선택 후에만 노출하는 식으로 정책 가능). **엣지**: 동률 거리·친구 0~1명·GPS 오차·스푸핑(위치 신뢰). **요약**: 스택(FastAPI+PG+Kakao맵)으로 무리 없고, **제품+개인정보+남용 방지** 설계가 공수 대부분. 아이디어 박제는 Gee 원하면 `FUTURE_GAME_IDEAS.md`에 「친구 근접 추측」 절 추가(diff→「수정해」).
+
+Gee: 일단 게임페이지를 사다리게임과 친구찾기로 화면 구분해줘. 그리고 친구찾기 게임을 진행하자. 접속해 있는 사용자 중심으로 테스트 해보고 수정할 내용있으면 그때 다시 수정하면 되.
+브로(AI): **코드적용** — `/game` → `GameHubPage` 탭(사다리 점메추 | 친구 찾기). `SadariPage`는 바깥 `home-layout` 제거(허브가 한 번 감쌈). **gourmet**: `users.last_seen_at`·`game_lat`·`game_lng` + `db_migrate.ensure_user_presence_game_columns`·`app/api/game_social.py` — `POST /game/presence`·`POST /game/location`·`GET /game/online-summary`·`GET /game/closer-round`(반경 5km·접속 120초·거리 가까운 두 명)·`POST /game/closer-guess`. **broke**: `api/gameSocial.ts`·`FriendFinderGame.tsx`(하트비트 25초·위치 등록·라운드·지도 결과)·`index.css` 탭·친구찾기 스타일. **sql/users_presence_game_location.sql** 주석. MVP는 **친구 테이블 없이** “접속 중 다른 전체 회원” 기준; 이후 친구만 필터로 확장 가능.
+
+Gee: 저 거리 측정은 어떻게 하는 거야?
+브로(AI): **설명** — 서버 `gourmet`의 `app/api/game_social.py` 에서 **Haversine**(구면 위 두 위도·경도 사이의 **대원 거리**)으로 **킬로미터**를 계산함. 지구 반경 **6371 km** 가정. 도로 거리·네비 거리가 아니라 **좌표 직선(곡면) 거리**; GPS 오차는 그대로 반영됨.
+
+Gee: 내 상태 테이블에 BroG의 지도를 카피해서 옮겨주고, 지도위 특정위치에서 우클릭하면 '내위치 설정' 이라고 말품선 나오게 해줘
+브로(AI): **코드적용** — `GET /game/online-summary`에 **`my_game_lat`·`my_game_lng`** 추가(등록된 게임 좌표). **FriendFinderGame** `내 상태`: `map-layout--brog`·`map-page-map-section map-card`·`BrogKakaoMap`(우클릭/롱프레스로 `postGameLocation`)·GPS 버튼 문구 정리.**BrogKakaoMap** 선택 prop **`pickLocationRightClickBubbleText`** — 카카오 `rightclick` 직후에만 말풍선(CustomOverlay, 기존 speech 스타일)·약 2.6초 후 제거; 롱프레스에는 말풍선 없음. `index.css` 말풍선 보조 클래스.
+
+Gee: 롱프레스(왼쪽 길게) 로 찍을 때는 말풍선은 안 뜨게 했어 (요청이 우클릭 중심이라). <- 똑같이 적용하고, 누가더가까울까요? 테이블에서 친구가 한명일 경우에는 '1명 위치보기' '친구 선택하기(게임)' 으로 구분해줘.
+브로(AI): **코드적용** — `BrogKakaoMap` 롱프레스(`fireFromContainerPoint`)도 우클릭과 동일하게 말풍선 표시. **gourmet** `GET /game/peer-location/{id}`·`PeerLocationOut`. **broke** `fetchPeerLocation`·`FriendFinderGame`: 접속 1명일 때 「1명 위치보기」「친구 선택하기(게임)」·미리보기 지도; 2명 이상은 기존 라운드 버튼, 0명은 안내 문구. `index.css` 한 줄·2열 버튼.
+
+Gee: 게임위치 설정하는 지도화면과 게임결과 나오는 지도화면의 테이블 크기가 다르게 보여. 같은 사이즈로 조정해줘.
+브로(AI): **코드적용** — 결과·미리보기 지도를 `게임 위치`와 동일 `map-layout--brog`·`map-card`·`game-page__map-stack`으로 감쌈(`home-layout--map-home`의 지도 높이 변수 공유). `.friend-finder__map`·`__map--peer-preview` 제거.
+
+Gee: 헐...둘 다 여백이 없어진게 아니라, 둘 다 여백이 생겨버렸네.. 다시 되돌리고, 게임결과화면의 지도 크기에 맞춰줘
+브로(AI): **코드적용** — `map-page__map-stack`/map-card 래퍼 제거(결과·미리보기·게임 위치 공통 `friend-finder__map`). 친구찾기 범위에서만 `.kakao-map-container--below` 높이 **280px** 고정으로 통일. 제목·힌트는 `friend-finder__map-block-*`로 유지.
+
+Gee: BroG의 지도 높이와 친구찾기 게임의 지도 높이가 동일한거야?
+브로(AI): **아님.** BroG `/map` 등은 `:root` `--kakao-map-below-*`(최소 360px·높이 min(48vh,440px)). 친구찾기는 `.friend-finder__map` 안만 280px 고정.
+
+Gee: 친구찾기 게임에서만 사용하는 위치지정은 다른 페이지에 영향이 없는 거야?
+브로(AI): **데이터·UI 모두 분리.** DB는 `users.game_lat`/`game_lng` 전용, gourmet에서 `game_social` API만 사용·다른 라우터 미참조. broke는 `FriendFinderGame`+`postGameLocation`만. 지도 높이 CSS는 `.friend-finder__map` 범위만. 단 접속 하트비트는 `last_seen_at`(게임 요약에만 쓰임).
+
+Gee: 친구찾기의 지도 높이를 340px로 변경해줘
+브로(AI): **코드적용** — `index.css` `.friend-finder .friend-finder__map .kakao-map-container--below` 높이·max-height **340px**.
+
+Gee: Free, Q&A 페이지의 검색 란의 테이블 높이가 높아보이는데, 전체적으로 한 줄 라인으로 보이게 편집해줘
+브로(AI): **코드적용** — `index.css` `.free-share-board-toolbar`: map-card 패딩 축소, `filters-row` 하단 여백 제거, `.price-filter` 가로 한 줄·`select` width auto, 입력·확인 패딩 축소. TSX 없음(무료나눔·Q&A 동일 보드).
+
+Gee: Q&A 페이지에서 FAQ, Q&A 로 별도 페이지를 생성해주고, FAQ의 게시판은 관리자, 지역담당자만 작성할 수 있게 새로운 게시판 생성해줘.
+브로(AI): **코드적용** — `share_category` **`faq`** 추가(gourmet `schemas/community`·`free_share` 생성·수정·댓글 권한, `deps.can_write_faq_post`). broke: `/faq`·`/faq/write`·`/faq/:id`, `FAQ_BOARD_NAV`, 보드 `boardVariant="faq"`, 무료나눔 목록에서 faq 제외, 지도 핀에서 faq 제외. FAQ 작성·댓글은 **super_admin** 또는 **managed_district_id 있는 regional_manager**만. 헤더·홈 FAQ|Q&A 링크·보드 상단 전환.
+
+Gee: 내 얘기를 잘 못 이해했어. 상단 주메뉴에는 Q&A 아이콘 만 있고, Q&A 페이지 내에서 Game 페이지처럼, FAQ, Q&A 로 구분되어야 해.
+브로(AI): **코드적용** — 헤더·홈은 Q&A 아이콘만 `/qna`. `/qna`는 `QnaHubPage`(게임 허브와 동일 탭 UI)에서 `?tab=faq|qna`로 `FreeShareBoardPage` 전환. `/qna/write`·`/qna/:id`만 유지; `/faq*`는 `Navigate`로 이관. 보드·작성·상세 보조 링크·`communityBoardNav`·CSS 허브 전용 제거. `qnaHubMode` 제거하고 Q&A/FAQ 경로는 항상 `/qna`·`/qna/write?variant=`.
+
+Gee: FAQ의 검색은 전체보기, 제목, 리스트번호 만 나오게 하고, FAQ 작성페이지는 제목, 본문, 파일첨부로 간단하게 해줘
+브로(AI): **코드적용** — `FreeShareBoardPage`: FAQ만 검색 셀렉트 **전체보기·제목·리스트 번호**, `title` 모드+확인으로 제목 부분일치; 탭 전환 시 검색 초기화. `FreeShareWritePage`: FAQ는 **제목·본문(라벨 본문)·파일 첨부만**(구·분류·지도·URL칸 제거, 첨부는 업로드+간단 목록·삭제). FAQ 등록 시 `district`/좌표 null. `index.css` FAQ 첨부·제목 블록 보조.
+
+Gee: 상단 메뉴의 MyG 옆에 Back이라는 아이콘을 생성하고 스폰서 페이지를 만들고 싶은데, 규칙은 스폰서가 마음대로 작성할 수 있게 하는 거야. BroG와 MyG의 형식과는 리스트페이지가 좀 다르게 표현되어야 하는데(광고효과 중임) 네 아이디어를 볼 수 있을까? 스폰서 페이지는 가격 제한이 없어.
+브로(AI): **전문(아이디어·구현 전)** — (1)**메뉴 이름** `Back`은 일반 사용자에게 «뒤로가기»로 오해될 수 있음 → 내부 코드·경로는 `/sponsor` 등으로 두고, **라벨은「스폰서」「Partner」「백」** 중 제품 톤에 맞는 하나 추천. 아이콘은 **리본·별·손잡이(파트너)** 류가 BroG 지도·MyG와 겹치지 않게 구분됨. (2)**BroG/MyG와 다른 리스트(광고 톤)** — 가격·구·맛집 그리드 대신 **① 히어로 카드**(큰 커버 이미지+짧은 헤드라인+「자세히」)·**② 가로 스크롤 «픽» 스트립**(상단 고정 노출 슬롯)·**③ 풀폭 컬러 밴드 행**(스폰서 브랜드 틴트 선택 필드 있으면 더 강함)·**④ 잡지형 2열**(이미지 왼쪽·요약 오른쪽). **항상 작은「스폰서 콘텐츠」배지**로 신뢰와 광고를 분리. (3)**규칙「스폰서가 마음대로」** — DB/API를 **맛집(restaurants)과 분리**한 `sponsor_post`류(제목·리치 본문·대표 이미지·갤러리·외부 링크·노출 기간·노출 순서). 작성 권한은 **`sponsor` 역할**만; 운영만 **비공개/고정(pin)** 토글 가능하면 편집 자유는 유지하면서 최소 안전장치. 가격 필드 없음 명시. (4)**다음 단계** — Gee가 메뉴 문구·리스트 안(①~④ 중 우선) 확정 후 「수정해」하면 broke 라우트+gourmet API+역할 연동 diff 제시.
+
+Gee: SPON 이라고 아이콘명 변경, 3번, 4번 항목으로 선정해서 리스트 페이지와 작성페이지등 샘플로 만들어봐
+브로(AI): **코드적용** — `App.tsx`: MyG 옆 **SPON**·`/sponsor`·`/sponsor/view/:id`(공개)·`/sponsor/write`(로그인·RequireAuth)·prefetch. `SponsorListPage`: **③풀폭 그라데이션 밴드+④잡지형 2열**(이미지|카피), 스폰서 배지·시드+localStorage 병합 `sponsorSampleStorage.ts`. `SponsorPostDetailPage`·`SponsorWritePage`(컬러·이미지URL·외부링크·본문, 샘플 저장 후 상세 이동, `?edit=`로 시드 덮어쓰기). `index.css` SPON·스폰서 레이아웃.
+
+Gee: FAQ 상세페이지 에서 '나눔장소' 삭제.. 수정페이지에서 필요없는 글이나 테이블 삭제
+브로(AI): **코드적용** — `FreeSharePostDetailPage`: FAQ는 **보기**에서 `FreeSharePlacePicker`(나눔장소) 미표시; **수정**에서 장소 피커·분류 안내 문구·이미지 URL `fieldset`/링크 줄 제거, **본문** 라벨·파일 추가+첨부 N 삭제만. FAQ 저장·완료토글 시 `district`/좌표 null. `index.css` `.free-share-detail__faq-attach` 여백.
+
+Gee: BroG의 이미지 리스트에서 1라인 몇 줄정도 라고 생각하면 될까?
+브로(AI): **설명** — `/brog/list` 캐러셀 한 페이지는 **8곳**(`BROG_RANK_GRID_PAGE_SIZE`). 그리드는 **PC(너비>720px) 4열×2행(한 줄 4칸·두 줄)** , **모바일(≤720px) 2열×4행(한 줄 2칸·네 줄)** (`index.css` `ul.brog-rank-grid.brog-rank-grid--paged`). 홈 미리보기도 **4×2·최대 8곳** 동일 개념. 캐러셀 밖 일반 `brog-rank-grid`만 쓰면 `auto-fill`+`minmax(220px)`라 화면 너비에 따라 열 수 가변.
+
+Gee: 스폰 작성페이지에서 대표이미지는 4장까지 첨부가능하게 해줘. 링크를 걸어도 4개까지.. 그리고 폰에서 볼때 2x4의 배열로 보이는데, 1x4의 배열로 보일수 있게 표현해봐. 당연히 페이지 넘김도 똑같이 구현되어야 겠지. PC화면에서도 1x4의 배열로 보일 수 있게 해주고.. 스폰페이지 첫화면에 검색링크 넣어주고.좌표 적용에 따라 검색되는게 달라져야 하고. 가격상한은 없애는게 나을 듯...
+브로(AI): **코드적용** — `sponsorSampleStorage`: `imageUrls` 최대 4·`latitude/longitude`·레거시 `imageUrl` 마이그레이션·`filterSortSponsorPosts`(q+좌표 시 Haversine 정렬, 무좌표 뒤)·시드 5건. `SponsorWritePage`: 파일+URL 합산 4·좌표 입력·`append` 시 `createdAt` 유지. `SponsorListPage`: `?q=&lat=&lng=` 검색폼·현재위치·검색링크 복사·`BrogRankGridCarousel` **pageSize 4**·`ul.sponsor-strip-page` **4×1(4열·1행)**. `SponsorPostDetailPage`: 이미지 갤러리·좌표 메타. `index.css` 스트립·검색·갤러리. 리드카피에서 가격 상한 문구 제거.
+
+Gee: 실수...4x1 로 바꿔야 해...기존 BroG 는 4x2 의 메뉴 구성이었네...착각
+브로(AI): **반영됨** — 문구·주석·시드·dial을 **4×1(4열·1행)** 로 통일. 그리드는 기존과 동일 `repeat(4,1fr)` 한 줄. BroG는 **4×2**(8건/슬라이드)와 구분해 리드에 명시.
+
+Gee: 아니..4행 1열이 맞아
+브로(AI): **코드적용** — SPON 스트립 `ul.sponsor-strip-page` **1열**(4행 쌓임). 카드는 넓은 화면 **가로**(썸네일|본문), ≤420px **세로**. `SponsorListPage`·`sponsorSampleStorage` 시드·`index.css` 주석·a11y 문구 **4행·1열**로 통정. BroG **4×2** 구분 유지.
+
+Gee: 모바일에 표현되는게 중요한데...현재는 뭐가 안맞아 보이거든.. 쉽게 표현하자면 모바일에서 BroG가 4x2로 보이거든, 여기서 4x1로 4개 업체만 보이면 딱 좋을거 같은데... 쉽게 생각해서 BroG의 PC화면처럼 2개식당의 이미지 자리에 한개업체가 오게끔 배치하면 2x2의 구성이 되잖아. 이렇게 구성하면 모바일에서 4x1로 보일까? 네 생각을 말해주고, 모바일에서 4x1로 보일수 있는 방법을 찾아봐
+브로(AI): **설명+코드적용** — **2×2는 4행·1열이 아님**(2열·2행 네 칸). 말씀하신 «PC에서 식당 2칸 이미지 자리에 스폰 1곳»을 **모바일**에 옮기면: BroG 폰은 **2열×4행·8곳**이고, **가로 한 줄=식당 2칸**이므로 그 **한 줄 높이·폭**에 스폰 카드 1장을 맞추면 **세로로 4장=4행·1열**이 됨(2×2 아님). **방법:** `ul.sponsor-strip-page`는 1열 유지, **≤720px**에서 카드를 **항상 가로 밴드**(썸네일 **50%**·16:9 → BroG 한 칸 썸과 같은 스케일, 나머지에 제목·요약), **gap 6px**로 BroG 캐러셀 페이지와 맞춤. 기존 **≤420px만 세로 카드**로 바꾸던 규칙 제거(폰에서 BroG와 체감 어긋남 원인).
+
+Gee: 현재 모바일에서는 4개업체가 한 화면에 들어왔으면 좋겠는데, 2개업체만 들어와, 높이를 조절해봐야 할 거 같아
+브로(AI): **코드적용** — `index.css` ≤720px·`.sponsor-hub__list` 한정: 스폰 카드 **행 높이 clamp(약53~60px)** 고정·`overflow:hidden`, 썸네일 **고정 폭·높이=행**(16:9 제거), **요약·스폰서 배지 숨김**, 제목 **1줄**, 링크 한 줄·작은 글꼴, 카드 간 **gap 4px**. 4행 합이 한 뷰에 들어가도록 압축.
+
+Gee: SPON 페이지의 검색테이블은 BroG를 카피해서 그대로 적용하고,  가격상한 바 대신에 상호명으로 검색란으로 바꿔줘.. 사이즈 유지해서 .. 그리고 모바일에서 음식점리스트가 한 줄 정도만 해당된 것으로 보여. 높이를 좀 더 높여줘
+브로(AI): **코드적용** — `SponsorListPage`: BroG와 동일 **`brog-list-body__map-stack` + `map-page-toolbar map-card` + `HomeStyleListToolbarGeo`**, 1행은 **상호명(`q`) 입력** + **서울시 구**(URL `city`/`district` 유지·샘플 목록 필터 미연동), 2행 좌표는 BroG와 동일. 툴바 아래 **좌표 지우기·검색 링크 복사**·힌트. `index.css`: BroG 툴바용 **`price-filter input[type=text]`** PC·모바일 치수를 `select`와 동일, 기존 `sponsor-hub__search*` 제거·`sponsor-hub__toolbar-foot*` 추가. 모바일 스폰 카드 **행 높이·썸 폭 clamp 상향**, 제목 **2줄**까지.
+
+Gee: Spon 이미지 리스트의 높이를 지금보다 2배 크게 적용해줘
+브로(AI): **코드적용** — `index.css` SPON 스트립: PC **카드·썸 `min-height` 96→192px**. 모바일(≤720) **행 높이 clamp를 약 2배**(4rem/17vw/4.65rem → 8rem/34vw/9.3rem), 썸네일 열 폭도 비례해 키움.
+
+Gee: Spon 작성페이지에 BroG의 지도를 넣어주고, 상세페이지에 보이는 썸네일 이미지가 지금보다 2배는 커졌으면 좋겠어
+브로(AI): **코드적용** — `SponsorWritePage`: BroG/MyG와 동일 **`ManageFormLocationMapSection`**(장소 검색·`BrogKakaoMap`·수동 위경도·GPS). 좌표는 **`latitude`/`longitude` 숫자 state**로 저장·`appendSponsorSamplePost` 연동, 기존 좁은 좌표 블록 제거. `index.css`: 상세 **`sponsor-detail__gallery--strip`** `minmax(140px→280px)`, `gap` 10→14. 미사용 **`sponsor-write-form__coords*`** 스타일 삭제.
+
+Gee: 상세페이지의 전체적인 윤곽을 균형있게 표현해줘
+브로(AI): **코드적용** — `index.css` SPON 상세: **`article.sponsor-detail`** 세로 **`gap:22px`**, 헤더·갤러리·본문 **패딩·모서리·테두리·그림자** 통일감. **갤러리** `auto-fit`+`max-width:56rem` 가운데, 카드 **테두리·그림자**. **본문** `map-card` 패딩·`prose` **62ch 중앙·줄간**. **툴바** 상단 **구분선**, **좌표 메타** 칩 스타일.
+
+Gee: spon 의 상세페이지도 관리자인 경우에 수정 삭제 기능 추가
+브로(AI): **코드적용** — `SponsorPostDetailPage`: 로그인 시 **`fetchMe`**·**`isSuperAdmin(role)`** 일 때만 **수정**(`/sponsor/write?edit=`)、**삭제**(확인 후 `deleteSponsorSamplePost`→`/sponsor`). 비관리자에게 보이던 **「샘플 수정(폼)」** 제거. `sponsorSampleStorage`: **`REMOVED_IDS_KEY`**+**`deleteSponsorSamplePost`**, 시드 글도 로컬에서 숨김.
+
+Gee: 지도는 VITE_KAKAO_MAP_APP_KEY / 장소 검색은 **VITE_KAKAO_REST_API_KEY**가 있어야 BroG와 같이 동작합니다. BroG에 적용된 걸 그대로 사용해
+브로(AI): **코드적용** — BroG 매장 등록과 동일 지명 검색 로직을 **`broke/src/lib/manageFormKakaoPlaceSearch.ts`** (`runManageFormKakaoPlaceSearch`, `api/config`의 `KAKAO_REST_API_KEY`·기존 문구·`fetchKakaoKeywordFirstPlace`)로 묶어 **`RestaurantManagePage`·`KnownRestaurantsWritePage`·`KnownRestaurantPostEditPage`·`SponsorWritePage`** 가 공유. 지도는 기존 **`ManageFormLocationMapSection`** → **`KAKAO_MAP_APP_KEY`**(`VITE_KAKAO_MAP_APP_KEY`) 그대로.
+
+Gee: spon의 리스트 페이지에서 사진을 등록함에서 리스트 페이지에서 깨지는 이유 확인, 리스트 숫자가 pc에서 7개 폰에서 5개만 보이는 이유 확인
+브로(AI): **원인** — (1) 업로드 URL이 **`/uploads/myg/…`** 상대경로인데 목록이 그대로 `img src`에 쓰여 **Vite(:5173) origin**으로 가서 404·깨짐; 상세는 `resolveMediaUrl` 쓰고 목록은 미적용. **코드적용** — `SponsorListPage`에 **`resolveMediaUrl`+`imgReferrerPolicyForResolvedSrc`**. (2) **7 vs 5** — 샘플 **시드만 5건**; PC에만 `localStorage`에 추가 글이 있으면 7건 등으로 **기기·브라우저별 저장** 차이. 한 슬라이드는 여전히 **4건**(`pageSize={4}`).
+
+Gee: 서버에 저장하는 것으로 하고, 샘플작성 아니라 실제 화면으로 변경. 리스트페이지에서 좌표지우기, 검색링크복사 삭제
+브로(AI): **코드적용** — gourmet **`sponsor_posts`** 모델·**`/sponsors/posts`** CRUD(목록·상세 공개, **작성·수정·삭제는 `super_admin`만**), `main` 라우터·`schema.sql`·`sql/sponsor_posts_table.sql`. broke **`api/sponsors.ts`**·목록·상세·작성 API 연동, **`sponsorSampleStorage.ts` 제거**·**`hexRgba.ts`**. 리스트 **좌표 지우기·검색 링크 복사** 제거, 문구 **실제/서버**로. `?edit=`는 **숫자 id**만.
+
+Gee: 그만
+브로(AI): 알겠음.
+
+Gee: 리셋해보고 말해줄게
+브로(AI): 좋음. Postgres·**uvicorn**(gourmet)·**8001 점유 프로세스**까지 리셋해 보시고, **`curl http://127.0.0.1:8001/db-check`** 또는 브라우저에서 응답·**터미널 로그**가 어떻게 나오는지 알려 주면 그다음 짚어 보겠음.
+
+Gee: PC의 스폰서 리스트화면과 폰의 스폰서리스트 화면이 달라..폰에서는 한줄요약글이 안보이고, 스폰서라는 테두리줄도 안보여
+브로(AI): **코드적용** — `index.css` ≤720px·`.sponsor-hub__list`: **요약·스폰서 배지** `display:none` 제거 → 요약 **1줄 클램프**, 배지 **소형+테두리·그림자** 유지. 카드 행 높이 **clamp 상향**, 본문 **`justify-content:flex-start`**, 제목 **1줄**. 좌측 accent **`box-sizing:border-box`**.
+
+Gee: 마이페이지에서 닉네임 전체유저의 수정권한
+브로(AI): **코드적용** — gourmet **`PATCH /users/me/nickname`**(`UserNicknameUpdate`, **`get_current_user`**만·역할 무관). broke **`patchMyNickname`**, **`MyPage`** 입력+저장·`notifyUserProfileRefresh`. **`index.css`** `.my-page__nickname-*`. 토큰 없는 테스트 UI 페르소나는 기존처럼 텍스트만.
+
+Gee: 서비스 6개구에서 25개구로 확대
+브로(AI): **코드적용** — `deploy_stage1.py` **`DEFAULT_STAGE1_DISTRICTS`** 서울 **25구**(broke `regions.ts` 동일 순서). **`deployStage1.ts`** `DEPLOY_STAGE1_DISTRICTS`=`seoulDistricts`. **`seed.py`** 시드·**`db_migrate.ensure_seoul_25_district_rows`**·`main` lifespan 순서. **`HomePage`/`RestaurantDetailPage`**·**`.env.example`**·**`sql/stage1_districts_scope_notes.sql`**. **`VITE_BROG_FULL_MAP=1`** 이면 기존처럼 UI/API 제한 해제.
+
+Gee: spon의 상세페이지 전체테이블 들의 윤곽 균등하게 조정
+브로(AI): **코드적용** — `article.sponsor-detail`에 `--sd-chassis-*`(반경·`var(--gold-dim)` 테두리·`var(--shadow)`·패딩·max 56rem). 헤더·갤러리 `sponsor-detail__gallery-wrap`·본문 `map-card`·좌표 메타 윤곽 통일, 갤러리 썸네일은 내측 반경·그림자 제거. `SponsorPostDetailPage.tsx` 래퍼 추가. `npm run build` 통과.
+
+Gee: DB접속이 안되고 있는데, 원인파익 및 조치
+브로(AI): **원인 후보 정리·조치** — (1) 이 환경에서 **PostgreSQL 15 서비스 실행 중·127.0.0.1:5432 TCP 성공** → “거부/미기동”보다 **인증 실패·DB명 없음·URL 오타·다른 호스트** 가능성이 큼. (2) `gourmet/.env`의 **`DATABASE_URL`**·비밀번호·DB명(`brogourmet`)·호스트/포트 확인; **UTF-8(무 BOM)** 저장(`db.py` 주석: UTF-16이면 URL 깨짐). (3) **uvicorn은 `gourmet` 폴더에서** 실행해 `load_dotenv`가 `.env`를 읽게. (4) DB 없으면 `scripts/create_database.py` 또는 `CREATE DATABASE brogourmet`. (5) 앱 확인: 가상환경에서 `GET /db-check` 또는 SQLAlchemy로 `SELECT 1`. **구체 로그**(uvicorn traceback 첫 OperationalError 한 줄) 주면 다음 원인 좁힘.
+
+Gee: [Brogourmet Map] inject: 완료 dapi 직접
+(색인):1 Access to fetch at 'https://api.2corea.com/events/ticker' from origin 'https://bro.2corea.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.이 오류 이해하기
+api.2corea.com/events/ticker:1  Failed to load resource: net::ERR_FAILED이 오류 이해하기
+(색인):1 Access to fetch at 'https://api.2corea.com/restaurants?max_price=10000&limit=8' from origin 'https://bro.2corea.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.이 오류 이해하기
+api.2corea.com/restaurants?max_price=10000&limit=8:1  Failed to load resource: net::ERR_FAILED이 오류 이해하기
+(색인):1 Access to fetch at 'https://api.2corea.com/site-notices' from origin 'https://bro.2corea.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.이 오류 이해하기
+api.2corea.com/site-notices:1  Failed to load resource: net::ERR_FAILED이 오류 이해하기
+(색인):1 Access to fetch at 'https://api.2corea.com/restaurants?max_price=10000&limit=8&near_lat=37.5444&near_lng=126.9391&radius_m=5000&near_ignore_district=true' from origin 'https://bro.2corea.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.이 오류 이해하기
+api.2corea.com/restaurants?max_price=10000&limit=8&near_lat=37.5444&near_lng=126.9391&radius_m=5000&near_ignore_district=true:1  Failed to load resource: net::ERR_FAILED이 오류 이해하기
+(색인):1 Access to fetch at 'https://api.2corea.com/restaurants?max_price=10000&limit=8&near_lat=37.5444&near_lng=126.9391&radius_m=5000&near_ignore_district=true' from origin 'https://bro.2corea.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.이 오류 이해하기
+api.2corea.com/restaurants?max_price=10000&limit=8&near_lat=37.5444&near_lng=126.9391&radius_m=5000&near_ignore_district=true:1  Failed to load resource: net::ERR_FAILED
+브로(AI): **설명** — 브라우저 **다른 출처**(https://bro.2corea.com vs https://api.2corea.com)라 API 응답에 **`Access-Control-Allow-Origin`**이 없으면 fetch 차단; `ERR_FAILED`는 그 여파로 자주 같이 보임. **조치**: `api.2corea.com` 서버 `gourmet/.env`에 **`BROG_CORS_EXTRA_ORIGINS=https://bro.2corea.com`**(다른 프론트 있으면 쉼표로 추가, 끝 `/` 없음) 후 **gourmet 재시작**. **코드적용** — `.env.example`에 운영 예시 한 줄 보강.
+
+Gee: 이제 그만
+브로(AI): 규칙4 마감 — `<4월18일 요약>` 저장·`dial_04_w3.txt` `<04-18 요약>` 보강·`finish_day.ps1` 실행.
+
+<4월18일 요약>
+- 결제·KCP·포인트 충전·결제 탭 등 당일 대화 중 합의·코드 이력은 주간 `<04-18 요약>`에 반영.
+- SPON 서버·리스트/상세·모바일 CSS·상세 윤곽 통일(`SponsorPostDetailPage`·`index.css`).
+- 서울 25구·닉네임 PATCH·CORS(`bro.2corea.com`) 안내·`.env.example`·DB 점검 안내.
+- Gee 「이제 그만」으로 세션 마감.

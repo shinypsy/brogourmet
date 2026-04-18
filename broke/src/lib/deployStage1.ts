@@ -8,20 +8,12 @@ const LEGACY_BROG_DISTRICT_ALL_LABEL = '전체보기'
 
 const SEOUL_DISTRICT_SET = new Set<string>(seoulDistricts)
 
-/** 1단계 테스트·시범 배포: 구 선택 범위만 한정. gourmet `deploy_stage1.py` 와 맞출 것. */
-/** gourmet `app/core/deploy_stage1.py` DEFAULT_STAGE1_DISTRICTS 와 동일 (순서·이름 유지). */
-export const DEPLOY_STAGE1_DISTRICTS = [
-  '마포구',
-  '용산구',
-  '서대문구',
-  '영등포구',
-  '종로구',
-  '중구',
-] as const
+/** 서울 25개 자치구 — gourmet `deploy_stage1.py` `DEFAULT_STAGE1_DISTRICTS` 와 동일 순서·이름. */
+export const DEPLOY_STAGE1_DISTRICTS = seoulDistricts
 
-export type DeployStage1District = (typeof DEPLOY_STAGE1_DISTRICTS)[number]
+export type DeployStage1District = (typeof seoulDistricts)[number]
 
-const STAGE1_SET = new Set<string>(DEPLOY_STAGE1_DISTRICTS)
+const STAGE1_SET = new Set<string>(seoulDistricts as readonly string[])
 
 /** 서울 25개 구 전체 노출 빌드. `npm run build` 시 `VITE_BROG_FULL_MAP=1` 등. */
 export function isFullMapDeploy(): boolean {
@@ -31,7 +23,7 @@ export function isFullMapDeploy(): boolean {
   return v === '1' || v === 'true' || v === 'yes'
 }
 
-/** 1단계 배포: 구 선택·노출을 위 6개로 한정. */
+/** 1단계 배포: 구 선택·노출을 위 25개로 한정(VITE_BROG_FULL_MAP 으로만 전체 해제). */
 export function isStage1LimitedDistricts(): boolean {
   return !isFullMapDeploy()
 }

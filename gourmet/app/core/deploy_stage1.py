@@ -1,16 +1,39 @@
-"""1단계 테스트·시범 배포: 선택 가능한 구(기본 6개)만 API에서 노출·허용."""
+"""1단계 배포: DEPLOY_STAGE1 켜짐 시 서울 25개 자치구만 API에서 노출·허용(기본).
+
+broke `data/regions.ts` 의 `seoulDistricts` 와 동일 순서·이름 유지.
+"""
 
 from __future__ import annotations
 
 import os
-# broke `deployStage1.ts` 의 DEPLOY_STAGE1_DISTRICTS 와 동일 순서·이름 유지.
+
+# broke `src/data/regions.ts` `seoulDistricts` 와 동일 순서·이름.
 DEFAULT_STAGE1_DISTRICTS: tuple[str, ...] = (
+    "강남구",
+    "강동구",
+    "강북구",
+    "강서구",
+    "관악구",
+    "광진구",
+    "구로구",
+    "금천구",
+    "노원구",
+    "도봉구",
+    "동대문구",
+    "동작구",
     "마포구",
-    "용산구",
     "서대문구",
+    "서초구",
+    "성동구",
+    "성북구",
+    "송파구",
+    "양천구",
     "영등포구",
+    "용산구",
+    "은평구",
     "종로구",
     "중구",
+    "중랑구",
 )
 
 

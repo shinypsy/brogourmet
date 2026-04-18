@@ -1,7 +1,7 @@
-import { type ChangeEvent, type FormEvent, useCallback, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { ACCESS_TOKEN_KEY } from '../api/auth'
+import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { createFreeSharePost, uploadCommunityImage } from '../api/community'
 import { KAKAO_REST_API_KEY } from '../api/config'
 import { ManageFormLocationMapSection } from '../components/ManageFormLocationMapSection'
@@ -16,18 +16,33 @@ import { FREE_SHARE_MAX_IMAGES, normalizeFreeShareImageUrls } from '../lib/freeS
 import { mapGeoHintMessage } from '../lib/mapGeoHint'
 import { geolocationFailureMessage, requestGeolocation } from '../lib/requestGeolocation'
 import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFromCoords'
+import { canWriteFaqPost } from '../lib/roles'
 
-export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: 'free' | 'qna' } = {}) {
+export function FreeShareWritePage({ boardVariant: boardVariantProp = 'free' }: { boardVariant?: 'free' | 'qna' | 'faq' } = {}) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
   const freeImageInputRef = useRef<HTMLInputElement>(null)
   const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
+
+  const boardVariant =
+    location.pathname === '/qna/write'
+      ? searchParams.get('variant') === 'faq'
+        ? 'faq'
+        : 'qna'
+      : boardVariantProp
+
   const isQna = boardVariant === 'qna'
-  const afterSubmitPath = isQna ? '/qna' : '/free-share'
+  const isFaq = boardVariant === 'faq'
+  const afterSubmitPath = isQna ? '/qna?tab=qna' : isFaq ? '/qna?tab=faq' : '/free-share'
+
+  const [faqGateUser, setFaqGateUser] = useState<User | null>(null)
+  const [faqGateChecked, setFaqGateChecked] = useState(!isFaq)
 
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [shareCategory, setShareCategory] = useState<FreeShareCategoryValue>(() =>
-    isQna ? 'qa' : 'other',
+    isFaq ? 'faq' : isQna ? 'qa' : 'other',
   )
   const [mapCoords, setMapCoords] = useState<{ latitude: number | null; longitude: number | null }>({
     latitude: null,
@@ -47,6 +62,32 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
   const [managePlaceQuery, setManagePlaceQuery] = useState('')
   const [managePlaceBusy, setManagePlaceBusy] = useState(false)
   const [managePlaceHint, setManagePlaceHint] = useState('')
+
+  useEffect(() => {
+    if (!isFaq) {
+      setFaqGateChecked(true)
+      return
+    }
+    if (!token?.trim()) {
+      setFaqGateUser(null)
+      setFaqGateChecked(true)
+      return
+    }
+    let cancelled = false
+    void fetchMe(token)
+      .then((u) => {
+        if (!cancelled) setFaqGateUser(u)
+      })
+      .catch(() => {
+        if (!cancelled) setFaqGateUser(null)
+      })
+      .finally(() => {
+        if (!cancelled) setFaqGateChecked(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isFaq, token])
 
   const onMapPickUserLocation = useCallback(async (lat: number, lng: number) => {
     const latR = Number(lat.toFixed(6))
@@ -145,7 +186,7 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
             break
           }
         }
-      } else {
+      } else if (!isFaq) {
         let filledFromExif = false
         setMapCoords((prev) => {
           if (!coordsFieldsBothEmpty(prev.latitude, prev.longitude)) return prev
@@ -190,17 +231,17 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
       await createFreeSharePost(token, {
         title,
         body,
-        district: resolvedDistrict,
+        district: isFaq ? null : resolvedDistrict,
         share_category: shareCategory,
         image_urls: trimmedImages,
-        share_latitude: shareLat,
-        share_longitude: shareLng,
+        share_latitude: isFaq ? null : shareLat,
+        share_longitude: isFaq ? null : shareLng,
         share_place_label:
-          shareLat != null && shareLng != null
-            ? sharePlaceLabel.trim()
+          isFaq || shareLat == null || shareLng == null
+            ? null
+            : sharePlaceLabel.trim()
               ? sharePlaceLabel.trim().slice(0, 200)
-              : null
-            : null,
+              : null,
       })
       navigate(afterSubmitPath)
     } catch (e) {
@@ -210,36 +251,59 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
     }
   }
 
+  const faqForbidden = isFaq && faqGateChecked && !canWriteFaqPost(faqGateUser)
+
   return (
-    <div className="home-layout home-layout--hub home-layout--map-home app-route-hub">
+    <div
+      className={
+        'home-layout home-layout--hub app-route-hub' + (isFaq ? '' : ' home-layout--map-home')
+      }
+    >
       <div className="brog-screen brog-screen--list">
         <header className="brog-screen__header">
           <div>
-            <p className="eyebrow">{isQna ? 'Q&A · 작성' : '무료나눔 · 작성'}</p>
-            <h1 className="brog-screen__title">{isQna ? 'Q&A 작성' : '무료나눔 작성'}</h1>
+            <p className="eyebrow">
+              {isFaq ? 'FAQ · 작성' : isQna ? 'Q&A · 작성' : '무료나눔 · 작성'}
+            </p>
+            <h1 className="brog-screen__title">{isFaq ? 'FAQ 작성' : isQna ? 'Q&A 작성' : '무료나눔 작성'}</h1>
           </div>
         </header>
 
         <section
           className="brog-list-body brog-brog-manage-form"
-          aria-label={isQna ? 'Q&A 등록 폼' : '무료나눔 등록 폼'}
+          aria-label={isFaq ? 'FAQ 등록 폼' : isQna ? 'Q&A 등록 폼' : '무료나눔 등록 폼'}
         >
-          <form className="form brog-manage-form" onSubmit={handleSubmit}>
-            <div className="brog-manage-form__name-district-row">
-              <label className="brog-manage-form__name-field">
+          {faqForbidden ? (
+            <p className="error">
+              FAQ 글은 최종 관리자 또는 지역 담당자(담당 구 지정)만 작성할 수 있습니다.{' '}
+              <Link className="compact-link" to="/qna?tab=faq">
+                FAQ 목록
+              </Link>
+            </p>
+          ) : null}
+          <form className="form brog-manage-form" onSubmit={handleSubmit} hidden={faqForbidden}>
+            {isFaq ? (
+              <label className="brog-manage-form__name-field brog-manage-form__name-field--block">
                 제목
                 <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required />
               </label>
-              <label className="brog-manage-form__district-field">
-                구 (자동)
-                <input
-                  readOnly
-                  value={resolvedDistrict ?? ''}
-                  placeholder={isQna ? '위치·사진 GPS·지명으로 반영' : '나눔 장소 지정 시'}
-                  aria-label={isQna ? '행정구 (위치 정보로 자동)' : '행정구 (나눔 장소에서 자동)'}
-                />
-              </label>
-            </div>
+            ) : (
+              <div className="brog-manage-form__name-district-row">
+                <label className="brog-manage-form__name-field">
+                  제목
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required />
+                </label>
+                <label className="brog-manage-form__district-field">
+                  구 (자동)
+                  <input
+                    readOnly
+                    value={resolvedDistrict ?? ''}
+                    placeholder={isQna ? '위치·사진 GPS·지명으로 반영' : '나눔 장소 지정 시'}
+                    aria-label={isQna ? '행정구 (위치 정보로 자동)' : '행정구 (나눔 장소에서 자동)'}
+                  />
+                </label>
+              </div>
+            )}
             {isQna ? (
               <div className="brog-manage-form__qna-location-block">
                 <p className="brog-manage-form__qna-location-actions">
@@ -284,7 +348,7 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
                 </div>
               </div>
             ) : null}
-            {!isQna ? (
+            {!isQna && !isFaq ? (
               <fieldset className="brog-category-fieldset">
                 <legend>분류</legend>
                 <div className="brog-category-picker" role="group" aria-label="무료나눔 분류 선택">
@@ -307,18 +371,18 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
               </fieldset>
             ) : null}
             <label>
-              내용
+              {isFaq ? '본문' : '내용'}
               <textarea
-                rows={4}
+                rows={isFaq ? 8 : 4}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={8000}
                 required
               />
             </label>
-            <div className="brog-manage-form__photos-block">
+            <div className={'brog-manage-form__photos-block' + (isFaq ? ' brog-manage-form__photos-block--faq' : '')}>
               <span className="brog-manage-form__photos-label" id="free-share-manage-photos-label">
-                사진 (최대 {FREE_SHARE_MAX_IMAGES}장)
+                {isFaq ? `파일 첨부 (이미지 최대 ${FREE_SHARE_MAX_IMAGES}장)` : `사진 (최대 ${FREE_SHARE_MAX_IMAGES}장)`}
               </span>
               <input
                 ref={freeImageInputRef}
@@ -333,8 +397,8 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
                 <button
                   type="button"
                   className="brog-manage-icon-btn"
-                  title="파일에서 사진 추가"
-                  aria-label="파일에서 사진 추가"
+                  title={isFaq ? '파일 첨부' : '파일에서 사진 추가'}
+                  aria-label={isFaq ? '파일 첨부' : '파일에서 사진 추가'}
                   disabled={freeImageBusy || imageUrls.length >= FREE_SHARE_MAX_IMAGES}
                   onClick={() => freeImageInputRef.current?.click()}
                 >
@@ -349,54 +413,69 @@ export function FreeShareWritePage({ boardVariant = 'free' }: { boardVariant?: '
                     </svg>
                   )}
                 </button>
-                <button
-                  type="button"
-                  className="brog-manage-icon-btn"
-                  title="URL 링크 입력칸 추가"
-                  aria-label="URL 링크 입력칸 추가"
-                  disabled={imageUrls.length >= FREE_SHARE_MAX_IMAGES}
-                  onClick={() =>
-                    setImageUrls((prev) => (prev.length < FREE_SHARE_MAX_IMAGES ? [...prev, ''] : prev))
-                  }
-                >
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"
-                    />
-                  </svg>
-                </button>
+                {!isFaq ? (
+                  <button
+                    type="button"
+                    className="brog-manage-icon-btn"
+                    title="URL 링크 입력칸 추가"
+                    aria-label="URL 링크 입력칸 추가"
+                    disabled={imageUrls.length >= FREE_SHARE_MAX_IMAGES}
+                    onClick={() =>
+                      setImageUrls((prev) => (prev.length < FREE_SHARE_MAX_IMAGES ? [...prev, ''] : prev))
+                    }
+                  >
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
                 <span className="brog-manage-form__photo-count" aria-live="polite">
                   {imageUrls.length}/{FREE_SHARE_MAX_IMAGES}
                 </span>
               </div>
               {imageUrls.length > 0 ? (
-                <ul className="brog-manage-form__photo-url-list">
-                  {imageUrls.map((url, i) => (
-                    <li key={`url-row-${i}`} className="brog-manage-form__photo-url-row">
-                      <span className="brog-manage-form__photo-url-index" aria-hidden>
-                        {i + 1}.
-                      </span>
-                      <input
-                        className="brog-manage-form__photo-url-input"
-                        value={url}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          setImageUrls((prev) => prev.map((u, j) => (j === i ? v : u)))
-                        }}
-                        placeholder="https://… 또는 /uploads/…"
-                        aria-label={`이미지 URL ${i + 1}`}
-                      />
-                      <button type="button" className="compact-link" onClick={() => removeImageAt(i)}>
-                        삭제
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                isFaq ? (
+                  <ul className="brog-manage-form__faq-attach-list">
+                    {imageUrls.map((_, i) => (
+                      <li key={`faq-att-${i}`} className="brog-manage-form__faq-attach-row">
+                        <span>첨부 {i + 1}</span>
+                        <button type="button" className="compact-link" onClick={() => removeImageAt(i)}>
+                          삭제
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="brog-manage-form__photo-url-list">
+                    {imageUrls.map((url, i) => (
+                      <li key={`url-row-${i}`} className="brog-manage-form__photo-url-row">
+                        <span className="brog-manage-form__photo-url-index" aria-hidden>
+                          {i + 1}.
+                        </span>
+                        <input
+                          className="brog-manage-form__photo-url-input"
+                          value={url}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setImageUrls((prev) => prev.map((u, j) => (j === i ? v : u)))
+                          }}
+                          placeholder="https://… 또는 /uploads/…"
+                          aria-label={`이미지 URL ${i + 1}`}
+                        />
+                        <button type="button" className="compact-link" onClick={() => removeImageAt(i)}>
+                          삭제
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )
               ) : null}
             </div>
-            {!isQna ? (
+            {!isQna && !isFaq ? (
               <ManageFormLocationMapSection
                 managePlaceQuery={managePlaceQuery}
                 setManagePlaceQuery={setManagePlaceQuery}

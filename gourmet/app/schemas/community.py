@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-FreeShareCategory = Literal["food", "appliance", "furniture", "books", "other", "qa"]
+FreeShareCategory = Literal["food", "appliance", "furniture", "books", "other", "qa", "faq"]
 
 # BroG / MyG / 무료나눔 작성란 공통 첨부 상한
 BOARD_WRITE_MAX_IMAGES = 6

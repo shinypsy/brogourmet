@@ -11,7 +11,7 @@ from app.models.payment_intent import PaymentIntent
 from app.models.restaurant import Restaurant
 from app.models.restaurant_social import RestaurantComment, RestaurantLike
 from app.models.user import User
-from app.schemas.user import DeleteAccountRequest, UserRead
+from app.schemas.user import DeleteAccountRequest, UserNicknameUpdate, UserRead
 from app.services.user_read import build_user_read
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -19,6 +19,31 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me", response_model=UserRead)
 def read_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return build_user_read(db, current_user)
+
+
+@router.patch("/me/nickname", response_model=UserRead)
+def update_my_nickname(
+    payload: UserNicknameUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """로그인한 모든 사용자가 본인 닉네임만 수정."""
+    nick = payload.nickname.strip()
+    if len(nick) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="닉네임은 공백 제외 2자 이상이어야 합니다.",
+        )
+    if len(nick) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="닉네임은 100자 이하여야 합니다.",
+        )
+    current_user.nickname = nick[:100]
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
     return build_user_read(db, current_user)
 
 

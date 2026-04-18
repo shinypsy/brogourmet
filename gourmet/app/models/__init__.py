@@ -7,6 +7,7 @@ from app.models.restaurant import Restaurant, RestaurantMenuItem
 from app.models.site_event import SiteEvent
 from app.models.site_notice import SiteNotice
 from app.models.restaurant_social import RestaurantComment, RestaurantLike
+from app.models.sponsor_post import SponsorPost
 from app.models.user import User
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "PaymentIntent",
     "SiteEvent",
     "SiteNotice",
+    "SponsorPost",
 ]

@@ -34,6 +34,7 @@ def create_intent(
         amount_krw=payload.amount_krw,
         description=payload.description,
         status="pending",
+        intent_kind=payload.intent_kind,
     )
     db.add(intent)
     db.commit()

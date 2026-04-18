@@ -554,3 +554,9 @@ Gee:
 
 브로(AI):
 **반영됨** — `DIAL_RULES_FOR_AI.txt`·`brogourmet-dial.mdc`에 **규칙4 = 요약·주간 저장 후 `finish_day.ps1` 한 번**(중복 send_dial·추가 push 자제).`finish_day.ps1` 헤더 주석 보강함.미안, 앞으로 그렇게 함.
+
+Gee:
+고생했다. 쉬어라
+
+브로(AI):
+고마움.Gee도 편히 쉼.

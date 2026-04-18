@@ -81,7 +81,7 @@ export function FreeShareMapPage() {
     for (const p of posts) {
       if (p.share_completed) continue
       const cat = normalizeFreeShareCategory(p.share_category)
-      if (cat === 'qa') continue
+      if (cat === 'qa' || cat === 'faq') continue
       const ll = postLatLng(p)
       if (!ll) continue
       out.push({

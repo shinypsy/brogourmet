@@ -84,6 +84,10 @@ export type BrogKakaoMapProps = {
   /** 있으면 우클릭·롱프레스 안내 문구를 이 내용으로 대체 */
   pickLocationHint?: ReactNode
   /**
+   * 지도 우클릭·롱프레스로 `onPickUserLocationOnMap` 이 호출된 직후, 클릭 지점에 잠깐 말풍선으로 표시할 문구.
+   */
+  pickLocationRightClickBubbleText?: string
+  /**
    * 드래그·줌 등으로 지도가 안정된 뒤(디바운스) 현재 화면 중심 좌표.
    * 목록 API의 near 기준으로 쓰기 좋음. 프로그램적 setBounds/setCenter 직후 잠깐은 호출되지 않습니다.
    */
@@ -133,6 +137,7 @@ export function BrogKakaoMap({
   onMyLocationClick,
   onPickUserLocationOnMap,
   pickLocationHint,
+  pickLocationRightClickBubbleText,
   onMapViewSettled,
   mapViewSettleDebounceMs = 450,
   autoRefitWhenPinsChange = true,
@@ -163,6 +168,15 @@ export function BrogKakaoMap({
   useLayoutEffect(() => {
     onPickUserLocationRef.current = onPickUserLocationOnMap
   }, [onPickUserLocationOnMap])
+
+  const pickLocationRightClickBubbleTextRef = useRef<string | undefined>(undefined)
+  useLayoutEffect(() => {
+    const t = pickLocationRightClickBubbleText?.trim()
+    pickLocationRightClickBubbleTextRef.current = t || undefined
+  }, [pickLocationRightClickBubbleText])
+
+  const mapPickBubbleOverlayRef = useRef<KakaoCustomOverlayInstance | null>(null)
+  const pickBubbleHideTimerRef = useRef<number | null>(null)
 
   const onMapViewSettledRef = useRef(onMapViewSettled)
   useLayoutEffect(() => {
@@ -218,6 +232,12 @@ export function BrogKakaoMap({
       overlaysRef.current = []
       userMarkerRef.current?.setMap(null)
       userMarkerRef.current = null
+      if (pickBubbleHideTimerRef.current != null) {
+        window.clearTimeout(pickBubbleHideTimerRef.current)
+        pickBubbleHideTimerRef.current = null
+      }
+      mapPickBubbleOverlayRef.current?.setMap(null)
+      mapPickBubbleOverlayRef.current = null
       mapRef.current = null
       // 같은 div에 Map을 두 번 만들면 SDK 내부 이벤트가 깨져 removeListener 등에서 터짐 (Strict Mode·재마운트)
       container.innerHTML = ''
@@ -440,11 +460,52 @@ export function BrogKakaoMap({
       onPickUserLocationRef.current?.(lat, lng)
     }
 
+    const showPickLocationBubble = (lat: number, lng: number) => {
+      const label = pickLocationRightClickBubbleTextRef.current
+      if (!label || typeof maps.CustomOverlay !== 'function') return
+      if (pickBubbleHideTimerRef.current != null) {
+        window.clearTimeout(pickBubbleHideTimerRef.current)
+        pickBubbleHideTimerRef.current = null
+      }
+      mapPickBubbleOverlayRef.current?.setMap(null)
+      mapPickBubbleOverlayRef.current = null
+
+      const anchor = document.createElement('div')
+      anchor.className = 'brog-map-speech-anchor brog-map-pick-bubble-anchor'
+      const bubble = document.createElement('div')
+      bubble.className = 'brog-map-speech-bubble brog-map-speech-bubble--pick-only'
+      const nameEl = document.createElement('div')
+      nameEl.className = 'brog-map-speech-bubble__name'
+      nameEl.textContent = label
+      bubble.appendChild(nameEl)
+      const spacer = document.createElement('div')
+      spacer.className = 'brog-map-speech-spacer'
+      anchor.appendChild(bubble)
+      anchor.appendChild(spacer)
+      const overlay = new maps.CustomOverlay({
+        map,
+        position: new maps.LatLng(lat, lng),
+        content: anchor,
+        xAnchor: 0.5,
+        yAnchor: 1,
+        zIndex: 400,
+      })
+      mapPickBubbleOverlayRef.current = overlay
+      pickBubbleHideTimerRef.current = window.setTimeout(() => {
+        pickBubbleHideTimerRef.current = null
+        mapPickBubbleOverlayRef.current?.setMap(null)
+        mapPickBubbleOverlayRef.current = null
+      }, 2600)
+    }
+
     const handleRightClick = (mouseEvent: unknown) => {
       const me = mouseEvent as { latLng?: KakaoLatLngLike }
       const ll = me.latLng
       if (!ll || typeof ll.getLat !== 'function') return
-      fire(ll.getLat(), ll.getLng())
+      const lat = ll.getLat()
+      const lng = ll.getLng()
+      fire(lat, lng)
+      showPickLocationBubble(lat, lng)
     }
 
     const listener = maps.event.addListener(map, 'rightclick', handleRightClick)
@@ -470,7 +531,10 @@ export function BrogKakaoMap({
       if (!proj?.coordsFromContainerPoint) return
       const ll = proj.coordsFromContainerPoint(new maps.Point(x, y))
       if (!ll || typeof ll.getLat !== 'function') return
-      fire(ll.getLat(), ll.getLng())
+      const lat = ll.getLat()
+      const lng = ll.getLng()
+      fire(lat, lng)
+      showPickLocationBubble(lat, lng)
     }
 
     const onMouseDown = (e: MouseEvent) => {

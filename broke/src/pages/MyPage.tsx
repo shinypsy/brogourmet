@@ -5,8 +5,10 @@ import {
   ACCESS_TOKEN_KEY,
   confirmPasswordChange,
   fetchMe,
+  patchMyNickname,
   requestPasswordChangeCode,
 } from '../api/auth'
+import { notifyUserProfileRefresh } from '../authEvents'
 import type { User } from '../api/auth'
 import {
   fetchManageRestaurantList,
@@ -32,6 +34,10 @@ export function MyPage() {
   const [pwdSubmitBusy, setPwdSubmitBusy] = useState(false)
   const [pwdMessage, setPwdMessage] = useState('')
   const [pwdError, setPwdError] = useState('')
+  const [nickDraft, setNickDraft] = useState('')
+  const [nickBusy, setNickBusy] = useState(false)
+  const [nickMessage, setNickMessage] = useState('')
+  const [nickError, setNickError] = useState('')
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -39,6 +45,7 @@ export function MyPage() {
     if (!token) {
       if (assumeAdminUi()) {
         setUser(TEST_UI_SUPER_ADMIN_PERSONA)
+        setNickDraft(TEST_UI_SUPER_ADMIN_PERSONA.nickname)
         setError('')
         setIsLoading(false)
         return
@@ -52,6 +59,9 @@ export function MyPage() {
       try {
         const me = await fetchMe(accessToken)
         setUser(me)
+        setNickDraft(me.nickname)
+        setNickMessage('')
+        setNickError('')
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : '내 정보를 불러오지 못했습니다.')
       } finally {
@@ -80,6 +90,36 @@ export function MyPage() {
 
   const accessToken = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null
   const showPasswordChange = Boolean(user && accessToken)
+  const canEditNickname = Boolean(user && accessToken?.trim())
+
+  async function handleNicknameSubmit(e: FormEvent) {
+    e.preventDefault()
+    const t = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!t || !user) return
+    const next = nickDraft.trim()
+    setNickError('')
+    setNickMessage('')
+    if (next.length < 2) {
+      setNickError('닉네임은 공백 제외 2자 이상이어야 합니다.')
+      return
+    }
+    if (next === user.nickname.trim()) {
+      setNickMessage('변경 내용이 없습니다.')
+      return
+    }
+    setNickBusy(true)
+    try {
+      const me = await patchMyNickname(t, next)
+      setUser(me)
+      setNickDraft(me.nickname)
+      setNickMessage('닉네임이 저장되었습니다.')
+      notifyUserProfileRefresh()
+    } catch (err) {
+      setNickError(err instanceof Error ? err.message : '닉네임 저장에 실패했습니다.')
+    } finally {
+      setNickBusy(false)
+    }
+  }
 
   async function handleRequestPasswordCode() {
     const t = localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -170,7 +210,38 @@ export function MyPage() {
             </div>
             <div>
               <dt>닉네임</dt>
-              <dd>{user.nickname}</dd>
+              <dd>
+                {canEditNickname ? (
+                  <form className="my-page__nickname-form" onSubmit={(ev) => void handleNicknameSubmit(ev)}>
+                    <div className="my-page__nickname-row">
+                      <input
+                        type="text"
+                        value={nickDraft}
+                        onChange={(e) => setNickDraft(e.target.value)}
+                        maxLength={100}
+                        autoComplete="nickname"
+                        spellCheck={false}
+                        aria-label="닉네임"
+                      />
+                      <button type="submit" className="button-secondary" disabled={nickBusy}>
+                        {nickBusy ? '저장 중…' : '저장'}
+                      </button>
+                    </div>
+                    {nickMessage ? (
+                      <p className="helper" role="status" style={{ margin: '6px 0 0' }}>
+                        {nickMessage}
+                      </p>
+                    ) : null}
+                    {nickError ? (
+                      <p className="error" role="alert" style={{ margin: '6px 0 0' }}>
+                        {nickError}
+                      </p>
+                    ) : null}
+                  </form>
+                ) : (
+                  user.nickname
+                )}
+              </dd>
             </div>
             <div>
               <dt>권한</dt>

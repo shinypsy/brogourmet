@@ -15,13 +15,16 @@ from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.districts import router as districts_router
 from app.api.events import router as events_router
+from app.api.game_social import router as game_social_router
 from app.api.free_share import router as free_share_router
 from app.api.known_restaurants import router as known_restaurants_router
 from app.api.ocr import router as ocr_router
 from app.api.payments import router as payments_router
+from app.api.payments_kcp import router as payments_kcp_router
 from app.api.restaurant_engagement import router as restaurant_engagement_router
 from app.api.restaurants import router as restaurants_router
 from app.api.site_notices import router as site_notices_router
+from app.api.sponsors import router as sponsors_router
 from app.api.uploads import router as uploads_router
 from app.api.users import router as users_router
 from app.db import Base, SessionLocal, engine
@@ -32,12 +35,16 @@ from app.db_migrate import (
     ensure_free_share_share_completed_column,
     ensure_free_share_place_columns,
     ensure_known_restaurant_brog_shape,
+    ensure_payment_intent_intent_kind_column,
+    ensure_seoul_25_district_rows,
+    ensure_payment_intent_kcp_columns,
     ensure_post_image_columns,
     ensure_restaurant_bro_list_pin,
     ensure_restaurant_franchise_pin,
     ensure_restaurant_image_urls_and_points,
     ensure_super_admin_email,
     ensure_user_password_change_columns,
+    ensure_user_presence_game_columns,
     ensure_user_points_balance_column,
     ensure_user_role_migration,
 )
@@ -53,6 +60,7 @@ from app.models import (  # noqa: F401 — register metadata for create_all
     RestaurantComment,
     RestaurantLike,
     RestaurantMenuItem,
+    SponsorPost,
     User,
 )
 from app.seed import ensure_mapo_brog_demo_restaurants, seed_districts, seed_restaurants
@@ -150,6 +158,9 @@ async def lifespan(_: FastAPI):
     ensure_user_role_migration()
     ensure_user_points_balance_column()
     ensure_user_password_change_columns()
+    ensure_user_presence_game_columns()
+    ensure_payment_intent_intent_kind_column()
+    ensure_payment_intent_kcp_columns()
     ensure_post_image_columns()
     ensure_free_share_image_urls_column()
     ensure_free_share_share_category_column()
@@ -165,6 +176,11 @@ async def lifespan(_: FastAPI):
     db = SessionLocal()
     try:
         seed_districts(db)
+    finally:
+        db.close()
+    ensure_seoul_25_district_rows()
+    db = SessionLocal()
+    try:
         seed_restaurants(db)
         ensure_mapo_brog_demo_restaurants(db)
     finally:
@@ -187,12 +203,15 @@ app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(districts_router)
 app.include_router(events_router)
+app.include_router(game_social_router)
 app.include_router(users_router)
 app.include_router(restaurants_router)
 app.include_router(restaurant_engagement_router)
 app.include_router(free_share_router)
+app.include_router(sponsors_router)
 app.include_router(known_restaurants_router)
 app.include_router(payments_router)
+app.include_router(payments_kcp_router)
 app.include_router(uploads_router)
 app.include_router(ocr_router)
 app.include_router(site_notices_router)

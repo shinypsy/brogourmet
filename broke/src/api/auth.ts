@@ -80,6 +80,15 @@ export async function fetchMe(token: string): Promise<User> {
   })
 }
 
+/** 마이페이지 — 로그인한 모든 사용자가 본인 닉네임만 변경 */
+export async function patchMyNickname(token: string, nickname: string): Promise<User> {
+  return requestJson<User>('/users/me/nickname', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ nickname }),
+  })
+}
+
 export type RequestPasswordChangeCodeResponse = {
   ok: boolean
   dev_password_change_code?: string | null

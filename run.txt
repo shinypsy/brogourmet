@@ -53,6 +53,10 @@ BroGourmet run.txt
   - broke 프로덕션 빌드: **반드시** `VITE_API_BASE_URL=https://api.2corea.com` (공개 `www`에서 **LAN IP:8001** 을 박으면 외부·다른 기기에서 `ERR_CONNECTION_TIMED_OUT`). **Cloudflare DNS에 `api` A/CNAME** 이 www 과 같은 원본을 가리켜야 `https://api.2corea.com/docs` 가 열림.
   - gourmet .env: BROG_CORS_EXTRA_ORIGINS=https://www.2corea.com , FRONTEND_PUBLIC_URL=https://www.2corea.com
   - 검사·기동: **PowerShell**에서는 현재 폴더 실행이 `.\nginx.exe` 형태여야 함(`nginx.exe` 단독은 PATH만 검색). 예: `cd C:\nginx-1.29.8` 후 `.\nginx.exe -t -c (저장소)\deploy\nginx\www-api-2corea.conf` → 성공 시 `.\nginx.exe -c ...` → netstat LISTEN :443.
+.\nginx.exe -t -c "D:\project\brogourmet\deploy\nginx\www-api-2corea.conf" 
+.\nginx.exe -c "D:\project\brogourmet\deploy\nginx\www-api-2corea.conf"
+
+
 
 ================================================================================
 [3] 자주 쓰는 경로·파일

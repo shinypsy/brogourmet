@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.deploy_stage1 import DEFAULT_STAGE1_DISTRICTS
 from app.models.district import District
 from app.models.restaurant import Restaurant, RestaurantMenuItem
 
@@ -7,19 +8,11 @@ from app.models.restaurant import Restaurant, RestaurantMenuItem
 _SAMPLE_FOOD_IMAGES = [f"https://picsum.photos/seed/brogourmet{i}/480/360" for i in range(12)]
 
 _DISTRICT_SEED: list[tuple[str, int]] = [
-    ("마포구", 1),
-    ("용산구", 2),
-    ("서대문구", 3),
-    ("영등포구", 4),
-    ("종로구", 5),
-    ("중구", 6),
-    ("강남구", 20),
-    ("송파구", 21),
-    ("성동구", 22),
+    (name, idx) for idx, name in enumerate(DEFAULT_STAGE1_DISTRICTS, start=1)
 ]
 
 # BroG 리스트·지도 기본 구(마포구) 데모: 1만 원 이하 대표 메뉴 6곳 + 다중 이미지 샘플 1곳.
-# 1단계 배포 구 한정: broke `deployStage1.ts` / gourmet `deploy_stage1.py` 의 6개 구와 시드 districts 상단 6개 정렬 맞출 것.
+# districts 시드: `deploy_stage1.DEFAULT_STAGE1_DISTRICTS`(서울 25구)와 동일 순서.
 MAPO_BROG_DEMO_SPECS: list[dict] = [
     {
         "district": "마포구",

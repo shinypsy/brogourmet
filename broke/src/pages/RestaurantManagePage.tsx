@@ -5,7 +5,6 @@ import { ACCESS_TOKEN_KEY, fetchMe, type User } from '../api/auth'
 import { notifyUserProfileRefresh } from '../authEvents'
 import { fetchDistricts, type District } from '../api/districts'
 import { copyBrogToMyGPost, uploadCommunityImage } from '../api/community'
-import { KAKAO_REST_API_KEY } from '../api/config'
 import {
   createRestaurant,
   fetchRestaurant,
@@ -29,7 +28,7 @@ import { resolveCoordAddressForManageForm } from '../lib/resolveSeoulDistrictFro
 import { recognizeMenuImageToMenuLines } from '../lib/menuOcr'
 import { BROG_CATEGORIES, type BrogCategory, isBrogCategory } from '../lib/brogCategories'
 import { BrogCategoryPickerIcon } from '../lib/brogCategoryPickerIcons'
-import { fetchKakaoKeywordFirstPlace } from '../lib/kakaoKeywordSearch'
+import { runManageFormKakaoPlaceSearch } from '../lib/manageFormKakaoPlaceSearch'
 import { BROG_ONLY } from '../config/features'
 import {
   brogListRefreshNavigateState,
@@ -136,30 +135,11 @@ export function RestaurantManagePage() {
   }, [onMapPickUserLocation])
 
   const handleManagePlaceSearch = useCallback(async () => {
-    const q = managePlaceQuery.trim()
-    if (!q) {
-      setManagePlaceHint('검색할 지명을 입력해 주세요.')
-      return
-    }
-    if (!KAKAO_REST_API_KEY.trim()) {
-      setManagePlaceHint('지명 검색에는 broke/.env 의 VITE_KAKAO_REST_API_KEY 가 필요합니다.')
-      return
-    }
-    setManagePlaceBusy(true)
-    setManagePlaceHint('')
-    try {
-      const p = await fetchKakaoKeywordFirstPlace(q)
-      if (!p) {
-        setManagePlaceHint('일치하는 장소를 찾지 못했습니다.')
-        return
-      }
-      await onMapPickUserLocation(p.lat, p.lng)
-      setManagePlaceHint(`「${p.placeName}」 위치로 맞췄습니다.`)
-    } catch (e) {
-      setManagePlaceHint(e instanceof Error ? e.message : '장소 검색에 실패했습니다.')
-    } finally {
-      setManagePlaceBusy(false)
-    }
+    await runManageFormKakaoPlaceSearch(managePlaceQuery, {
+      setBusy: setManagePlaceBusy,
+      setHint: setManagePlaceHint,
+      onResolvedLatLng: onMapPickUserLocation,
+    })
   }, [managePlaceQuery, onMapPickUserLocation])
 
   useEffect(() => {

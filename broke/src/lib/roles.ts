@@ -65,6 +65,17 @@ export function canDeleteCommunityPost(user: Pick<User, 'role'> | null | undefin
   return user.role === ROLE_SUPER_ADMIN
 }
 
+/** FAQ 글 작성: 최종 관리자 또는 담당 구가 지정된 지역 담당자 */
+export function canWriteFaqPost(
+  user: Pick<User, 'role' | 'managed_district_id'> | null | undefined,
+): boolean {
+  if (assumeAdminUi()) return true
+  if (!user) return false
+  if (isSuperAdmin(user.role)) return true
+  if (user.role === ROLE_REGIONAL_MANAGER && user.managed_district_id != null) return true
+  return false
+}
+
 /** MyG(KnownRestaurant) 글 삭제: 작성자 본인 또는 해당 구 운영 권한(gourmet `ensure_community_post_author_or_moderation`) */
 export function canDeleteKnownRestaurantPost(
   user: Pick<User, 'id' | 'role' | 'managed_district_name'> | null | undefined,

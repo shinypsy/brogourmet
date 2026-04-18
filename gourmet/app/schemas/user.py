@@ -13,6 +13,12 @@ class DeleteAccountRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class UserNicknameUpdate(BaseModel):
+    """마이페이지 등 — 본인 닉네임만 변경(전 로그인 사용자)."""
+
+    nickname: str = Field(min_length=2, max_length=100)
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

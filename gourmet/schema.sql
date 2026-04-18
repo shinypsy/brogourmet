@@ -45,10 +45,16 @@ CREATE TABLE payment_intents (
     amount_krw INTEGER NOT NULL,
     description VARCHAR(500),
     status VARCHAR(32) NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    intent_kind VARCHAR(32) NOT NULL DEFAULT 'merchant',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    merchant_order_id VARCHAR(70),
+    paid_at TIMESTAMPTZ,
+    pg_extra JSON
 );
 
 CREATE INDEX ix_payment_intents_user_id ON payment_intents (user_id);
+CREATE UNIQUE INDEX uq_payment_intents_merchant_order_id ON payment_intents (merchant_order_id)
+    WHERE merchant_order_id IS NOT NULL;
 
 CREATE TABLE free_share_posts (
     id SERIAL PRIMARY KEY,
@@ -95,3 +101,21 @@ CREATE TABLE known_restaurant_posts (
 );
 
 CREATE INDEX ix_known_restaurant_posts_author_id ON known_restaurant_posts (author_id);
+
+-- SPON: 스폰서 콘텐츠 (BroG restaurants 와 별도)
+CREATE TABLE sponsor_posts (
+    id SERIAL PRIMARY KEY,
+    author_id INTEGER NOT NULL REFERENCES users (id),
+    title VARCHAR(200) NOT NULL,
+    excerpt VARCHAR(300) NOT NULL DEFAULT '',
+    body TEXT NOT NULL,
+    accent VARCHAR(32) NOT NULL DEFAULT '#4a5568',
+    image_urls JSON,
+    external_url VARCHAR(800),
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ix_sponsor_posts_author_id ON sponsor_posts (author_id);

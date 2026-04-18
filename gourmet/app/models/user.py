@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -48,6 +48,10 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
+    # 친구찾기·접속 테스트: 하트비트(last_seen_at), 게임용 좌표(옵트인 성격 — 별도 동의 UI는 프론트)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    game_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    game_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     managed_district: Mapped["District | None"] = relationship(  # noqa: F821
         "District",

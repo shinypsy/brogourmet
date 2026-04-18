@@ -1,11 +1,11 @@
-/** 무료나눔 분류 — API `share_category` 값과 동일 (`qa`는 Q&A 전용 보드) */
-export const FREE_SHARE_CATEGORY_VALUES = ['food', 'appliance', 'furniture', 'books', 'other', 'qa'] as const
+/** 무료나눔 분류 — API `share_category` 값과 동일 (`qa`는 Q&A, `faq`는 FAQ 전용 보드) */
+export const FREE_SHARE_CATEGORY_VALUES = ['food', 'appliance', 'furniture', 'books', 'other', 'qa', 'faq'] as const
 
 export type FreeShareCategoryValue = (typeof FREE_SHARE_CATEGORY_VALUES)[number]
 
-/** 무료나눔 보드 전용 — Q&A(`qa`) 글은 `/qna`에서만 다룸 */
+/** 무료나눔 보드 전용 — Q&A(`qa`)·FAQ(`faq`) 글은 각 전용 보드에서만 다룸 */
 export const FREE_SHARE_CATEGORY_VALUES_FOR_FREE_BOARD = FREE_SHARE_CATEGORY_VALUES.filter(
-  (v): v is Exclude<FreeShareCategoryValue, 'qa'> => v !== 'qa',
+  (v): v is Exclude<FreeShareCategoryValue, 'qa' | 'faq'> => v !== 'qa' && v !== 'faq',
 )
 
 export const FREE_SHARE_CATEGORY_LABELS: Record<FreeShareCategoryValue, string> = {
@@ -15,6 +15,7 @@ export const FREE_SHARE_CATEGORY_LABELS: Record<FreeShareCategoryValue, string> 
   books: '도서',
   other: '기타',
   qa: 'Q&A',
+  faq: 'FAQ',
 }
 
 export function isFreeShareCategoryValue(v: string): v is FreeShareCategoryValue {
