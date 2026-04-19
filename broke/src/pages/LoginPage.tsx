@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { ACCESS_TOKEN_KEY, fetchMe, login } from '../api/auth'
-import { API_BASE_URL } from '../api/config'
 import { notifyAuthChange } from '../authEvents'
 
 export function LoginPage() {
@@ -77,15 +76,6 @@ export function LoginPage() {
   return (
     <section className="card">
       <h1>로그인</h1>
-      <p className="description">
-        JWT로 로그인합니다. 접속이 안 되면 백엔드(gourmet)를 먼저 실행하세요. 개발 모드에서{' '}
-        <code>VITE_API_BASE_URL</code>을 비우면 Vite가 API로 프록시합니다. 값이 있으면 그 URL로 직접 요청합니다.
-      </p>
-      {import.meta.env.DEV ? (
-        <p className="muted" style={{ fontSize: '0.85rem' }}>
-          개발: API 요청 → <code>{API_BASE_URL}</code>
-        </p>
-      ) : null}
 
       {verifiedBanner ? (
         <p className="success" role="status">

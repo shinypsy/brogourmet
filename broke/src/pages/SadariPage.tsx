@@ -62,7 +62,7 @@ export function SadariPage() {
           limit: 120,
           near_lat: lat,
           near_lng: lng,
-          radius_m: 2000,
+          radius_m: 1000,
         }),
       ])
       setRaw({

@@ -157,7 +157,7 @@ export function ManageFormLocationMapSection({
             if (e.key === 'Enter') e.preventDefault()
           }}
         >
-          <div className="home-hub__coord-row map-page-toolbar__coord-row">
+          <div className="home-hub__coord-row map-page-toolbar__coord-row manage-form-map-section__coord-row--inline">
             <label className="home-hub__coord-field">
               위도
               <input

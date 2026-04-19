@@ -13,7 +13,7 @@ export const BROG_MYG_MAP_LOCATION_RULE =
   'GPS·수동 좌표 또는 지도에서 내 위치 지정(길게 누르기·우클릭)이 있으면'
 
 /** 기준점이 있을 때 반경 설명(MAP_NEAR_RADIUS_M 와 문구 일치) */
-export const BROG_MYG_MAP_NEAR_RADIUS_COPY = '그 기준점 주변 가까운 순(약 5km 이내)'
+export const BROG_MYG_MAP_NEAR_RADIUS_COPY = '그 기준점 주변 가까운 순(약 2km 이내)'
 
 /** onMapViewSettled 제거 후 공통 — 드래그만으로 목록/순서 갱신 없음 */
 export const BROG_MYG_MAP_DRAG_NO_LIST_CHANGE = '지도만 드래그해도 목록은 바뀌지 않습니다.'

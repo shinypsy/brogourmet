@@ -687,6 +687,37 @@ input {
   min-width: 8.5rem;
 }
 
+/* 폰·좁은 화면: 상호명 + 구 선택 한 줄(줄바꿈 방지) */
+@media (max-width: 960px) {
+  .app-route-hub .form.brog-manage-form .brog-manage-form__name-district-row,
+  .form.brog-manage-form .brog-manage-form__name-district-row {
+    flex-wrap: nowrap;
+    gap: 8px 10px;
+    align-items: flex-end;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__name-field,
+  .form.brog-manage-form .brog-manage-form__name-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__district-field,
+  .form.brog-manage-form .brog-manage-form__district-field {
+    flex: 0 0 auto;
+    min-width: 0;
+    width: min(40vw, 11rem);
+    max-width: 46%;
+  }
+
+  .form.brog-manage-form .brog-manage-form__district-field select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
 .form.brog-manage-form .brog-manage-form__qna-location-block {
   display: grid;
   gap: 10px;
@@ -784,6 +815,74 @@ input {
   min-width: 0;
 }
 
+/*
+ * BroG/MyG 작성 — 좁은 화면: 이미지 URL 칸(음식·매장내부·메뉴판 등)
+ * 720px만 쓰면 일부 폰·가로 모드·줌에서 미적용될 수 있어 960px까지 포함.
+ * `.app-route-hub` 로 특이성 보강(허브 레이아웃과 동시 사용 시 덮어쓰기 방지).
+ */
+@media (max-width: 960px) {
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photos-block,
+  .form.brog-manage-form .brog-manage-form__photos-block {
+    gap: 8px;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-toolbar,
+  .form.brog-manage-form .brog-manage-form__photo-toolbar {
+    gap: 8px;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-url-list,
+  .form.brog-manage-form .brog-manage-form__photo-url-list {
+    gap: 14px;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-url-row,
+  .form.brog-manage-form .brog-manage-form__photo-url-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px;
+    row-gap: 8px;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(212, 175, 55, 0.22);
+    background: rgba(10, 14, 22, 0.55);
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-url-row > .brog-manage-form__photo-url-index,
+  .form.brog-manage-form .brog-manage-form__photo-url-row > .brog-manage-form__photo-url-index {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-url-row > .brog-manage-form__photo-url-input,
+  .form.brog-manage-form .brog-manage-form__photo-url-row > .brog-manage-form__photo-url-input {
+    grid-column: 1;
+    grid-row: 2;
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-url-row > .compact-link,
+  .form.brog-manage-form .brog-manage-form__photo-url-row > .compact-link {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    white-space: nowrap;
+  }
+
+  .app-route-hub .form.brog-manage-form .brog-manage-form__photo-url-index--role,
+  .form.brog-manage-form .brog-manage-form__photo-url-index--role {
+    min-width: 0;
+    max-width: none;
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+}
+
 .form.brog-manage-form .brog-manage-icon-btn {
   flex-shrink: 0;
   width: 44px;
@@ -839,14 +938,28 @@ input {
 
 .form.brog-manage-form .brog-manage-form__menu-heading {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
+  min-width: 0;
 }
 
 .form.brog-manage-form .brog-manage-form__menu-heading-text {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
+}
+
+.form.brog-manage-form .brog-manage-form__menu-heading-tools {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 960px) {
+  .form.brog-manage-form .brog-manage-form__menu-heading {
+    gap: 6px 8px;
+  }
 }
 
 .success,
@@ -2237,6 +2350,57 @@ button.compact-link.danger-text {
   width: min(100%, 9.5rem);
 }
 
+/* 작성 폼 위치 지도: 위도·경도 한 줄(라벨 옆 입력) */
+.map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .manage-form-map-section__coord-row--inline {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.map-layout--brog.brog-screen--map
+  .manage-form-map-section__manual-coords
+  .manage-form-map-section__coord-row--inline
+  .home-hub__coord-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.map-layout--brog.brog-screen--map
+  .manage-form-map-section__manual-coords
+  .manage-form-map-section__coord-row--inline
+  .home-hub__coord-input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+}
+
+/* `.form label { display: grid }` 보다 우선 — 작성 폼 안 좌표 라벨을 한 줄로 */
+.form .map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .manage-form-map-section__coord-row--inline label.home-hub__coord-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.form
+  .map-layout--brog.brog-screen--map
+  .manage-form-map-section__manual-coords
+  .manage-form-map-section__coord-row--inline
+  .home-hub__coord-input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+}
+
 .map-layout--brog.brog-screen--map .map-page-toolbar__geo-icon-btn {
   min-width: 34px;
   min-height: 34px;
@@ -2252,6 +2416,10 @@ button.compact-link.danger-text {
 
 .map-layout--brog.brog-screen--map .map-page-map-section {
   padding: 12px 14px 16px;
+}
+
+.map-layout--brog.brog-screen--map .map-page-map-section.manage-form-map-section {
+  padding-bottom: 0;
 }
 
 .map-layout--brog.brog-screen--map .map-page-map-section__title {
@@ -2449,6 +2617,13 @@ button.compact-link.danger-text {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     padding-bottom: 2px;
+  }
+
+  .map-layout--brog.brog-screen--map
+    .manage-form-map-section__manual-coords
+    .manage-form-map-section__coord-row--inline {
+    align-items: center;
+    padding-bottom: 0;
   }
 
   .map-layout--brog.brog-screen--map .manage-form-map-section__manual-coords .home-hub__coord-field {
@@ -3018,12 +3193,23 @@ button.compact-link.danger-text {
   min-height: min(48vh, 440px);
 }
 
+/* 작성 폼: 지도 셸만 48vh로 커져 좌표 아래 빈 띠가 보이는 현상 방지 */
+.home-layout--map-home .manage-form-map-stack.map-layout--brog.brog-screen--map .kakao-map-embed {
+  min-height: 0;
+}
+
 .manage-form-map-section__coord-status {
   margin: 10px 0 0;
 }
 
 .manage-form-map-section__manual-coords {
   margin-top: 14px;
+}
+
+.map-layout--brog.brog-screen--map .manage-form-map-section .manage-form-map-section__manual-coords {
+  margin-top: 6px;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 /* BroG/MyG 지도: 홈과 동일 UX(내 위치 버튼), 크기는 아래 --below 유지 */

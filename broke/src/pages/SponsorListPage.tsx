@@ -169,10 +169,6 @@ export function SponsorListPage() {
           <div>
             <p className="eyebrow">Sponsor · SPON</p>
             <h1 className="brog-screen__title">스폰서 스페이스</h1>
-            <p className="description sponsor-hub__lead">
-              4행·1열 스트립 + 페이지 넘김(한 슬라이드 4건). BroG 목록은 4×2(8건), SPON은 4행·1열(4건)로 구분됩니다. 검색·좌표로
-              정렬이 바뀝니다.
-            </p>
           </div>
           <div className="brog-screen__header-actions">
             <Link className="brog-screen__cta" to="/sponsor/write">

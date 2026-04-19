@@ -1,0 +1,46 @@
+BroGourmet dial_2026-04-19.txt
+KST 2026-04-19 — 일일 대화. 규칙·확정 목록은 월 스냅샷(예: 4월 dial_0411.txt) 참고. 맨 끝에만 Gee:/브로(AI): 추가.
+
+--- 본문 ---
+
+Gee:
+BroG 작성은 보류하고, 사다리(점메추) 게임만 오늘 진행했던 내용으로 다시 적용해줘.
+
+브로(AI):
+broke `buildSadariCandidates`: 반경 1km(MyG·BroG 동일), MyG→BroG·거리순, 후보 최대 6칸·부족하면 그만큼만(빈칸·중복 순환 제거). 취향 선택 시 분류 일치 최소 3칸(풀에 3개 이상일 때) 후 나머지 채움, 일치 3미만이면 일치 전부+나머지 셔플. `SadariPage` `fetchRestaurants` `radius_m: 1000`. 반영됨.
+
+Gee:
+BroG 작성 위치 지도 아래 위도·경도 한 줄, 그 아래 여백만 줄이기.
+
+브로(AI):
+`ManageFormLocationMapSection` 수동 좌표 행에 `manage-form-map-section__coord-row--inline`. index.css: 인라인 flex·`.form label` 덮어쓰기, `manage-form-map-section` 하단 패딩 0, 수동 좌표 블록 마진 정리, 홈 `manage-form-map-stack` 내 `kakao-map-embed` min-height 0으로 지도 아래 빈 띠 완화. 반영됨.
+
+Gee:
+폰에서 BroG 작성 이미지 첨부 3칸이 2줄씩 보임, 간격 조절.
+
+브로(AI):
+index.css `@media (max-width:720px)`: `photo-url-list` 행을 그리드로 라벨 전체 폭·둘째 줄 입력+비우기, 칸 간 `gap` 12px, 블록·툴바 간격, 역할 라벨 `min-width` 완화. 반영됨.
+
+Gee:
+폰에서 변한 게 없어 보임.
+
+브로(AI):
+index.css: 미디어 `max-width:960px` 로 확대, `app-route-hub`+`form` 이중 선택자로 특이성 보강, 각 `photo-url-row`에 패딩·테두리·배경으로 칸 구분 명확화, 리스트 `gap` 14px. 반영됨.
+
+Gee:
+BroG 작성 상호명·구 한 줄, 메뉴 목록 옆 파일 첨부 아이콘 추가.
+
+브로(AI):
+index.css: `name-district-row` 좁은 화면 `nowrap`·구 필드 폭 상한. `menu-heading` 줄바꿈 최소화·`menu-heading-tools` flex. `RestaurantManagePage`: 메뉴 OCR 카메라용 `capture` 입력과 갤러리/파일용 입력 분리, 두 아이콘 버튼. 반영됨.
+
+Gee:
+BroG 작성화면을 MyG에 그대로 적용.
+
+브로(AI):
+`KnownRestaurantsWritePage`·`KnownRestaurantPostEditPage` 루트에 `app-route-hub`(BroG 작성과 동일 허브·반응형 규칙). 메뉴 블록을 BroG와 동일 `menu-heading-tools`·카메라/파일 이중 입력·아이콘. 반영됨.
+
+Gee:
+위치 지정 시 음식점 반경 2km.
+
+브로(AI):
+broke `mapConstants` `MAP_NEAR_RADIUS_M` 5000→2000(MapPageBody·BrogList near API, MyG 보드/지도 클라 필터 공통). `brogMygTwin` 안내 문구 2km. 반영됨.
